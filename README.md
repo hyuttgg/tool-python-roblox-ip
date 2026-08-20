@@ -7,7 +7,7 @@ Hệ thống quản lý, giám sát và chẩn đoán kết nối mạng cho nhi
 ### 📱 Cách 1: Chạy trực tiếp trên Termux Android (1 Lệnh duy nhất từ GitHub)
 Chỉ cần copy lệnh sau dán vào Termux để tự động **Đổi Repo + Cài đặt dependencies + Chạy tool**:
 ```bash
-termux-change-repo && pkg update -y && pkg install -y git && git clone https://github.com/<your-username>/<your-repo-name>.git && cd "ip robox" && bash shell/termux_setup.sh
+termux-change-repo && pkg update -y && pkg install -y git && git clone https://github.com/hyuttgg/tool-python-roblox-ip.git && cd tool-python-roblox-ip && bash shell/termux_setup.sh
 ```
 
 ### 💻 Cách 2: Trình điều khiển trung tâm (Master Controller trên PC / Termux)
