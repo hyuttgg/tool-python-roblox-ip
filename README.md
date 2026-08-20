@@ -1,10 +1,6 @@
-# Multi-Instance Network Manager (Termux / Android / Cloud VMs)
+## 🚀 HƯỚNG DẪN 3 BƯỚC CÀI ĐẶT & CHẠY TOOL TRÊN TERMUX
 
-Hệ thống quản lý, giám sát và chẩn đoán kết nối mạng cho nhiều môi trường giả lập/container Android (UGPhone, VMOS, Redfinger, VSPhone, Local Root Containers).
-
-## 🚀 HƯỚNG DẪN CÀI ĐẶT & CHẠY TOOL TRÊN TERMUX
-
-### 1️⃣ Thay đổi repository Termux
+### 1️⃣ Bước 1: Thay đổi repository Termux
 ```bash
 termux-change-repo
 ```
@@ -12,14 +8,15 @@ termux-change-repo
 
 ---
 
-### 2️⃣ Cài đặt tool
+### 2️⃣ Bước 2: Cài đặt môi trường tool
 ```bash
 . <(curl -sL https://raw.githubusercontent.com/hyuttgg/tool-python-roblox-ip/main/SetupRobloxIP)
 ```
+*(Lệnh này sẽ tự động cập nhật hệ thống, cài Python, Git, OpenJDK, SQLite, Pip và tải mã nguồn tool về máy).*
 
 ---
 
-### 3️⃣ Chạy tool
+### 3️⃣ Bước 3: Chạy tool (Quyền Root / SU)
 ```bash
 su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download/tool-python-roblox-ip && python controller.py"
 ```

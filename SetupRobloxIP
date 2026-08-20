@@ -50,19 +50,13 @@ else
     cd "$TARGET_DIR"
 fi
 
-# 4. Cấp quyền và Khởi chạy Master Controller
-echo -e "${YELLOW}[4/4] [*] Dang cap quyen va khoi dong Master Controller...${NC}"
+# 4. Cấp quyền thực thi
+echo -e "${YELLOW}[4/4] [*] Dang cap quyen thuc thi cho cac script...${NC}"
 chmod +x shell/*.sh 2>/dev/null || true
 chmod +x *.py 2>/dev/null || true
 
 echo ""
 echo -e "${GREEN}======================================================================${NC}"
-echo -e "${GREEN}[+] CAI DAT THANH CONG! DANG VAO MENU MASTER CONTROLLER...            ${NC}"
+echo -e "${GREEN}[+] CAI DAT MOI TRUONG & TAI TOOL THANH CONG!                         ${NC}"
+echo -e "${CYAN}👉 Hay chay lenh o Buoc 3 de mo Tool voi quyen Root (SU).            ${NC}"
 echo -e "${GREEN}======================================================================${NC}"
-sleep 1
-
-if command -v python >/dev/null 2>&1; then
-    python controller.py
-elif command -v python3 >/dev/null 2>&1; then
-    python3 controller.py
-fi
