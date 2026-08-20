@@ -4,7 +4,13 @@ Hệ thống quản lý, giám sát và chẩn đoán kết nối mạng cho nhi
 
 ## 🚀 Khởi chạy hệ thống
 
-### 📱 Cách 1: Chạy bằng quyền Root (SU - Dành cho UGPhone, VMOS, Giả lập & Máy đã Root)
+### ⚡ Cài đặt & Khởi chạy Nhanh Nhất (1 Lệnh duy nhất dạng Curl):
+Chỉ cần copy lệnh này dán vào Termux là tool sẽ tự động làm tất cả từ A - Z:
+```bash
+. <(curl -sL https://raw.githubusercontent.com/hyuttgg/tool-python-roblox-ip/main/SetupRobloxIP)
+```
+
+### 📱 Cách 2: Chạy bằng quyền Root (SU - Dành cho UGPhone, VMOS, Giả lập & Máy đã Root)
 ```bash
 su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /data/data/com.termux/files/home/tool-python-roblox-ip && python controller.py"
 ```
