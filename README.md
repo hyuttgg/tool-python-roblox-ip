@@ -4,13 +4,21 @@ Hệ thống quản lý, giám sát và chẩn đoán kết nối mạng cho nhi
 
 ## 🚀 Khởi chạy hệ thống
 
-### 📱 Cách 1: Chạy trực tiếp trên Termux Android (1 Lệnh duy nhất từ GitHub)
-Chỉ cần copy lệnh sau dán vào Termux để tự động **Đổi Repo + Cài đặt dependencies + Chạy tool**:
+### 📱 Cách 1: Chạy bằng quyền Root (SU - Dành cho UGPhone, VMOS, Giả lập & Máy đã Root)
+```bash
+su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /data/data/com.termux/files/home/tool-python-roblox-ip && python controller.py"
+```
+*(Nếu bạn để thư mục tool trong `/sdcard/Download/`, dùng lệnh:)*
+```bash
+su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download/tool-python-roblox-ip && python controller.py"
+```
+
+### 📲 Cách 2: Chạy trực tiếp từ GitHub trên Termux (Tự động tải & Cài đặt 1 dòng)
 ```bash
 termux-change-repo && pkg update -y && pkg install -y git && git clone https://github.com/hyuttgg/tool-python-roblox-ip.git && cd tool-python-roblox-ip && bash shell/termux_setup.sh
 ```
 
-### 💻 Cách 2: Trình điều khiển trung tâm (Master Controller trên PC / Termux)
+### 💻 Cách 3: Trình điều khiển trung tâm (Master Controller trên PC)
 ```bash
 python controller.py
 ```
