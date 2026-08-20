@@ -21,10 +21,11 @@ echo ""
 # 1. Kiểm tra môi trường Termux / Linux
 echo -e "${YELLOW}[1/4] [*] Dang kiem tra va cap nhat moi truong he thong...${NC}"
 if command -v pkg >/dev/null 2>&1; then
-    pkg update -y -o Dpkg::Options::="--force-confold" || true
-    pkg install -y git python python-pip openjdk-17 sqlite curl iproute2 dnsutils tsu || true
+    pkg update -y -o Dpkg::Options::="--force-confold" 2>/dev/null || true
+    apt --fix-broken install -y 2>/dev/null || true
+    pkg install -y openssl libcurl git python python-pip openjdk-17 sqlite curl iproute2 dnsutils tsu || true
 elif command -v apt-get >/dev/null 2>&1; then
-    apt-get update -y || true
+    apt-get update -y 2>/dev/null || true
     apt-get install -y git python3 python3-pip openjdk-17-jre sqlite3 curl || true
 fi
 
