@@ -34,10 +34,14 @@ pip install --upgrade pip requests psutil 2>/dev/null || pip3 install requests p
 
 # 3. Tải hoặc cập nhật mã nguồn từ GitHub
 echo -e "${YELLOW}[3/4] [*] Dang dong bo ma nguon tu GitHub (hyuttgg/tool-python-roblox-ip)...${NC}"
-TARGET_DIR="tool-python-roblox-ip"
+if [ -d "/sdcard/Download" ]; then
+    TARGET_DIR="/sdcard/Download/tool-python-roblox-ip"
+else
+    TARGET_DIR="$HOME/tool-python-roblox-ip"
+fi
 
 if [ -d "$TARGET_DIR" ]; then
-    echo -e "${CYAN}[*] Thu muc da ton tai, dang cap nhat ma nguon moi nhat...${NC}"
+    echo -e "${CYAN}[*] Thu muc da ton tai tai $TARGET_DIR, dang cap nhat ma nguon moi nhat...${NC}"
     cd "$TARGET_DIR"
     git pull origin main 2>/dev/null || true
 else

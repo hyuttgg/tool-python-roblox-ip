@@ -2,19 +2,24 @@
 
 Hệ thống quản lý, giám sát và chẩn đoán kết nối mạng cho nhiều môi trường giả lập/container Android (UGPhone, VMOS, Redfinger, VSPhone, Local Root Containers).
 
-## 🚀 Khởi chạy hệ thống
+## 🚀 HƯỚNG DẪN CÀI ĐẶT & CHẠY TOOL TRÊN TERMUX
 
-### ⚡ Cài đặt & Khởi chạy Nhanh Nhất (1 Lệnh duy nhất dạng Curl):
-Chỉ cần copy lệnh này dán vào Termux là tool sẽ tự động làm tất cả từ A - Z:
+### 1️⃣ Thay đổi repository Termux
+```bash
+termux-change-repo
+```
+📌 *Nhấn **OK** ➔ **OK***
+
+---
+
+### 2️⃣ Cài đặt tool
 ```bash
 . <(curl -sL https://raw.githubusercontent.com/hyuttgg/tool-python-roblox-ip/main/SetupRobloxIP)
 ```
 
-### 📱 Cách 2: Chạy bằng quyền Root (SU - Dành cho UGPhone, VMOS, Giả lập & Máy đã Root)
-```bash
-su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /data/data/com.termux/files/home/tool-python-roblox-ip && python controller.py"
-```
-*(Nếu bạn để thư mục tool trong `/sdcard/Download/`, dùng lệnh:)*
+---
+
+### 3️⃣ Chạy tool
 ```bash
 su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download/tool-python-roblox-ip && python controller.py"
 ```
