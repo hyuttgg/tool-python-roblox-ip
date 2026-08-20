@@ -1,0 +1,52 @@
+[
+  {
+    "tag_id": "ROBLOX-CLONE-01",
+    "name": "Roblox-Clone-Client-01",
+    "clone_type": "APP_CLONE",
+    "path_or_id": "Auto-Registered Slot",
+    "status": "CLOSED_READY",
+    "assigned_ip": "",
+    "region": "",
+    "account_username": ""
+  },
+  {
+    "tag_id": "ROBLOX-CLONE-02",
+    "name": "Roblox-Clone-Client-02",
+    "clone_type": "APP_CLONE",
+    "path_or_id": "Auto-Registered Slot",
+    "status": "CLOSED_READY",
+    "assigned_ip": "",
+    "region": "",
+    "account_username": ""
+  },
+  {
+    "tag_id": "ROBLOX-CLONE-03",
+    "name": "Roblox-Clone-Client-03",
+    "clone_type": "APP_CLONE",
+    "path_or_id": "Auto-Registered Slot",
+    "status": "CLOSED_READY",
+    "assigned_ip": "",
+    "region": "",
+    "account_username": ""
+  },
+  {
+    "tag_id": "ROBLOX-CLONE-04",
+    "name": "Roblox-Clone-Client-04",
+    "clone_type": "APP_CLONE",
+    "path_or_id": "Auto-Registered Slot",
+    "status": "CLOSED_READY",
+    "assigned_ip": "",
+    "region": "",
+    "account_username": ""
+  },
+  {
+    "tag_id": "ROBLOX-CLONE-05",
+    "name": "Roblox-Clone-Client-05",
+    "clone_type": "APP_CLONE",
+    "path_or_id": "Auto-Registered Slot",
+    "status": "CLOSED_READY",
+    "assigned_ip": "",
+    "region": "",
+    "account_username": ""
+  }
+]

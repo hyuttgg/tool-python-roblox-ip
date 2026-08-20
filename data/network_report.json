@@ -1,0 +1,96 @@
+{
+  "timestamp": "2026-08-20 08:52:05",
+  "public_ip": "117.5.153.87",
+  "instances": [
+    {
+      "id": "RED-01",
+      "name": "Redfinger-Cloud-01",
+      "region": "GLOBAL",
+      "assigned_ip": "192.168.0.102",
+      "profile": "profile-fast-dns",
+      "latency_ms": 29.73,
+      "status": "ONLINE"
+    },
+    {
+      "id": "RED-SG-01",
+      "name": "Redfinger-SG-01",
+      "region": "SG (Cloud)",
+      "assigned_ip": "45.238.21.89",
+      "profile": "profile-sg-jurong",
+      "latency_ms": 27.2,
+      "status": "OFFLINE"
+    },
+    {
+      "id": "UGP-01",
+      "name": "UGPhone-VN-01",
+      "region": "GLOBAL",
+      "assigned_ip": "192.168.0.102",
+      "profile": "profile-fast-dns",
+      "latency_ms": 33.84,
+      "status": "ONLINE"
+    },
+    {
+      "id": "UGP-02",
+      "name": "UGPhone-VN-02",
+      "region": "GLOBAL",
+      "assigned_ip": "192.168.0.102",
+      "profile": "profile-google-dns",
+      "latency_ms": 44.47,
+      "status": "ONLINE"
+    },
+    {
+      "id": "UGP-HK-01",
+      "name": "UGPhone-HK-01",
+      "region": "HK (Central)",
+      "assigned_ip": "160.170.35.51",
+      "profile": "profile-hk-central",
+      "latency_ms": 28.34,
+      "status": "OFFLINE"
+    },
+    {
+      "id": "UGP-JP-01",
+      "name": "UGPhone-Japan-01",
+      "region": "JP (Tokyo)",
+      "assigned_ip": "11.85.247.242",
+      "profile": "profile-jp-tokyo",
+      "latency_ms": 30.15,
+      "status": "OFFLINE"
+    },
+    {
+      "id": "UGP-SG-01",
+      "name": "UGPhone-SG-01",
+      "region": "SG (Jurong)",
+      "assigned_ip": "23.5.129.20",
+      "profile": "profile-sg-jurong",
+      "latency_ms": 27.56,
+      "status": "OFFLINE"
+    },
+    {
+      "id": "VMOS-01",
+      "name": "VMOS-Root-01",
+      "region": "GLOBAL",
+      "assigned_ip": "192.168.0.102",
+      "profile": "profile-quad9",
+      "latency_ms": 34.41,
+      "status": "ONLINE"
+    },
+    {
+      "id": "VMOS-VN-01",
+      "name": "VMOS-Local-01",
+      "region": "VN (Direct)",
+      "assigned_ip": "194.115.83.6",
+      "profile": "profile-vn-local",
+      "latency_ms": 28.66,
+      "status": "OFFLINE"
+    },
+    {
+      "id": "VSP-01",
+      "name": "VSPhone-Pro-01",
+      "region": "GLOBAL",
+      "assigned_ip": "192.168.0.102",
+      "profile": "profile-default",
+      "latency_ms": 56.43,
+      "status": "ONLINE"
+    }
+  ]
+}
