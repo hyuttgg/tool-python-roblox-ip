@@ -254,9 +254,22 @@ pcall(function()
     end
 end)
 
+-- Ho tro queue_on_teleport cua cac Executor de tu dong nap lai script sau khi chuyen server
+if queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) then
+    local q_fn = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+    pcall(function()
+        q_fn(string.format([[
+            task.wait(1.5)
+            pcall(function()
+                loadstring(game:HttpGet("%s/api/script?tag=%s"))()
+            end)
+        ]], TAG_CONFIG.HttpBridgeUrl, TAG_CONFIG.TagId))
+    end)
+end
+
 -- Vong lap theo doi JobId khi doi server
 task.spawn(function()
-    while task.wait(5) do
+    while task.wait(3) do
         if game.JobId ~= "" and game.JobId ~= currentJobId then
             currentJobId = game.JobId
             on_server_hop_detected(currentJobId)
@@ -266,7 +279,7 @@ end)
 
 -- Thong bao thanh cong vao Roblox Chat / Console
 print(string.format("=========================================================="))
-print(string.format("[+] SUCCESS: Tag [%s] da duoc gan Dedicated IP: %s (Profile: Doc Lap)", TAG_CONFIG.TagId, TAG_CONFIG.AssignedIP))
+print(string.format("[+] SUCCESS: Tag [%s] da duoc gan Dedicated IP: %s (Region: %s)", TAG_CONFIG.TagId, TAG_CONFIG.AssignedIP, TAG_CONFIG.Region))
 print(string.format("=========================================================="))
 """
 
@@ -275,7 +288,8 @@ LUA_MASTER_TEMPLATE = """--[[
      ROBLOX MULTI-TAG MASTER AUTO-IP ROUTER (LUA RUNTIME)
 ========================================================================================
  Tu dong phan giai Username / Process / JobId de gan dung IP rieng cho tung Tag Roblox.
- Ho tro Autoexec tren tat ca cac Executor (Synapse, Fluxus, Delta, Wave, Solara, Codex).
+ Ho tro Autoexec tren tat ca cac Executor (Arceus X, Delta, Fluxus, Codex, Synapse).
+ Ho tro tu dong doi IP moi cung quoc gia khi nguoi choi doi Server (Server Hop / Teleport).
  Generated: {timestamp}
 ========================================================================================
 ]]--
@@ -284,7 +298,9 @@ local IP_TAG_MAPPING = {mapping_json}
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer or Players:GetPlayers()[1]
+local HTTP_BRIDGE_URL = "http://127.0.0.1:8888"
 
 -- 1. Tim Tag phu hop cho Instance nay
 local currentUsername = LocalPlayer and LocalPlayer.Name or "Unknown"
@@ -317,6 +333,8 @@ if currentConfig then
                 req.Headers["Client-IP"] = currentConfig.assigned_ip
                 req.Headers["X-Real-IP"] = currentConfig.assigned_ip
                 req.Headers["CF-Connecting-IP"] = currentConfig.assigned_ip
+                req.Headers["True-Client-IP"] = currentConfig.assigned_ip
+                req.Headers["X-Originating-IP"] = currentConfig.assigned_ip
                 req.Headers["X-Roblox-Tag"] = currentConfig.tag_id
                 req.Headers["X-HWID"] = currentConfig.hwid or "WIN-RANDOM-HWID"
                 req.Headers["X-Client-UUID"] = currentConfig.client_uuid or "UUID-RANDOM"
@@ -326,27 +344,31 @@ if currentConfig then
     end
 
     -- 3. Ve HUD
-    task.spawn(function()
+    local function render_master_hud()
         local parentGui = (gethui and gethui()) or CoreGui:FindFirstChild("RobloxGui") or (LocalPlayer and LocalPlayer:WaitForChild("PlayerGui"))
         if not parentGui then return end
         
+        if parentGui:FindFirstChild("RobloxDedicatedIP_MasterHUD") then
+            parentGui:FindFirstChild("RobloxDedicatedIP_MasterHUD"):Destroy()
+        end
+
         local ScreenGui = Instance.new("ScreenGui")
         ScreenGui.Name = "RobloxDedicatedIP_MasterHUD"
         ScreenGui.ResetOnSpawn = false
 
         local Frame = Instance.new("Frame", ScreenGui)
-        Frame.BackgroundColor3 = Color3.fromRGB(18, 22, 30)
-        Frame.BackgroundTransparency = 0.2
+        Frame.BackgroundColor3 = Color3.fromRGB(15, 18, 26)
+        Frame.BackgroundTransparency = 0.15
         Frame.BorderSizePixel = 0
         Frame.Position = UDim2.new(0, 15, 0, 50)
-        Frame.Size = UDim2.new(0, 270, 0, 95)
+        Frame.Size = UDim2.new(0, 275, 0, 95)
         Frame.Active = true
         Frame.Draggable = true
         Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
         
         local Stroke = Instance.new("UIStroke", Frame)
         Stroke.Color = Color3.fromRGB(0, 200, 255)
-        Stroke.Thickness = 1.2
+        Stroke.Thickness = 1.3
 
         local Title = Instance.new("TextLabel", Frame)
         Title.Text = string.format("⚡ %s | IP: %s", currentConfig.tag_id, currentConfig.assigned_ip)
@@ -361,7 +383,7 @@ if currentConfig then
         local Sub = Instance.new("TextLabel", Frame)
         Sub.Text = string.format("📍 Region: %s | User: %s", currentConfig.region, currentUsername)
         Sub.Size = UDim2.new(1, -10, 0, 20)
-        Sub.Position = UDim2.new(0, 8, 0, 32)
+        Sub.Position = UDim2.new(0, 8, 0, 30)
         Sub.BackgroundTransparency = 1
         Sub.TextColor3 = Color3.fromRGB(220, 220, 220)
         Sub.Font = Enum.Font.Gotham
@@ -369,7 +391,7 @@ if currentConfig then
         Sub.TextXAlignment = Enum.TextXAlignment.Left
 
         local Status = Instance.new("TextLabel", Frame)
-        Status.Text = "🛡️ Profile: [DOC LAP 100% - ANTI-BAN]"
+        Status.Text = "🛡️ Profile: [DOC LAP 100% - AUTO SERVER-HOP]"
         Status.Size = UDim2.new(1, -10, 0, 20)
         Status.Position = UDim2.new(0, 8, 0, 55)
         Status.BackgroundTransparency = 1
@@ -379,6 +401,65 @@ if currentConfig then
         Status.TextXAlignment = Enum.TextXAlignment.Left
 
         ScreenGui.Parent = parentGui
+    end
+
+    task.spawn(render_master_hud)
+
+    -- 4. Server Hop & Teleport Listener (Tu dong doi IP moi cung quoc gia)
+    local currentMasterJobId = game.JobId
+
+    local function handle_master_server_hop(new_job_id)
+        print(string.format("[%s] [*] Phat hien chuyen Server (JobId: %s)! Dang yeu cau Tool cap IP moi cung nuoc...", currentConfig.tag_id, tostring(new_job_id)))
+        local req_fn = syn and syn.request or http_request or request or (http and http.request)
+        if req_fn then
+            pcall(function()
+                local hop_url = string.format("%s/api/rotate_ip?tag=%s&job_id=%s&old_ip=%s", HTTP_BRIDGE_URL, currentConfig.tag_id, tostring(new_job_id), currentConfig.assigned_ip)
+                local res = req_fn({{Url = hop_url, Method = "GET"}})
+                if res and res.Body then
+                    local data = HttpService:JSONDecode(res.Body)
+                    if data and data.new_ip then
+                        currentConfig.assigned_ip = data.new_ip
+                        currentConfig.region = data.region or currentConfig.region
+                        print(string.format("[%s] [+] DA CAP PHAT IP MOI: %s (Quoc gia: %s)", currentConfig.tag_id, data.new_ip, data.country or "GIU NGUYEN"))
+                        pcall(render_master_hud)
+                    end
+                end
+            end)
+        end
+    end
+
+    -- Teleport event
+    pcall(function()
+        if LocalPlayer then
+            LocalPlayer.OnTeleport:Connect(function(state)
+                if state == Enum.TeleportState.Started or state == Enum.TeleportState.InProgress then
+                    handle_master_server_hop("Teleporting")
+                end
+            end)
+        end
+    end)
+
+    -- Queue on teleport de tu dong chay tiep o server moi
+    if queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) then
+        local q_fn = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+        pcall(function()
+            q_fn(string.format([[
+                task.wait(1.5)
+                pcall(function()
+                    loadstring(game:HttpGet("%s/api/script"))()
+                end)
+            ]], HTTP_BRIDGE_URL))
+        end)
+    end
+
+    -- Loop theo doi JobId
+    task.spawn(function()
+        while task.wait(3) do
+            if game.JobId ~= "" and game.JobId ~= currentMasterJobId then
+                currentMasterJobId = game.JobId
+                handle_master_server_hop(currentMasterJobId)
+            end
+        end
     end)
 end
 """

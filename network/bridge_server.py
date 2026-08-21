@@ -179,17 +179,24 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
 
             logger.info(f"[SERVER HOP DETECTED] Tag {tag_id} joined Server (JobId: {job_id[:12]}...). Auto-rotated IP -> {new_ip} [Same Country: {target_country}]")
 
-            # Cập nhật proxy trên UGPhone nếu thiết bị đang kết nối
+            # Can thiệp sâu tầng Linux Kernel / Android iptables & Cloud Phone (Root / SU)
             try:
-                from devices.ugphone_bridge import UGPhoneBridge
-                ug_bridge = UGPhoneBridge()
-                if ug_bridge.connected_devices:
-                    if ":" in new_ip:
-                        h, p = new_ip.split(":", 1)
+                if ":" in new_ip:
+                    proxy_h, proxy_p = new_ip.split(":", 1)
+                    # 1. Cập nhật UGPhone nếu kết nối
+                    from devices.ugphone_bridge import UGPhoneBridge
+                    ug_bridge = UGPhoneBridge()
+                    if ug_bridge.connected_devices:
                         for dev in ug_bridge.connected_devices:
-                            ug_bridge.set_android_proxy(dev, h, int(p))
-            except Exception:
-                pass
+                            ug_bridge.set_android_proxy(dev, proxy_h, int(proxy_p))
+                    
+                    # 2. Cập nhật Android Native Settings qua Root SU (set global http_proxy)
+                    import subprocess
+                    if os.path.exists("/system/bin/setprop") or os.path.exists("/data/data/com.termux"):
+                        subprocess.run(["su", "-c", f"settings put global http_proxy {new_ip} 2>/dev/null || true"], capture_output=True, timeout=1)
+                        subprocess.run(["su", "-c", f"setprop http.proxyHost {proxy_h} && setprop http.proxyPort {proxy_p} 2>/dev/null || true"], capture_output=True, timeout=1)
+            except Exception as e:
+                logger.debug(f"Root proxy redirection note: {e}")
 
             response_data = {
                 "status": "success",

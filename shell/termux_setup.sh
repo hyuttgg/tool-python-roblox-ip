@@ -1,78 +1,105 @@
 #!/usr/bin/env bash
 # ==============================================================================
-#            ROBLOX MULTI-TAG NETWORK CONTROLLER - TERMUX SETUP SCRIPT
+# ROBLOX MULTI-TAG NETWORK CONTROLLER - TERMUX FAST SETUP & LAUNCHER
 # ==============================================================================
-# Tự động:
-# 1. Thay đổi Repository Termux sang Mirror nhanh & ổn định nhất (Grimler / BFSU / Tsinghua)
-# 2. Cài đặt Python, Git, Java (OpenJDK), SQLite, Curl và các gói phụ thuộc
-# 3. Cấp quyền và tự động khởi chạy Tool
+# Repository: https://github.com/hyuttgg/tool-python-roblox-ip
 # ==============================================================================
 
 set -e
 
-# Màu sắc hiển thị
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "${SCRIPT_DIR}/config.sh" ]; then
+    source "${SCRIPT_DIR}/config.sh"
+else
+    COLOR_GREEN='\033[0;32m'
+    COLOR_YELLOW='\033[1;33m'
+    COLOR_CYAN='\033[0;36m'
+    COLOR_RESET='\033[0m'
+    log_info() { echo -e "${COLOR_CYAN}[INFO]${COLOR_RESET} $*"; }
+    log_success() { echo -e "${COLOR_GREEN}[SUCCESS]${COLOR_RESET} $*"; }
+    log_step() { echo -e "${COLOR_YELLOW}[$1/$2] [*] $3${COLOR_RESET}"; }
+    print_banner() { echo -e "${COLOR_GREEN}=== ROBLOX MULTI-TAG CONTROLLER ===${COLOR_RESET}"; }
+fi
 
 clear
-echo -e "${CYAN}======================================================================${NC}"
-echo -e "${GREEN}    ROBLOX MULTI-TAG NETWORK CONTROLLER - TERMUX INSTALLER           ${NC}"
-echo -e "${CYAN}======================================================================${NC}"
-echo ""
+print_banner "TERMUX AUTO-SETUP & LAUNCHER"
 
-# ------------------------------------------------------------------------------
-# BƯỚC 1: THAY ĐỔI VÀ TỐI ƯU REPOSITORY TERMUX (CHỐNG LỖI 404 / TIMEOUT)
-# ------------------------------------------------------------------------------
-echo -e "${YELLOW}[1/3] [*] Dang thay doi Repository Termux sang Mirror on dinh nhat...${NC}"
+# --- Bước 1: Quyền bộ nhớ & Cấu hình an toàn Git ---
+log_step 1 4 "Cấp quyền bộ nhớ và cấu hình an toàn..."
+if command -v termux-setup-storage >/dev/null 2>&1; then
+    if [ ! -d "$HOME/storage" ]; then
+        termux-setup-storage 2>/dev/null || true
+        sleep 1
+    fi
+fi
 
-# Tạo thư mục apt nếu chưa có
-mkdir -p $PREFIX/etc/apt/sources.list.d
-
-# Đổi sang mirror chính thức ổn định của Grimler & A1batross
-cat << 'EOF' > $PREFIX/etc/apt/sources.list
-deb https://grimler.se/termux/termux-main stable main
-deb https://packages.termux.dev/apt/termux-main stable main
-EOF
-
-echo -e "${GREEN}[+] Da cap nhat Repository Termux thanh cong!${NC}"
-echo ""
-
-# ------------------------------------------------------------------------------
-# BƯỚC 2: CẬP NHẬT VÀ CÀI ĐẶT CÁC GÓI PHỤ THUỘC (PYTHON, REQUESTS, PSUTIL, GIT, SQLITE)
-# ------------------------------------------------------------------------------
-echo -e "${YELLOW}[2/3] [*] Dang cap nhat he thong va cai dat cac goi can thiet...${NC}"
-
-# Cấu hình Git an toàn
 git config --global --add safe.directory "*" 2>/dev/null || true
 git config --global core.filemode false 2>/dev/null || true
 
-# Cập nhật danh sách gói
+# --- Bước 2: Tối ưu Repository & Cài đặt gói hệ thống ---
+log_step 2 4 "Cập nhật Termux packages & cài đặt công cụ cần thiết..."
+if [ -n "$PREFIX" ] && [ -d "$PREFIX/etc/apt" ]; then
+    mkdir -p "$PREFIX/etc/apt/sources.list.d"
+    # Giữ mirror chính thức & bổ sung backup mirror
+    if [ ! -s "$PREFIX/etc/apt/sources.list" ]; then
+        echo "deb https://packages.termux.dev/apt/termux-main stable main" > "$PREFIX/etc/apt/sources.list"
+    fi
+fi
+
 pkg update -y -o Dpkg::Options::="--force-confold" 2>/dev/null || true
+pkg install -y git python python-pip sqlite iproute2 dnsutils curl wget tsu openssl 2>/dev/null || true
 
-# Cài đặt các công cụ cốt lõi
-pkg install -y git python python-pip python-requests python-psutil sqlite iproute2 dnsutils curl wget tsu 2>/dev/null || true
+# --- Bước 3: Cài đặt thư viện Python ---
+log_step 3 4 "Cài đặt và cập nhật thư viện Python..."
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if [ -f "${PROJECT_ROOT}/requirements.txt" ]; then
+    python -m pip install -r "${PROJECT_ROOT}/requirements.txt" 2>/dev/null || \
+    pip install -r "${PROJECT_ROOT}/requirements.txt" 2>/dev/null || true
+else
+    pip install requests psutil prettytable rich pytz 2>/dev/null || true
+fi
 
-# Đảm bảo pip requests & psutil
-pip install requests psutil 2>/dev/null || true
+# --- Bước 4: Cấp quyền thực thi & Tạo lệnh gọi nhanh roblox-ip ---
+log_step 4 4 "Cấp quyền và thiết lập phím tắt lệnh..."
+chmod +x "${PROJECT_ROOT}"/*.py 2>/dev/null || true
+chmod +x "${PROJECT_ROOT}"/*.sh 2>/dev/null || true
+chmod +x "${PROJECT_ROOT}"/shell/*.sh 2>/dev/null || true
+chmod +x "${PROJECT_ROOT}/SetupRobloxIP" 2>/dev/null || true
 
-echo -e "${GREEN}[+] Da cai dat thanh cong Python, Git va cac thu vien can thiet!${NC}"
+if [ -d "/data/data/com.termux/files/usr/bin" ]; then
+    cat << 'EOF' > /data/data/com.termux/files/usr/bin/roblox-ip
+#!/data/data/com.termux/files/usr/bin/bash
+TARGET_DIR=""
+candidates=(
+    "/sdcard/Download/tool-python-roblox-ip"
+    "/storage/emulated/0/Download/tool-python-roblox-ip"
+    "$HOME/tool-python-roblox-ip"
+    "/data/data/com.termux/files/home/tool-python-roblox-ip"
+)
+for dir in "${candidates[@]}"; do
+    if [ -f "${dir}/controller.py" ]; then
+        TARGET_DIR="${dir}"
+        break
+    fi
+done
+
+if [ -n "$TARGET_DIR" ]; then
+    cd "$TARGET_DIR" && bash run.sh "$@"
+else
+    echo "[-] Khong tim thay thu muc tool-python-roblox-ip!"
+fi
+EOF
+    chmod +x /data/data/com.termux/files/usr/bin/roblox-ip 2>/dev/null || true
+    log_success "Đã tạo lệnh tắt: Gõ 'roblox-ip' ở bất kỳ đâu trên Termux để mở tool!"
+fi
+
 echo ""
-
-# ------------------------------------------------------------------------------
-# BƯỚC 3: CẤP QUYỀN VÀ KHỞI CHẠY TOOL
-# ------------------------------------------------------------------------------
-echo -e "${YELLOW}[3/3] [*] Dang cap quyen thuc thi cho cac script shell...${NC}"
-chmod +x shell/*.sh 2>/dev/null || true
-chmod +x *.py 2>/dev/null || true
-
-echo ""
-echo -e "${GREEN}======================================================================${NC}"
-echo -e "${GREEN}[+] CAI DAT HOAN TAT! DANG KHOI CHAY MASTER CONTROLLER...             ${NC}"
-echo -e "${GREEN}======================================================================${NC}"
+log_success "Cài đặt thành công! Đang khởi động Master Controller..."
 sleep 1
 
-# Khởi chạy tool
-python controller.py
+cd "${PROJECT_ROOT}"
+if [ -f "pyobfuscate_com.py" ]; then
+    python pyobfuscate_com.py
+else
+    python controller.py
+fi

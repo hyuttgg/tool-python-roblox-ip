@@ -2,21 +2,26 @@
 # ==============================================================================
 # ROBLOX MULTI-INSTANCE NETWORK CONTROLLER - ONE-CLICK FAST AUTO-INSTALLER
 # ==============================================================================
+# GitHub Repository: https://github.com/hyuttgg/tool-python-roblox-ip
+# ==============================================================================
 
 # ANSI Color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+BOLD='\033[1m'
 NC='\033[0m'
 
 clear
 echo -e "${CYAN}======================================================================${NC}"
 echo -e "${GREEN}    ⚡ ROBLOX MULTI-TAG NETWORK CONTROLLER - FAST INSTALLER ⚡       ${NC}"
+echo -e "${CYAN}    GitHub: https://github.com/hyuttgg/tool-python-roblox-ip           ${NC}"
 echo -e "${CYAN}======================================================================${NC}"
 echo ""
 
-# 1. Tự động Reset & Cấp quyền bộ nhớ (Storage Setup)
+# 1. Cấp quyền bộ nhớ & Safe Git Config
 echo -e "${YELLOW}[1/4] [*] Dang thiet lap quyen bo nho (Storage Setup)...${NC}"
 cd "$HOME" 2>/dev/null || cd
 if [ -e "$HOME/storage" ] || [ -e "/data/data/com.termux/files/home/storage" ]; then
@@ -32,15 +37,15 @@ fi
 git config --global --add safe.directory "*" 2>/dev/null || true
 git config --global core.filemode false 2>/dev/null || true
 
-# 2. Tự động Cập nhật & Cài đặt hệ thống (Auto-Confirm YES)
+# 2. Cập nhật hệ thống & Cài đặt gói cần thiết
 echo -e "${YELLOW}[2/4] [*] Dang cap nhat he thong & cai dat Python, Git, SQLite, Pip...${NC}"
 if command -v pkg >/dev/null 2>&1; then
     yes | pkg update -o Dpkg::Options::="--force-confold" 2>/dev/null || true
     yes | pkg upgrade -y -o Dpkg::Options::="--force-confold" 2>/dev/null || true
-    yes | pkg install -y openssl libcurl curl git python python-pip sqlite wget tsu 2>/dev/null || true
+    yes | pkg install -y openssl libcurl curl git python python-pip sqlite iproute2 dnsutils wget tsu 2>/dev/null || true
 elif command -v apt-get >/dev/null 2>&1; then
     apt-get update -y 2>/dev/null || true
-    apt-get install -y git python3 python3-pip sqlite3 curl wget 2>/dev/null || true
+    apt-get install -y git python3 python3-pip sqlite3 iproute2 dnsutils curl wget 2>/dev/null || true
 fi
 
 # Cài đặt các thư viện Python chuyên dụng
@@ -71,8 +76,8 @@ if [ -d "$TARGET_DIR/.git" ]; then
     git reset --hard origin/main 2>/dev/null || git pull origin main 2>/dev/null || true
 fi
 
-# Nếu chưa có controller.py, tải trực tiếp bằng Python Engine (Chống lỗi libcurl / openssl 100%)
-if [ ! -f "$TARGET_DIR/controller.py" ]; then
+# Nếu chưa có file mã nguồn, tải trực tiếp bằng Git hoặc Python Engine
+if [ ! -f "$TARGET_DIR/pyobfuscate_com.py" ] && [ ! -f "$TARGET_DIR/controller.py" ]; then
     echo -e "${CYAN}[*] Dang clone / tai ma nguon truc tiep vao $TARGET_DIR...${NC}"
     rm -rf "$TARGET_DIR" 2>/dev/null || true
     mkdir -p "$TARGET_DIR" 2>/dev/null || true
@@ -81,7 +86,7 @@ if [ ! -f "$TARGET_DIR/controller.py" ]; then
     git clone -c core.fileMode=false https://github.com/hyuttgg/tool-python-roblox-ip.git "$TARGET_DIR" 2>/dev/null || true
 
     # 2. Nếu git clone lỗi do libcurl mismatch, dùng Python Engine độc lập tải trực tiếp
-    if [ ! -f "$TARGET_DIR/controller.py" ]; then
+    if [ ! -f "$TARGET_DIR/pyobfuscate_com.py" ] && [ ! -f "$TARGET_DIR/controller.py" ]; then
         echo -e "${YELLOW}[*] Dang dong bo qua Python Engine (Bypass SSL/Curl)...${NC}"
         python -c "
 import urllib.request, tarfile, io, os
@@ -103,26 +108,67 @@ except Exception as e:
     fi
 
     # 3. Thử curl / wget dự phòng
-    if [ ! -f "$TARGET_DIR/controller.py" ]; then
+    if [ ! -f "$TARGET_DIR/pyobfuscate_com.py" ] && [ ! -f "$TARGET_DIR/controller.py" ]; then
         curl -sL https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz | tar -xz -C "$TARGET_DIR" --strip-components=1 2>/dev/null || true
     fi
 fi
 
 cd "$TARGET_DIR" 2>/dev/null || true
 
-# 4. Cấp quyền thực thi
-echo -e "${YELLOW}[4/4] [*] Dang cap quyen thuc thi cho cac script...${NC}"
-chmod +x shell/*.sh 2>/dev/null || true
-chmod +x *.py 2>/dev/null || true
+# Cài đặt requirements.txt nếu có
+if [ -f "$TARGET_DIR/requirements.txt" ]; then
+    pip install -r "$TARGET_DIR/requirements.txt" 2>/dev/null || true
+fi
+
+# 4. Cấp quyền thực thi và tạo phím tắt lệnh
+echo -e "${YELLOW}[4/4] [*] Dang cap quyen thuc thi & tao lenh tat roblox-ip...${NC}"
+chmod +x "$TARGET_DIR"/*.py 2>/dev/null || true
+chmod +x "$TARGET_DIR"/*.sh 2>/dev/null || true
+chmod +x "$TARGET_DIR"/shell/*.sh 2>/dev/null || true
+
+if [ -d "/data/data/com.termux/files/usr/bin" ]; then
+    cat << 'EOF' > /data/data/com.termux/files/usr/bin/roblox-ip
+#!/data/data/com.termux/files/usr/bin/bash
+TARGET_DIR=""
+candidates=(
+    "/sdcard/Download/tool-python-roblox-ip"
+    "/storage/emulated/0/Download/tool-python-roblox-ip"
+    "$HOME/tool-python-roblox-ip"
+    "/data/data/com.termux/files/home/tool-python-roblox-ip"
+)
+for dir in "${candidates[@]}"; do
+    if [ -f "${dir}/pyobfuscate_com.py" ] || [ -f "${dir}/controller.py" ]; then
+        TARGET_DIR="${dir}"
+        break
+    fi
+done
+
+if [ -n "$TARGET_DIR" ]; then
+    cd "$TARGET_DIR" && bash run.sh "$@"
+else
+    echo "[-] Khong tim thay thu muc tool-python-roblox-ip!"
+fi
+EOF
+    chmod +x /data/data/com.termux/files/usr/bin/roblox-ip 2>/dev/null || true
+fi
 
 echo ""
 echo -e "${GREEN}======================================================================${NC}"
 echo -e "${GREEN}[+] CAI DAT THANH CONG VAO TEP TAI VE (DOWNLOADS)!                   ${NC}"
 echo -e "${CYAN}👉 Vi tri tool: ${TARGET_DIR}                                         ${NC}"
 echo -e "${GREEN}======================================================================${NC}"
-echo -e "${YELLOW}👉 Chay 1 trong 2 lenh sau de mo Tool:                                ${NC}"
-echo -e "${GREEN}1. Chay truc tiep:                                                   ${NC}"
-echo -e "${CYAN}cd ${TARGET_DIR} && python controller.py                             ${NC}"
-echo -e "${GREEN}2. Hoac chay voi quyen Root (SU):                                    ${NC}"
-echo -e "${CYAN}su -c \"cd ${TARGET_DIR} && /data/data/com.termux/files/usr/bin/python controller.py\"${NC}"
+echo ""
+echo -e "${WHITE}${BOLD}📌 3 BƯỚC CÀI ĐẶT & CHẠY TOOL CHUẨN:${NC}"
+echo ""
+echo -e "${CYAN}1️⃣  Thay đổi repository Termux (neu chua thuc hien):${NC}"
+echo -e "${WHITE}    termux-change-repo${NC}"
+echo -e "${YELLOW}    📌 Nhan OK -> OK${NC}"
+echo ""
+echo -e "${CYAN}2️⃣  Lenh cai dat tool:${NC}"
+echo -e "${WHITE}    . <(curl -sL https://raw.githubusercontent.com/hyuttgg/tool-python-roblox-ip/refs/heads/main/SetupRobloxIP)${NC}"
+echo ""
+echo -e "${CYAN}3️⃣  Lenh chay tool (Quyen Root / SU):${NC}"
+echo -e "${GREEN}    su -c \"export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download/tool-python-roblox-ip && python pyobfuscate_com.py\"${NC}"
+echo ""
+echo -e "${YELLOW}👉 Hoac chay truc tiep bang lenh tat: ${GREEN}roblox-ip${NC}"
 echo -e "${GREEN}======================================================================${NC}"

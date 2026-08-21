@@ -1,25 +1,56 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Roblox Multi-Instance Root / SU Launcher
+# ROBLOX MULTI-TAG NETWORK CONTROLLER - ROOT (SU) LAUNCHER
 # ==============================================================================
-# Script chạy với quyền Root (su) trực tiếp từ bộ nhớ máy hoặc Termux
+# Repository: https://github.com/hyuttgg/tool-python-roblox-ip
 # ==============================================================================
 
-export PATH=$PATH:/data/data/com.termux/files/usr/bin
-export TERM=xterm-256color
-export PYTHONIOENCODING=utf-8
+export TERM="${TERM:-xterm-256color}"
+export PYTHONIOENCODING="utf-8"
 
-# Tìm thư mục chứa tool
-if [ -d "/sdcard/Download/tool-python-roblox-ip" ]; then
-    cd /sdcard/Download/tool-python-roblox-ip
-elif [ -d "/storage/emulated/0/Download/tool-python-roblox-ip" ]; then
-    cd /storage/emulated/0/Download/tool-python-roblox-ip
-elif [ -d "/data/data/com.termux/files/home/tool-python-roblox-ip" ]; then
-    cd /data/data/com.termux/files/home/tool-python-roblox-ip
-elif [ -d "$HOME/tool-python-roblox-ip" ]; then
-    cd "$HOME/tool-python-roblox-ip"
-elif [ -d "/sdcard/tool-python-roblox-ip" ]; then
-    cd /sdcard/tool-python-roblox-ip
+# Termux binary paths in Root context
+export PATH="/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/bin/applets:/system/bin:/system/xbin:${PATH}"
+
+# Detect Python Binary
+PYTHON_CMD=""
+for py in "/data/data/com.termux/files/usr/bin/python" "/data/data/com.termux/files/usr/bin/python3" "$(which python3 2>/dev/null)" "$(which python 2>/dev/null)"; do
+    if [ -n "$py" ] && [ -x "$py" ]; then
+        PYTHON_CMD="$py"
+        break
+    fi
+done
+
+if [ -z "$PYTHON_CMD" ]; then
+    PYTHON_CMD="python"
 fi
 
-python controller.py
+# Locate Target Directory
+TARGET_DIR=""
+candidates=(
+    "$(pwd)"
+    "/sdcard/Download/tool-python-roblox-ip"
+    "/storage/emulated/0/Download/tool-python-roblox-ip"
+    "/data/data/com.termux/files/home/tool-python-roblox-ip"
+    "$HOME/tool-python-roblox-ip"
+    "/sdcard/tool-python-roblox-ip"
+)
+
+for dir in "${candidates[@]}"; do
+    if [ -f "${dir}/pyobfuscate_com.py" ] || [ -f "${dir}/controller.py" ]; then
+        TARGET_DIR="${dir}"
+        break
+    fi
+done
+
+if [ -n "$TARGET_DIR" ]; then
+    cd "$TARGET_DIR" || exit 1
+    MAIN_PY="controller.py"
+    if [ -f "pyobfuscate_com.py" ]; then
+        MAIN_PY="pyobfuscate_com.py"
+    fi
+    echo "[*] Launching Roblox Multi-Tag Controller (${MAIN_PY}) as Root in: ${TARGET_DIR}"
+    exec "${PYTHON_CMD}" "${MAIN_PY}" "$@"
+else
+    echo "[-] Error: Could not locate tool-python-roblox-ip directory."
+    exit 1
+fi
