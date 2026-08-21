@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# ROBLOX MULTI-INSTANCE NETWORK CONTROLLER - ONE-CLICK CURL INSTALLER
+# ROBLOX MULTI-INSTANCE NETWORK CONTROLLER - ONE-CLICK FAST INSTALLER
 # ==============================================================================
-
-set -e
 
 # ANSI Color codes
 RED='\033[0;31m'
@@ -18,34 +16,39 @@ echo -e "${GREEN}    ⚡ ROBLOX MULTI-TAG NETWORK CONTROLLER - FAST INSTALLER �
 echo -e "${CYAN}======================================================================${NC}"
 echo ""
 
-# 1. Kiểm tra môi trường Termux / Linux
-echo -e "${YELLOW}[1/4] [*] Dang kiem tra va cap nhat moi truong he thong...${NC}"
-if command -v pkg >/dev/null 2>&1; then
-    pkg update -y -o Dpkg::Options::="--force-confold" 2>/dev/null || true
-    apt --fix-broken install -y 2>/dev/null || true
-    pkg install -y openssl libcurl git python python-pip openjdk-17 sqlite curl iproute2 dnsutils tsu || true
-elif command -v apt-get >/dev/null 2>&1; then
-    apt-get update -y 2>/dev/null || true
-    apt-get install -y git python3 python3-pip openjdk-17-jre sqlite3 curl || true
-fi
-
-# 2. Cài đặt các thư viện Python
-echo -e "${YELLOW}[2/4] [*] Dang cai dat cac thu vien Python...${NC}"
-pip install --upgrade pip requests psutil 2>/dev/null || pip3 install requests psutil 2>/dev/null || true
-
-# 3. Tải hoặc cập nhật mã nguồn từ GitHub
-echo -e "${YELLOW}[3/4] [*] Dang dong bo ma nguon tu GitHub (hyuttgg/tool-python-roblox-ip)...${NC}"
-
-# Tự động yêu cầu quyền bộ nhớ nếu Termux chưa có
+# 1. Tự động cấp quyền bộ nhớ & Cấu hình an toàn
+echo -e "${YELLOW}[1/4] [*] Dang chuan bi moi truong bo nho & Git...${NC}"
 if command -v termux-setup-storage >/dev/null 2>&1; then
-    if [ ! -d "/sdcard/Download" ] && [ ! -d "$HOME/storage/downloads" ]; then
-        echo -e "${YELLOW}[!] Dang yeu cau quyen bo nho (termux-setup-storage)...${NC}"
-        termux-setup-storage || true
+    if [ ! -d "/sdcard/Download" ] && [ ! -d "/storage/emulated/0/Download" ]; then
+        echo -e "${YELLOW}[!] Dang yeu cau quyen bo nho Termux (termux-setup-storage)...${NC}"
+        termux-setup-storage 2>/dev/null || true
         sleep 1
     fi
 fi
 
-# Ưu tiên lưu vào thư mục Download của điện thoại
+# Cấu hình Git an toàn để tránh lỗi dubious ownership trên Android
+git config --global --add safe.directory "*" 2>/dev/null || true
+git config --global core.filemode false 2>/dev/null || true
+
+# 2. Cài đặt các gói phụ thuộc hệ thống (Python, Requests, Psutil, Git, Curl)
+echo -e "${YELLOW}[2/4] [*] Dang cap nhat va cai dat cac goi can thiet...${NC}"
+if command -v pkg >/dev/null 2>&1; then
+    pkg update -y -o Dpkg::Options::="--force-confold" 2>/dev/null || true
+    pkg install -y git python python-pip python-requests python-psutil sqlite curl wget tsu 2>/dev/null || true
+elif command -v apt-get >/dev/null 2>&1; then
+    apt-get update -y 2>/dev/null || true
+    apt-get install -y git python3 python3-pip python3-requests python3-psutil sqlite3 curl wget 2>/dev/null || true
+fi
+
+# Đảm bảo thư viện Python requests & psutil đã được cài
+pip install requests psutil 2>/dev/null || pip3 install requests psutil 2>/dev/null || true
+
+# 3. Tải tool trực tiếp vào thư mục Download / Tệp tải về của máy
+echo -e "${YELLOW}[3/4] [*] Dang cai dat tool truc tiep vao thu muc Download cua may...${NC}"
+
+# Tạo thư mục Download nếu chưa có
+mkdir -p "/sdcard/Download" 2>/dev/null || mkdir -p "/storage/emulated/0/Download" 2>/dev/null || true
+
 if [ -d "/sdcard/Download" ]; then
     TARGET_DIR="/sdcard/Download/tool-python-roblox-ip"
 elif [ -d "/storage/emulated/0/Download" ]; then
@@ -53,22 +56,24 @@ elif [ -d "/storage/emulated/0/Download" ]; then
 elif [ -d "$HOME/storage/downloads" ]; then
     TARGET_DIR="$HOME/storage/downloads/tool-python-roblox-ip"
 else
-    mkdir -p "/sdcard/Download" 2>/dev/null || true
-    if [ -d "/sdcard/Download" ]; then
-        TARGET_DIR="/sdcard/Download/tool-python-roblox-ip"
-    else
-        TARGET_DIR="$HOME/tool-python-roblox-ip"
-    fi
+    TARGET_DIR="/sdcard/Download/tool-python-roblox-ip"
+    mkdir -p "$TARGET_DIR" 2>/dev/null || true
 fi
 
-if [ -d "$TARGET_DIR" ]; then
+if [ -d "$TARGET_DIR/.git" ]; then
     echo -e "${CYAN}[*] Thu muc da ton tai tai $TARGET_DIR, dang cap nhat ma nguon moi nhat...${NC}"
     cd "$TARGET_DIR"
-    git pull origin main 2>/dev/null || true
+    git fetch origin main 2>/dev/null || true
+    git reset --hard origin/main 2>/dev/null || git pull origin main 2>/dev/null || true
 else
-    echo -e "${CYAN}[*] Dang clone ma nguon vao $TARGET_DIR...${NC}"
-    git clone https://github.com/hyuttgg/tool-python-roblox-ip.git "$TARGET_DIR"
-    cd "$TARGET_DIR"
+    echo -e "${CYAN}[*] Dang clone ma nguon truc tiep vao $TARGET_DIR...${NC}"
+    rm -rf "$TARGET_DIR" 2>/dev/null || true
+    git clone -c core.fileMode=false https://github.com/hyuttgg/tool-python-roblox-ip.git "$TARGET_DIR" 2>/dev/null || {
+        echo -e "${YELLOW}[*] Dang thu lai voi archive stream...${NC}"
+        mkdir -p "$TARGET_DIR" 2>/dev/null || true
+        curl -sL https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz | tar -xz -C "$TARGET_DIR" --strip-components=1 2>/dev/null || true
+    }
+    cd "$TARGET_DIR" 2>/dev/null || true
 fi
 
 # 4. Cấp quyền thực thi
@@ -78,6 +83,9 @@ chmod +x *.py 2>/dev/null || true
 
 echo ""
 echo -e "${GREEN}======================================================================${NC}"
-echo -e "${GREEN}[+] CAI DAT MOI TRUONG & TAI TOOL THANH CONG!                         ${NC}"
-echo -e "${CYAN}👉 Hay chay lenh o Buoc 3 de mo Tool voi quyen Root (SU).            ${NC}"
+echo -e "${GREEN}[+] CAI DAT THANH CONG VAO TEP TAI VE (DOWNLOADS)!                   ${NC}"
+echo -e "${CYAN}👉 Vi tri tool: ${TARGET_DIR}                                         ${NC}"
+echo -e "${GREEN}======================================================================${NC}"
+echo -e "${YELLOW}👉 Chay lenh sau de mo Tool voi quyen Root (SU):                    ${NC}"
+echo -e "${CYAN}su -c \"export PATH=\\\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd ${TARGET_DIR} && python controller.py\"${NC}"
 echo -e "${GREEN}======================================================================${NC}"

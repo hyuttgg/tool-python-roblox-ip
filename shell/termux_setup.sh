@@ -41,21 +41,24 @@ echo -e "${GREEN}[+] Da cap nhat Repository Termux thanh cong!${NC}"
 echo ""
 
 # ------------------------------------------------------------------------------
-# BƯỚC 2: CẬP NHẬT VÀ CÀI ĐẶT CÁC GÓI PHỤ THUỘC (PYTHON, GIT, JAVA, SQLITE)
+# BƯỚC 2: CẬP NHẬT VÀ CÀI ĐẶT CÁC GÓI PHỤ THUỘC (PYTHON, REQUESTS, PSUTIL, GIT, SQLITE)
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}[2/3] [*] Dang cap nhat he thong va cai dat cac goi can thiet...${NC}"
 
+# Cấu hình Git an toàn
+git config --global --add safe.directory "*" 2>/dev/null || true
+git config --global core.filemode false 2>/dev/null || true
+
 # Cập nhật danh sách gói
-pkg update -y -o Dpkg::Options::="--force-confold" || apt-get update -y
-pkg upgrade -y -o Dpkg::Options::="--force-confold" || true
+pkg update -y -o Dpkg::Options::="--force-confold" 2>/dev/null || true
 
 # Cài đặt các công cụ cốt lõi
-pkg install -y git python python-pip sqlite iproute2 dnsutils curl wget openjdk-17 tsu
+pkg install -y git python python-pip python-requests python-psutil sqlite iproute2 dnsutils curl wget tsu 2>/dev/null || true
 
-# Cập nhật pip
-pip install --upgrade pip requests psutil 2>/dev/null || true
+# Đảm bảo pip requests & psutil
+pip install requests psutil 2>/dev/null || true
 
-echo -e "${GREEN}[+] Da cai dat thanh cong Python, Git, Java va cac thu vien can thiet!${NC}"
+echo -e "${GREEN}[+] Da cai dat thanh cong Python, Git va cac thu vien can thiet!${NC}"
 echo ""
 
 # ------------------------------------------------------------------------------
