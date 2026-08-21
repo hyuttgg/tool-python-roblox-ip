@@ -16,9 +16,14 @@ termux-change-repo && termux-setup-storage
 
 ---
 
-### 3️⃣ Bước 3: Chạy tool (Quyền Root / SU)
+### 3️⃣ Bước 3: Chạy tool
+* **Cách 1 (Khuyên dùng - Quyền Root / SU):**
 ```bash
-su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && (cd /sdcard/Download/tool-python-roblox-ip 2>/dev/null || cd /storage/emulated/0/Download/tool-python-roblox-ip 2>/dev/null || cd /data/data/com.termux/files/home/tool-python-roblox-ip 2>/dev/null || cd \$HOME/tool-python-roblox-ip) && python controller.py"
+su -c "cd /sdcard/Download/tool-python-roblox-ip && /data/data/com.termux/files/usr/bin/python controller.py"
+```
+* **Cách 2 (Chạy trực tiếp trong Termux):**
+```bash
+cd /sdcard/Download/tool-python-roblox-ip && python controller.py
 ```
 
 ### 📲 Cách 2: Chạy trực tiếp từ GitHub trên Termux (Tự động tải & Cài đặt 1 dòng)

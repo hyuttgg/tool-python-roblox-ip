@@ -30,18 +30,17 @@ fi
 git config --global --add safe.directory "*" 2>/dev/null || true
 git config --global core.filemode false 2>/dev/null || true
 
-# 2. Cài đặt các gói phụ thuộc hệ thống (Python, Requests, Psutil, Git, Curl)
-echo -e "${YELLOW}[2/4] [*] Dang cap nhat va cai dat cac goi can thiet...${NC}"
+# 2. Cài đặt các gói phụ thuộc hệ thống (Python, Pip, Git, Curl, SQLite)
+echo -e "${YELLOW}[2/4] [*] Dang cai dat Python, Git, SQLite, Curl...${NC}"
 if command -v pkg >/dev/null 2>&1; then
-    pkg update -y -o Dpkg::Options::="--force-confold" 2>/dev/null || true
-    pkg install -y git python python-pip python-requests python-psutil sqlite curl wget tsu 2>/dev/null || true
+    pkg install -y git python sqlite curl wget tsu
 elif command -v apt-get >/dev/null 2>&1; then
-    apt-get update -y 2>/dev/null || true
-    apt-get install -y git python3 python3-pip python3-requests python3-psutil sqlite3 curl wget 2>/dev/null || true
+    apt-get update -y
+    apt-get install -y git python3 python3-pip sqlite3 curl wget
 fi
 
 # Đảm bảo thư viện Python requests & psutil đã được cài
-pip install requests psutil 2>/dev/null || pip3 install requests psutil 2>/dev/null || true
+pip install requests psutil 2>/dev/null || pip3 install requests psutil 2>/dev/null || python -m pip install requests psutil 2>/dev/null || true
 
 # 3. Tải tool trực tiếp vào thư mục Download / Tệp tải về của máy
 echo -e "${YELLOW}[3/4] [*] Dang cai dat tool truc tiep vao thu muc Download cua may...${NC}"
@@ -86,6 +85,9 @@ echo -e "${GREEN}===============================================================
 echo -e "${GREEN}[+] CAI DAT THANH CONG VAO TEP TAI VE (DOWNLOADS)!                   ${NC}"
 echo -e "${CYAN}👉 Vi tri tool: ${TARGET_DIR}                                         ${NC}"
 echo -e "${GREEN}======================================================================${NC}"
-echo -e "${YELLOW}👉 Chay lenh sau de mo Tool voi quyen Root (SU):                    ${NC}"
-echo -e "${CYAN}su -c \"export PATH=\\\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd ${TARGET_DIR} && python controller.py\"${NC}"
+echo -e "${YELLOW}👉 Chay 1 trong 2 lenh sau de mo Tool:                                ${NC}"
+echo -e "${GREEN}1. Chay truc tiep:                                                   ${NC}"
+echo -e "${CYAN}cd ${TARGET_DIR} && python controller.py                             ${NC}"
+echo -e "${GREEN}2. Hoac chay voi quyen Root (SU):                                    ${NC}"
+echo -e "${CYAN}su -c \"cd ${TARGET_DIR} && /data/data/com.termux/files/usr/bin/python controller.py\"${NC}"
 echo -e "${GREEN}======================================================================${NC}"
