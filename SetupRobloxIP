@@ -36,7 +36,8 @@ git config --global core.filemode false 2>/dev/null || true
 echo -e "${YELLOW}[2/4] [*] Dang cap nhat he thong & cai dat Python, Git, SQLite, Pip...${NC}"
 if command -v pkg >/dev/null 2>&1; then
     yes | pkg update -o Dpkg::Options::="--force-confold" 2>/dev/null || true
-    yes | pkg i git python python-pip sqlite curl wget tsu 2>/dev/null || pkg install -y git python python-pip sqlite curl wget tsu 2>/dev/null || true
+    yes | pkg upgrade -y -o Dpkg::Options::="--force-confold" 2>/dev/null || true
+    yes | pkg install -y openssl libcurl curl git python python-pip sqlite wget tsu 2>/dev/null || true
 elif command -v apt-get >/dev/null 2>&1; then
     apt-get update -y 2>/dev/null || true
     apt-get install -y git python3 python3-pip sqlite3 curl wget 2>/dev/null || true
@@ -62,21 +63,52 @@ else
     mkdir -p "$TARGET_DIR" 2>/dev/null || true
 fi
 
+# Cập nhật nếu đã có git, hoặc tải mới
 if [ -d "$TARGET_DIR/.git" ]; then
     echo -e "${CYAN}[*] Thu muc da ton tai tai $TARGET_DIR, dang cap nhat ma nguon moi nhat...${NC}"
     cd "$TARGET_DIR"
     git fetch origin main 2>/dev/null || true
     git reset --hard origin/main 2>/dev/null || git pull origin main 2>/dev/null || true
-else
-    echo -e "${CYAN}[*] Dang clone ma nguon truc tiep vao $TARGET_DIR...${NC}"
-    rm -rf "$TARGET_DIR" 2>/dev/null || true
-    git clone -c core.fileMode=false https://github.com/hyuttgg/tool-python-roblox-ip.git "$TARGET_DIR" 2>/dev/null || {
-        echo -e "${YELLOW}[*] Dang thu lai voi archive stream...${NC}"
-        mkdir -p "$TARGET_DIR" 2>/dev/null || true
-        curl -sL https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz | tar -xz -C "$TARGET_DIR" --strip-components=1 2>/dev/null || true
-    }
-    cd "$TARGET_DIR" 2>/dev/null || true
 fi
+
+# Nếu chưa có controller.py, tải trực tiếp bằng Python Engine (Chống lỗi libcurl / openssl 100%)
+if [ ! -f "$TARGET_DIR/controller.py" ]; then
+    echo -e "${CYAN}[*] Dang clone / tai ma nguon truc tiep vao $TARGET_DIR...${NC}"
+    rm -rf "$TARGET_DIR" 2>/dev/null || true
+    mkdir -p "$TARGET_DIR" 2>/dev/null || true
+
+    # 1. Thử git clone
+    git clone -c core.fileMode=false https://github.com/hyuttgg/tool-python-roblox-ip.git "$TARGET_DIR" 2>/dev/null || true
+
+    # 2. Nếu git clone lỗi do libcurl mismatch, dùng Python Engine độc lập tải trực tiếp
+    if [ ! -f "$TARGET_DIR/controller.py" ]; then
+        echo -e "${YELLOW}[*] Dang dong bo qua Python Engine (Bypass SSL/Curl)...${NC}"
+        python -c "
+import urllib.request, tarfile, io, os
+url = 'https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz'
+try:
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        tar_bytes = resp.read()
+    with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode='r:gz') as tar:
+        for member in tar.getmembers():
+            parts = member.name.split('/', 1)
+            if len(parts) > 1 and parts[1]:
+                member.name = parts[1]
+                tar.extract(member, path='$TARGET_DIR')
+    print('[+] Dong bo ma nguon thanh cong!')
+except Exception as e:
+    print('[-] Error:', e)
+" 2>/dev/null || true
+    fi
+
+    # 3. Thử curl / wget dự phòng
+    if [ ! -f "$TARGET_DIR/controller.py" ]; then
+        curl -sL https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz | tar -xz -C "$TARGET_DIR" --strip-components=1 2>/dev/null || true
+    fi
+fi
+
+cd "$TARGET_DIR" 2>/dev/null || true
 
 # 4. Cấp quyền thực thi
 echo -e "${YELLOW}[4/4] [*] Dang cap quyen thuc thi cho cac script...${NC}"
