@@ -10,10 +10,14 @@ export TERM=xterm-256color
 export PYTHONIOENCODING=utf-8
 
 # Tìm thư mục chứa tool
-if [ -d "/data/data/com.termux/files/home/tool-python-roblox-ip" ]; then
-    cd /data/data/com.termux/files/home/tool-python-roblox-ip
-elif [ -d "/sdcard/Download/tool-python-roblox-ip" ]; then
+if [ -d "/sdcard/Download/tool-python-roblox-ip" ]; then
     cd /sdcard/Download/tool-python-roblox-ip
+elif [ -d "/storage/emulated/0/Download/tool-python-roblox-ip" ]; then
+    cd /storage/emulated/0/Download/tool-python-roblox-ip
+elif [ -d "/data/data/com.termux/files/home/tool-python-roblox-ip" ]; then
+    cd /data/data/com.termux/files/home/tool-python-roblox-ip
+elif [ -d "$HOME/tool-python-roblox-ip" ]; then
+    cd "$HOME/tool-python-roblox-ip"
 elif [ -d "/sdcard/tool-python-roblox-ip" ]; then
     cd /sdcard/tool-python-roblox-ip
 fi

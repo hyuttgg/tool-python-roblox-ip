@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import glob
 import json
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from config.logging import setup_logger
 
 logger = setup_logger("autoexec_manager")
@@ -105,7 +105,7 @@ class AutoexecManager:
 
         found_folders = set(self.cached_pc_paths)
 
-        # Quét các đường dẫn chuẩn nhanh
+        # 1. Quét các đường dẫn trên PC (Windows / Linux)
         for root in search_roots:
             if not os.path.exists(root):
                 continue
@@ -116,6 +116,25 @@ class AutoexecManager:
                 direct_path_cap = os.path.join(root, exc, "Autoexec")
                 if os.path.exists(direct_path_cap) and os.path.isdir(direct_path_cap):
                     found_folders.add(direct_path_cap)
+
+        # 2. Quét trực tiếp các đường dẫn Executor trên thiết bị Android / Termux
+        android_roots = [
+            "/sdcard", "/storage/emulated/0", "/storage/emulated/999", "/storage/emulated/10"
+        ]
+        for a_root in android_roots:
+            if os.path.exists(a_root):
+                for exc in COMMON_EXECUTOR_NAMES:
+                    for sub_auto in ["Autoexec", "autoexec", "scripts", "Scripts"]:
+                        candidate = os.path.join(a_root, exc, sub_auto)
+                        if os.path.exists(candidate) and os.path.isdir(candidate):
+                            found_folders.add(candidate)
+                        elif os.path.exists(os.path.join(a_root, exc)):
+                            # Nếu có thư mục Executor nhưng chưa có subfolder autoexec, tạo luôn
+                            try:
+                                os.makedirs(candidate, exist_ok=True)
+                                found_folders.add(candidate)
+                            except Exception:
+                                pass
 
         # Quét đệ quy cấp 2 trong search_roots
         for root in search_roots:
@@ -137,7 +156,7 @@ class AutoexecManager:
         valid_list = [f for f in found_folders if os.path.exists(f) and os.path.isdir(f)]
         self.cached_pc_paths = valid_list
         self._save_config()
-        logger.info(f"Discovered {len(valid_list)} PC Autoexec folders.")
+        logger.info(f"Discovered {len(valid_list)} Autoexec folders.")
         return valid_list
 
     def add_custom_autoexec_path(self, path: str) -> bool:
@@ -151,7 +170,7 @@ class AutoexecManager:
 
     def sync_lua_to_autoexec(self, lua_script_content: str) -> Dict[str, List[str]]:
         """
-        Bơm và ghi đè script Lua vào TẤT CẢ các thư mục Autoexec PC & Thiết bị Giả lập Android.
+        Bơm và ghi đè script Lua vào TẤT CẢ các thư mục Autoexec (PC & Android Termux & Emulator).
         Trả về kết quả chi tiết các nơi đã nạp thành công.
         """
         results = {
@@ -160,22 +179,29 @@ class AutoexecManager:
             "errors": []
         }
 
-        # 1. Đồng bộ vào PC Autoexec folders
-        pc_folders = self.scan_all_autoexec_folders()
-        for folder in pc_folders:
+        # 1. Đồng bộ trực tiếp vào các thư mục Autoexec tìm thấy (PC & Android Native)
+        all_folders = self.scan_all_autoexec_folders()
+        for folder in all_folders:
             try:
                 target_file = os.path.join(folder, "roblox_auto_ip_setter.lua")
                 with open(target_file, "w", encoding="utf-8") as f:
                     f.write(lua_script_content)
-                results["pc_synced"].append(target_file)
-                logger.info(f"Synced Lua script to PC Autoexec: {target_file}")
+                # Cấp quyền đọc ghi
+                try:
+                    os.chmod(target_file, 0o666)
+                except Exception:
+                    pass
+                if folder.startswith("/sdcard") or folder.startswith("/storage"):
+                    results["android_synced"].append(target_file)
+                else:
+                    results["pc_synced"].append(target_file)
+                logger.info(f"Synced Lua script to: {target_file}")
             except Exception as e:
-                results["errors"].append(f"PC ({folder}): {e}")
+                results["errors"].append(f"Folder ({folder}): {e}")
 
-        # 2. Đồng bộ vào Android Emulator qua ADB (nếu có giả lập đang chạy)
+        # 2. Đồng bộ vào Android Emulator qua ADB (nếu chạy trên PC có giả lập nối qua ADB)
         if self.adb_bin:
             try:
-                # Lấy danh sách thiết bị ADB đang online
                 output = subprocess.check_output([self.adb_bin, "devices"], timeout=3).decode("utf-8")
                 devices = []
                 for line in output.splitlines():
@@ -184,7 +210,6 @@ class AutoexecManager:
                         devices.append(parts[0])
 
                 if devices:
-                    # Lưu file tạm để đẩy qua adb push
                     temp_lua = os.path.join(DATA_DIR, "roblox_auto_ip_setter.lua")
                     with open(temp_lua, "w", encoding="utf-8") as f:
                         f.write(lua_script_content)
@@ -192,9 +217,7 @@ class AutoexecManager:
                     for dev in devices:
                         for sd_path in ANDROID_AUTOEXEC_SDCARD_PATHS:
                             try:
-                                # Tạo thư mục nếu chưa có
                                 subprocess.run([self.adb_bin, "-s", dev, "shell", "mkdir", "-p", f'"{sd_path}"'], capture_output=True, timeout=2)
-                                # Push file
                                 target_android_file = f"{sd_path}/roblox_auto_ip_setter.lua"
                                 push_res = subprocess.run([self.adb_bin, "-s", dev, "push", temp_lua, target_android_file], capture_output=True, timeout=3)
                                 if push_res.returncode == 0:
@@ -208,18 +231,21 @@ class AutoexecManager:
         return results
 
     def clean_all_autoexec_scripts(self) -> Dict[str, List[str]]:
-        """Xóa toàn bộ các script đã bơm vào Autoexec trên PC và Android Emulator"""
+        """Xóa toàn bộ các script đã bơm vào Autoexec trên PC và Android"""
         results = {"pc_cleaned": [], "android_cleaned": [], "errors": []}
         
-        # 1. Xóa trên PC
-        pc_folders = self.scan_all_autoexec_folders()
-        for folder in pc_folders:
+        # 1. Xóa trên các thư mục local
+        all_folders = self.scan_all_autoexec_folders()
+        for folder in all_folders:
             for fname in ["roblox_auto_ip_setter.lua", "master_roblox_ip_setter.lua", "set_ip.lua"]:
                 fpath = os.path.join(folder, fname)
                 if os.path.exists(fpath):
                     try:
                         os.remove(fpath)
-                        results["pc_cleaned"].append(fpath)
+                        if folder.startswith("/sdcard") or folder.startswith("/storage"):
+                            results["android_cleaned"].append(fpath)
+                        else:
+                            results["pc_cleaned"].append(fpath)
                     except Exception as e:
                         results["errors"].append(f"{fpath}: {e}")
 

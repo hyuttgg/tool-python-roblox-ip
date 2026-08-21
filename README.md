@@ -1,10 +1,10 @@
 ## 🚀 HƯỚNG DẪN 3 BƯỚC CÀI ĐẶT & CHẠY TOOL TRÊN TERMUX
 
-### 1️⃣ Bước 1: Thay đổi repository Termux
+### 1️⃣ Bước 1: Chuẩn bị môi trường & Cấp quyền bộ nhớ (Termux)
 ```bash
-termux-change-repo
+termux-change-repo && termux-setup-storage
 ```
-📌 *Nhấn **OK** ➔ **OK***
+📌 *Nhấn **OK** ➔ **OK** cho repo, sau đó nhấn **Cho phép (Allow)** khi máy hỏi quyền bộ nhớ để tool lưu vào Tệp tải về (`/sdcard/Download`).*
 
 ---
 
@@ -12,18 +12,18 @@ termux-change-repo
 ```bash
 . <(curl -sL https://raw.githubusercontent.com/hyuttgg/tool-python-roblox-ip/main/SetupRobloxIP)
 ```
-*(Lệnh này sẽ tự động cập nhật hệ thống, cài Python, Git, OpenJDK, SQLite, Pip và tải mã nguồn tool về máy).*
+*(Lệnh này sẽ tự động cập nhật hệ thống, cài Python, Git, OpenJDK, SQLite, Pip và tải mã nguồn tool về thư mục Tải về / Download của máy).*
 
 ---
 
 ### 3️⃣ Bước 3: Chạy tool (Quyền Root / SU)
 ```bash
-su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download/tool-python-roblox-ip && python controller.py"
+su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && (cd /sdcard/Download/tool-python-roblox-ip 2>/dev/null || cd /storage/emulated/0/Download/tool-python-roblox-ip 2>/dev/null || cd /data/data/com.termux/files/home/tool-python-roblox-ip 2>/dev/null || cd \$HOME/tool-python-roblox-ip) && python controller.py"
 ```
 
 ### 📲 Cách 2: Chạy trực tiếp từ GitHub trên Termux (Tự động tải & Cài đặt 1 dòng)
 ```bash
-termux-change-repo && pkg update -y && pkg install -y git && git clone https://github.com/hyuttgg/tool-python-roblox-ip.git && cd tool-python-roblox-ip && bash shell/termux_setup.sh
+termux-setup-storage && termux-change-repo && pkg update -y && pkg install -y git && git clone https://github.com/hyuttgg/tool-python-roblox-ip.git && cd tool-python-roblox-ip && bash shell/termux_setup.sh
 ```
 
 ### 💻 Cách 3: Trình điều khiển trung tâm (Master Controller trên PC)

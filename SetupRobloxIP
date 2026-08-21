@@ -35,10 +35,30 @@ pip install --upgrade pip requests psutil 2>/dev/null || pip3 install requests p
 
 # 3. Tải hoặc cập nhật mã nguồn từ GitHub
 echo -e "${YELLOW}[3/4] [*] Dang dong bo ma nguon tu GitHub (hyuttgg/tool-python-roblox-ip)...${NC}"
+
+# Tự động yêu cầu quyền bộ nhớ nếu Termux chưa có
+if command -v termux-setup-storage >/dev/null 2>&1; then
+    if [ ! -d "/sdcard/Download" ] && [ ! -d "$HOME/storage/downloads" ]; then
+        echo -e "${YELLOW}[!] Dang yeu cau quyen bo nho (termux-setup-storage)...${NC}"
+        termux-setup-storage || true
+        sleep 1
+    fi
+fi
+
+# Ưu tiên lưu vào thư mục Download của điện thoại
 if [ -d "/sdcard/Download" ]; then
     TARGET_DIR="/sdcard/Download/tool-python-roblox-ip"
+elif [ -d "/storage/emulated/0/Download" ]; then
+    TARGET_DIR="/storage/emulated/0/Download/tool-python-roblox-ip"
+elif [ -d "$HOME/storage/downloads" ]; then
+    TARGET_DIR="$HOME/storage/downloads/tool-python-roblox-ip"
 else
-    TARGET_DIR="$HOME/tool-python-roblox-ip"
+    mkdir -p "/sdcard/Download" 2>/dev/null || true
+    if [ -d "/sdcard/Download" ]; then
+        TARGET_DIR="/sdcard/Download/tool-python-roblox-ip"
+    else
+        TARGET_DIR="$HOME/tool-python-roblox-ip"
+    fi
 fi
 
 if [ -d "$TARGET_DIR" ]; then
@@ -46,6 +66,7 @@ if [ -d "$TARGET_DIR" ]; then
     cd "$TARGET_DIR"
     git pull origin main 2>/dev/null || true
 else
+    echo -e "${CYAN}[*] Dang clone ma nguon vao $TARGET_DIR...${NC}"
     git clone https://github.com/hyuttgg/tool-python-roblox-ip.git "$TARGET_DIR"
     cd "$TARGET_DIR"
 fi
