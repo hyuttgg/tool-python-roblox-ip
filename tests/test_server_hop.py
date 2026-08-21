@@ -24,5 +24,14 @@ class TestServerHopRotation(unittest.TestCase):
             self.assertIn("JP", data.get("region"))
             self.assertNotEqual(data.get("new_ip"), "1.1.1.1:80")
 
+    def test_fast_lua_wipe_and_replace(self):
+        import os
+        from core.lua_generator import LuaScriptGenerator, OUTPUT_LUA_DIR
+        gen = LuaScriptGenerator()
+        script = gen.fast_regenerate_and_sync("ROBLOX-TAG-TEST", "103.1.2.3:8080", "[KR] Korea", "KR")
+        self.assertTrue(len(script) > 50)
+        self.assertTrue(os.path.exists(os.path.join(OUTPUT_LUA_DIR, "master_roblox_ip_setter.lua")))
+        self.assertTrue(os.path.exists(os.path.join(OUTPUT_LUA_DIR, "ROBLOX-TAG-TEST.lua")))
+
 if __name__ == "__main__":
     unittest.main()

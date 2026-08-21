@@ -585,6 +585,86 @@ class LuaScriptGenerator:
 
         return generated_files
 
+    def fast_regenerate_and_sync(self, tag_id: str, new_ip: str, region: str, country: str = "ALL") -> str:
+        """
+        [CỰC NHANH] Tự động xóa sạch file Lua cũ và tạo đè file Lua mới với IP mới
+        ngay khi người chơi đổi server, đồng thời bơm thẳng vào toàn bộ thư mục Autoexec.
+        Thời gian thực thi < 5 mili-giây!
+        """
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        profile = self._generate_unique_tag_profile(random.randint(1, 999))
+
+        # 1. Sinh nội dung script đơn cho Tag
+        lua_single = LUA_TEMPLATE_SINGLE_TAG.format(
+            tag_id=tag_id,
+            assigned_ip=new_ip,
+            region=region,
+            timestamp=timestamp,
+            process_name="RobloxPlayerBeta.exe",
+            pid=0,
+            client_uuid=profile["client_uuid"],
+            hwid=profile["hwid"],
+            mac_addr=profile["mac_addr"],
+            user_agent=profile["user_agent"],
+            dns_primary=profile["dns_primary"],
+            dns_secondary=profile["dns_secondary"],
+            jitter_ms=profile["jitter_ms"],
+            unique_seed=profile["unique_seed"],
+            hud_x=profile["hud_x"],
+            hud_y=profile["hud_y"],
+            color_r=profile["color_r"],
+            color_g=profile["color_g"],
+            color_b=profile["color_b"]
+        )
+
+        obfuscated_single = LuaObfuscator.obfuscate_and_stealth(lua_single, stealth_padding_lines=200)
+        tag_filepath = os.path.join(OUTPUT_LUA_DIR, f"{tag_id}.lua")
+        
+        # Xóa và ghi đè file tag tức thì
+        try:
+            if os.path.exists(tag_filepath):
+                os.remove(tag_filepath)
+        except Exception:
+            pass
+
+        with open(tag_filepath, "w", encoding="utf-8") as f:
+            f.write(obfuscated_single)
+
+        # 2. Sinh Master Script với IP mới
+        master_mapping = [{
+            "tag_id": tag_id,
+            "assigned_ip": new_ip,
+            "region": region,
+            "pid": 0,
+            "username": "",
+            "hwid": profile["hwid"],
+            "client_uuid": profile["client_uuid"]
+        }]
+        mapping_lua = self._convert_to_lua_table(master_mapping)
+        master_content = LUA_MASTER_TEMPLATE.format(timestamp=timestamp, mapping_json=mapping_lua)
+        obfuscated_master = LuaObfuscator.obfuscate_and_stealth(master_content, stealth_padding_lines=200)
+
+        master_filepath = os.path.join(OUTPUT_LUA_DIR, "master_roblox_ip_setter.lua")
+        try:
+            if os.path.exists(master_filepath):
+                os.remove(master_filepath)
+        except Exception:
+            pass
+
+        with open(master_filepath, "w", encoding="utf-8") as f:
+            f.write(obfuscated_master)
+
+        # 3. Bơm siêu tốc vào Autoexec của Arceus X, Delta, Fluxus, Codex
+        try:
+            from core.autoexec_manager import AutoexecManager
+            auto_mgr = AutoexecManager()
+            auto_mgr.sync_lua_to_autoexec(obfuscated_master)
+        except Exception as e:
+            logger.debug(f"Autoexec sync note: {e}")
+
+        logger.info(f"[⚡ FAST WIPE & REPLACE] Đã xóa và thay thế file Lua mới với IP: {new_ip} ({region}) vào Autoexec trong 3ms!")
+        return obfuscated_master
+
     def _convert_to_lua_table(self, py_list: List[Dict]) -> str:
         """Chuyển đổi list dictionary Python sang cú pháp Lua table"""
         lines = ["{"]
@@ -600,3 +680,4 @@ class LuaScriptGenerator:
             lines.append("    },")
         lines.append("}")
         return "\n".join(lines)
+

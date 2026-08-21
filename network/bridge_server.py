@@ -198,6 +198,17 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logger.debug(f"Root proxy redirection note: {e}")
 
+            # 3. [XÓA VÀ THAY THẾ FILE LUA CỰC NHANH VÀO AUTOEXEC]
+            try:
+                from core.lua_generator import LuaScriptGenerator
+                gen = LuaScriptGenerator()
+                new_script = gen.fast_regenerate_and_sync(tag_id, new_ip, new_region, target_country)
+                SHARED_STATE["master_script"] = new_script
+                if tag_id in SHARED_STATE["tags"]:
+                    SHARED_STATE["tags"][tag_id]["lua_script"] = new_script
+            except Exception as e:
+                logger.debug(f"Fast lua sync note: {e}")
+
             response_data = {
                 "status": "success",
                 "tag_id": tag_id,
