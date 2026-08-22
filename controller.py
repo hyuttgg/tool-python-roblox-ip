@@ -68,6 +68,7 @@ from core.autoexec_manager import AutoexecManager
 from core.clone_scanner import RobloxCloneScanner, RobloxCloneProfile
 from core.network_inspector import NetworkInspector
 from devices.ugphone_bridge import UGPhoneBridge
+from network.scrapestack_client import ScrapestackClient
 
 class MasterController:
     def __init__(self):
@@ -79,6 +80,7 @@ class MasterController:
         self.ugphone_bridge = UGPhoneBridge()
         self.lua_generator = LuaScriptGenerator()
         self.autoexec_manager = AutoexecManager()
+        self.scrapestack = ScrapestackClient()
         self.bridge_server = RobloxBridgeServer(host="127.0.0.1", port=8888)
         self.bridge_server.start()
         
@@ -201,8 +203,11 @@ class MasterController:
         autoexec_status = f"{Colors.GREEN}[DA BOM VAO AUTOEXEC]{Colors.RESET}" if self.autoexec_synced_count > 0 else f"{Colors.CYAN}[HTTP BRIDGE SAN SANG]{Colors.RESET}"
         autoexec_vis = "[DA BOM VAO AUTOEXEC]" if self.autoexec_synced_count > 0 else "[HTTP BRIDGE SAN SANG]"
 
-        st_col = f"  {Colors.GRAY}Roblox:{Colors.RESET} {tag_status_str}  {Colors.C_PURPLE}|{Colors.RESET}  {Colors.GRAY}Client:{Colors.RESET} {autoexec_status}"
-        st_vis = f"  Roblox: {tag_vis}  |  Client: {autoexec_vis}"
+        proxy_status = f"{Colors.GREEN}[SCRAPESTACK: 5d1c5fb0...]{Colors.RESET}"
+        proxy_vis = "[SCRAPESTACK: 5d1c5fb0...]"
+
+        st_col = f"  {Colors.GRAY}Roblox:{Colors.RESET} {tag_status_str} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Client:{Colors.RESET} {autoexec_status} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Proxy:{Colors.RESET} {proxy_status}"
+        st_vis = f"  Roblox: {tag_vis} | Client: {autoexec_vis} | Proxy: {proxy_vis}"
         print(pad_line(st_col, len(st_vis)))
 
         print(mid)
@@ -211,9 +216,9 @@ class MasterController:
             (Colors.C_RED, "[1] ⚡ QUET TOAN BO TAG & CLONE (MỞ / CHƯA MỞ) & TU DONG BOM AUTOEXEC"),
             (Colors.C_ORANGE, "[2] 📊 Khoi chay Dashboard Real-time (Live Monitoring 3s)"),
             (Colors.C_YELLOW, "[3] 🔄 Cap phat lai IP cho toan bo ban Clone & Autoexec"),
-            (Colors.C_GREEN, "[4] 🔍 Chay kiem tra chan doan mang chuyen sau (Diagnostics)"),
+            (Colors.C_GREEN, "[4] 🔍 Chay kiem tra chan doan mang chuyen sau & Scrapestack"),
             (Colors.C_CYAN, "[5] 📋 Xem danh sach Cloned Instances & Network Profiles"),
-            (Colors.C_BLUE, "[6] 🌐 Tai ProxyScrape Live toan cau & Sinh Pool IP da quoc gia"),
+            (Colors.C_BLUE, "[6] 🌐 Quan ly Pool IP, ProxyScrape & Scrapestack API (5d1c5fb0...)"),
             (Colors.C_PURPLE, "[7] 📑 Xuat bao cao Snapshots JSON & Huong dan su dung Executor"),
             (Colors.LIGHT_RED, "[8] 🗑️  XOA / DON DEP Autoexec, Script Lua & Reset Pool IP"),
             (Colors.GRAY, "[0] ❌ Thoat chuong trinh"),
@@ -511,6 +516,16 @@ class MasterController:
         else:
             print(f"      -> Java Engine: {Colors.GREEN}READY{Colors.RESET} (Chua co IP gan)")
 
+        print(f"\n  [*] 6. Kiem tra ket noi Scrapestack Proxy API (Key: 5d1c5fb0...)...")
+        s_diag = self.scrapestack.test_connection()
+        s_st = s_diag.get("status", "OFFLINE")
+        s_lat = s_diag.get("latency_ms", -1)
+        s_ip = s_diag.get("proxy_ip", "N/A")
+        s_col = Colors.GREEN if s_st == "ONLINE" else Colors.LIGHT_RED
+        print(f"      -> Scrapestack Proxy API: {s_col}{s_st}{Colors.RESET} ({s_lat} ms)")
+        if s_st == "ONLINE":
+            print(f"      -> Live Proxied IP: {Colors.CYAN}{s_ip}{Colors.RESET} (Ready for Roblox multi-tags)")
+
         print(f"\n{Colors.GREEN}[+] Hoan tat chan doan mang chuyen sau!{Colors.RESET}")
         safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
 
@@ -535,13 +550,15 @@ class MasterController:
         safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
 
     def generate_ip_pool(self):
-        """[6] Sinh thêm IP hoặc Tải Live Proxy từ ProxyScrape API"""
+        """[6] Sinh thêm IP hoặc Tải Live Proxy từ ProxyScrape / Scrapestack API"""
         self.clear_screen()
         print(f"{Colors.LIGHT_RED}{Colors.BOLD}================ [ 6. QUAN LY POOL IP & PROXY TOAN CAU ] ================{Colors.RESET}\n")
         print(f"  {Colors.BOLD}[1]{Colors.RESET} {Colors.GREEN}Tai Proxy HTTP Live toan cau truc tiep tu ProxyScrape API{Colors.RESET}")
-        print(f"  {Colors.BOLD}[2]{Colors.RESET} {Colors.YELLOW}Tu sinh danh sach IP ngau nhien (Virtual Dedicated IPs){Colors.RESET}\n")
+        print(f"  {Colors.BOLD}[2]{Colors.RESET} {Colors.YELLOW}Tu sinh danh sach IP ngau nhien (Virtual Dedicated IPs){Colors.RESET}")
+        print(f"  {Colors.BOLD}[3]{Colors.RESET} {Colors.CYAN}Kiem tra & Lay IP truc tiep tu Scrapestack Proxy API (Key: 5d1c5fb0...){Colors.RESET}")
+        print(f"  {Colors.BOLD}[4]{Colors.RESET} {Colors.LIGHT_CYAN}Cap phat IP Scrapestack cho toan bo ban Clone dang co{Colors.RESET}\n")
         
-        mode = safe_input(f"{Colors.BOLD}Chon che do (1 hoac 2): {Colors.RESET}")
+        mode = safe_input(f"{Colors.BOLD}Chon che do (1-4): {Colors.RESET}")
         
         if mode == "1":
             print(f"\n  {Colors.CYAN}[*] Dang ket noi ProxyScrape API de lay danh sach Proxy HTTP toan cau...{Colors.RESET}")
@@ -552,6 +569,22 @@ class MasterController:
             for p in proxies[:10]:
                 print(f"    -> {Colors.CYAN}{p}{Colors.RESET}")
             print(f"\n  {Colors.GREEN}[*] Da luu toan bo danh sach vao: {PROXIES_CACHE_FILE}{Colors.RESET}")
+        elif mode == "3":
+            print(f"\n  {Colors.CYAN}[*] Dang ket noi Scrapestack Proxy API de kiem tra...{Colors.RESET}")
+            res = self.scrapestack.test_connection()
+            if res.get("status") == "ONLINE":
+                print(f"  {Colors.GREEN}{Colors.BOLD}[+] Scrapestack Proxy ONLINE! (Latency: {res.get('latency_ms')} ms){Colors.RESET}")
+                print(f"  {Colors.WHITE}  - API Key     : {Colors.YELLOW}{res.get('api_key_masked')}{Colors.RESET}")
+                print(f"  {Colors.WHITE}  - Live IP     : {Colors.CYAN}{res.get('proxy_ip')}{Colors.RESET}")
+                print(f"  {Colors.WHITE}  - Proxy Pool  : {Colors.GREEN}Active (Standard Proxies){Colors.RESET}")
+            else:
+                print(f"  {Colors.RED}[!] Ket noi Scrapestack that bai: {res.get('error')}{Colors.RESET}")
+        elif mode == "4":
+            print(f"\n  {Colors.CYAN}[*] Dang lay dải IP tu Scrapestack Proxy...{Colors.RESET}")
+            s_proxies = self.scrapestack.batch_fetch_proxies(count=len(self.active_tags) or 5)
+            print(f"  {Colors.GREEN}[+] Da lay thanh cong {len(s_proxies)} IP tu Scrapestack:{Colors.RESET}")
+            for sp in s_proxies:
+                print(f"    -> {Colors.CYAN}{sp['ip']}{Colors.RESET} ({sp['region']})")
         else:
             user_val = safe_input(f"\n{Colors.BOLD}Nhap so luong IP muon sinh (vi du: 20): {Colors.RESET}")
             try:
@@ -566,6 +599,7 @@ class MasterController:
                 print(f"  ... va {len(ips) - 10} IP khac.")
         
         safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
+
 
     def export_report_and_guide(self):
         """[7] Xuất báo cáo JSON và Hiển thị hướng dẫn Executor"""

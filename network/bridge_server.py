@@ -235,6 +235,23 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(SHARED_STATE["tags"], indent=2).encode("utf-8"))
             return
 
+        # 5. API: Scrapestack Proxy Status & IP Query (Key: 5d1c5fb06ff44e84a97fcc7e2720fd3f)
+        if path in ["/api/scrapestack", "/api/scrapestack/status", "/api/scrapestack/ip"]:
+            from network.scrapestack_client import ScrapestackClient
+            s_client = ScrapestackClient()
+            if path == "/api/scrapestack/ip":
+                ip = s_client.get_proxy_ip()
+                resp = {"status": "ONLINE" if ip else "OFFLINE", "proxy_ip": ip}
+            else:
+                resp = s_client.test_connection()
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self._send_cors_headers()
+            self.end_headers()
+            self.wfile.write(json.dumps(resp, ensure_ascii=False).encode("utf-8"))
+            return
+
         # Fallback 404
         self.send_response(404)
         self.end_headers()

@@ -1,0 +1,9 @@
+{
+  "provider": "scrapestack",
+  "api_key": "5d1c5fb06ff44e84a97fcc7e2720fd3f",
+  "base_url": "http://api.scrapestack.com/scrape",
+  "enabled": true,
+  "timeout_sec": 8.0,
+  "default_country": "ALL",
+  "notes": "Scrapestack Proxy API Key lien ket thanh cong voi he thong Roblox Multi-Tag Controller"
+}
