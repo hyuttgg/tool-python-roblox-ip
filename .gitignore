@@ -6,4 +6,8 @@ __pycache__/
 .coverage
 htmlcov/
 *.log
+logs/
+.vscode/
+tool-python-roblox-ip-main/
 rblox/
+
