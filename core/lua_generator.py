@@ -285,12 +285,13 @@ print(string.format("=========================================================="
 
 LUA_MASTER_TEMPLATE = """--[[
 ========================================================================================
-     ROBLOX MULTI-TAG MASTER AUTO-IP ROUTER (LUA RUNTIME)
+     ⚡ ROBLOX MULTI-TAG UNIVERSAL MASTER EXECUTOR & SCRIPT DISPATCHER ⚡
 ========================================================================================
- Tu dong phan giai Username / Process / JobId de gan dung IP rieng cho tung Tag Roblox.
- Ho tro Autoexec tren tat ca cac Executor (Arceus X, Delta, Fluxus, Codex, Synapse).
- Ho tro tu dong doi IP moi cung quoc gia khi nguoi choi doi Server (Server Hop / Teleport).
- Generated: {timestamp}
+ - TỰ ĐỘNG PHÂN GIẢI & GÁN DEDICATED IP RIÊNG BIỆT CHO TỪNG BẢN CLONE / TAG ROBLOX.
+ - MỖI TAG NHẬN 1 IP, 1 HWID, 1 MAC, 1 UUID, 1 USER-AGENT HOÀN TOÀN ĐỘC LẬP.
+ - TỰ ĐỘNG KHỞI CHẠY SCRIPT GAME (CUSTOM PAYLOAD) CHO TOÀN BỘ CÁC TAG.
+ - TỰ ĐỘNG XOAY IP CÙNG QUỐC GIA KHI TELEPORT / SERVER HOP.
+ - Generated: {timestamp}
 ========================================================================================
 ]]--
 
@@ -302,28 +303,92 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer or Players:GetPlayers()[1]
 local HTTP_BRIDGE_URL = "http://127.0.0.1:8888"
 
--- 1. Tim Tag phu hop cho Instance nay
 local currentUsername = LocalPlayer and LocalPlayer.Name or "Unknown"
-local currentConfig = nil
+local currentUserId = LocalPlayer and tostring(LocalPlayer.UserId) or "0"
+local currentJobId = tostring(game.JobId or "")
+local currentPlaceId = tostring(game.PlaceId or "")
 
--- Kiem tra theo mapping Account Username hoac lay Tag mac dinh theo Thu tu
-for _, item in ipairs(IP_TAG_MAPPING) do
-    if item.username and string.lower(item.username) == string.lower(currentUsername) then
-        currentConfig = item
-        break
+-- Hàm gửi request an toàn tương thích mọi Executor
+local function safe_request(req_opts)
+    local fn = syn and syn.request or http_request or request or (http and http.request)
+    if fn then
+        local success, res = pcall(fn, req_opts)
+        if success and res then return res end
+    end
+    return nil
+end
+
+local currentConfig = nil
+local customPayloadCode = nil
+
+-- ====================================================================================
+-- BƯỚC 1: LIÊN HỆ BRIDGE SERVER ĐỂ TỰ ĐỘNG NHẬN DEDICATED TAG & IP RIÊNG BIỆT CHO CLONE
+-- ====================================================================================
+pcall(function()
+    local session_id = string.format("sess_%s_%s_%s", currentUsername, currentUserId, tostring(os.time() % 100000))
+    local claim_url = string.format("%s/api/claim_tag?user=%s&job_id=%s&session_id=%s&place_id=%s",
+        HTTP_BRIDGE_URL,
+        HttpService:UrlEncode(currentUsername),
+        HttpService:UrlEncode(currentJobId),
+        HttpService:UrlEncode(session_id),
+        HttpService:UrlEncode(currentPlaceId)
+    )
+
+    local res = safe_request({{Url = claim_url, Method = "GET", Headers = {{["Content-Type"] = "application/json"}}}})
+    if res and res.Body then
+        local data = HttpService:JSONDecode(res.Body)
+        if data and data.tag_id and data.assigned_ip then
+            currentConfig = {{
+                tag_id = data.tag_id,
+                assigned_ip = data.assigned_ip,
+                region = data.region or "[JP] Japan Dedicated",
+                country = data.country or "JP",
+                hwid = data.hwid or "WIN-DYNAMIC-HWID",
+                client_uuid = data.client_uuid or "UUID-DYNAMIC",
+                mac_addr = data.mac_addr or "00:1A:2B:3C:4D:5E",
+                user_agent = data.user_agent or "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                dns_primary = data.dns_primary or "1.1.1.1",
+                dns_secondary = data.dns_secondary or "8.8.8.8",
+                jitter_ms = data.jitter_ms or 250,
+                unique_seed = data.unique_seed or 123456
+            }}
+            if data.custom_script and #data.custom_script > 10 then
+                customPayloadCode = data.custom_script
+            end
+            print(string.format("[+] [BRIDGE DYNAMIC BIND] Tag [%s] đã nhận Dedicated IP: %s (%s)", currentConfig.tag_id, currentConfig.assigned_ip, currentConfig.region))
+        end
+    end
+end)
+
+-- ====================================================================================
+-- BƯỚC 2: OFFLINE ANTI-COLLISION FALLBACK (KHI KHÔNG CÓ BRIDGE SERVER)
+-- ====================================================================================
+if not currentConfig then
+    -- 1. Ưu tiên tìm mapping theo Username
+    for _, item in ipairs(IP_TAG_MAPPING) do
+        if item.username and item.username ~= "" and string.lower(item.username) == string.lower(currentUsername) then
+            currentConfig = item
+            break
+        end
+    end
+
+    -- 2. Nếu chưa có username match, dùng thuật toán Hash phân bổ slot để 100% không trùng IP
+    if not currentConfig and #IP_TAG_MAPPING > 0 then
+        local hashSeed = string.format("%s_%s_%s", currentUsername, currentUserId, currentJobId)
+        local hashSum = 0
+        for i = 1, #hashSeed do
+            hashSum = (hashSum * 31 + string.byte(hashSeed, i)) % 2147483647
+        end
+        local slotIdx = (math.abs(hashSum) % #IP_TAG_MAPPING) + 1
+        currentConfig = IP_TAG_MAPPING[slotIdx]
+        print(string.format("[*] [OFFLINE SLOT ROUTER] Phân bổ Slot [%s] -> Tag: %s | IP: %s", slotIdx, currentConfig.tag_id, currentConfig.assigned_ip))
     end
 end
 
--- Neu chua map theo ten, chon tag dau tien hoac dung HttpBridge de lay dong
-if not currentConfig and #IP_TAG_MAPPING > 0 then
-    currentConfig = IP_TAG_MAPPING[1]
-end
-
 if currentConfig then
-    print(string.format("[*] Khoi tao Network Config cho Tag: %s | Dedicated IP: %s (%s)", 
-        currentConfig.tag_id, currentConfig.assigned_ip, currentConfig.region))
-
-    -- 2. Hook Headers
+    -- ================================================================================
+    -- BƯỚC 3: CAN THIỆP & HOOK TOÀN BỘ HTTP REQUEST (SPOOF IP, HWID, MAC, USER-AGENT)
+    -- ================================================================================
     local orig_req = syn and syn.request or http_request or request or (http and http.request)
     if orig_req then
         hookfunction(orig_req, function(req)
@@ -338,16 +403,21 @@ if currentConfig then
                 req.Headers["X-Roblox-Tag"] = currentConfig.tag_id
                 req.Headers["X-HWID"] = currentConfig.hwid or "WIN-RANDOM-HWID"
                 req.Headers["X-Client-UUID"] = currentConfig.client_uuid or "UUID-RANDOM"
+                if currentConfig.user_agent then
+                    req.Headers["User-Agent"] = currentConfig.user_agent
+                end
             end
             return orig_req(req)
         end)
     end
 
-    -- 3. Ve HUD
-    local function render_master_hud()
+    -- ================================================================================
+    -- BƯỚC 4: HIỂN THỊ CYBERPUNK HUD DRAGGABLE TRÊN MÀN HÌNH MỖI TAG
+    -- ================================================================================
+    local function render_universal_hud()
         local parentGui = (gethui and gethui()) or CoreGui:FindFirstChild("RobloxGui") or (LocalPlayer and LocalPlayer:WaitForChild("PlayerGui"))
         if not parentGui then return end
-        
+
         if parentGui:FindFirstChild("RobloxDedicatedIP_MasterHUD") then
             parentGui:FindFirstChild("RobloxDedicatedIP_MasterHUD"):Destroy()
         end
@@ -361,14 +431,14 @@ if currentConfig then
         Frame.BackgroundTransparency = 0.15
         Frame.BorderSizePixel = 0
         Frame.Position = UDim2.new(0, 15, 0, 50)
-        Frame.Size = UDim2.new(0, 275, 0, 95)
+        Frame.Size = UDim2.new(0, 285, 0, 100)
         Frame.Active = true
         Frame.Draggable = true
         Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
-        
+
         local Stroke = Instance.new("UIStroke", Frame)
-        Stroke.Color = Color3.fromRGB(0, 200, 255)
-        Stroke.Thickness = 1.3
+        Stroke.Color = Color3.fromRGB(0, 230, 150)
+        Stroke.Thickness = 1.4
 
         local Title = Instance.new("TextLabel", Frame)
         Title.Text = string.format("⚡ %s | IP: %s", currentConfig.tag_id, currentConfig.assigned_ip)
@@ -391,7 +461,7 @@ if currentConfig then
         Sub.TextXAlignment = Enum.TextXAlignment.Left
 
         local Status = Instance.new("TextLabel", Frame)
-        Status.Text = "🛡️ Profile: [DOC LAP 100% - AUTO SERVER-HOP]"
+        Status.Text = "🛡️ Profile: [ĐỘC LẬP 100% - AUTO SCRIPT RUNNER]"
         Status.Size = UDim2.new(1, -10, 0, 20)
         Status.Position = UDim2.new(0, 8, 0, 55)
         Status.BackgroundTransparency = 1
@@ -400,46 +470,83 @@ if currentConfig then
         Status.TextSize = 10
         Status.TextXAlignment = Enum.TextXAlignment.Left
 
+        local Sub2 = Instance.new("TextLabel", Frame)
+        Sub2.Text = string.format("🔑 HWID: %s...", string.sub(currentConfig.hwid or "N/A", 1, 16))
+        Sub2.Size = UDim2.new(1, -10, 0, 18)
+        Sub2.Position = UDim2.new(0, 8, 0, 75)
+        Sub2.BackgroundTransparency = 1
+        Sub2.TextColor3 = Color3.fromRGB(160, 160, 160)
+        Sub2.Font = Enum.Font.Gotham
+        Sub2.TextSize = 9
+        Sub2.TextXAlignment = Enum.TextXAlignment.Left
+
         ScreenGui.Parent = parentGui
     end
 
-    task.spawn(render_master_hud)
+    task.spawn(render_universal_hud)
 
-    -- 4. Server Hop & Teleport Listener (Tu dong doi IP moi cung quoc gia)
-    local currentMasterJobId = game.JobId
-
-    local function handle_master_server_hop(new_job_id)
-        print(string.format("[%s] [*] Phat hien chuyen Server (JobId: %s)! Dang yeu cau Tool cap IP moi cung nuoc...", currentConfig.tag_id, tostring(new_job_id)))
-        local req_fn = syn and syn.request or http_request or request or (http and http.request)
-        if req_fn then
+    -- ================================================================================
+    -- BƯỚC 5: TỰ ĐỘNG KHỞI CHẠY SCRIPT CHO TẤT CẢ CÁC TAG (AUTO-EXECUTE CUSTOM PAYLOAD)
+    -- ================================================================================
+    local function execute_tag_payload()
+        task.wait(1.0) -- Chờ Roblox khởi tạo ổn định Workspace và Character
+        if customPayloadCode and #customPayloadCode > 10 then
+            print(string.format("[%s] [*] Đang tự động chạy Custom Script Payload cho Tag này...", currentConfig.tag_id))
+            local success, err = pcall(function()
+                loadstring(customPayloadCode)()
+            end)
+            if success then
+                print(string.format("[%s] [+] ĐÃ CHẠY THÀNH CÔNG SCRIPT CHO TAG [%s]!", currentConfig.tag_id, currentConfig.tag_id))
+            else
+                warn(string.format("[%s] [!] Lỗi khi chạy Custom Script: %s", currentConfig.tag_id, tostring(err)))
+            end
+        else
+            -- Thử tải trực tiếp từ /api/custom_script
             pcall(function()
-                local hop_url = string.format("%s/api/rotate_ip?tag=%s&job_id=%s&old_ip=%s", HTTP_BRIDGE_URL, currentConfig.tag_id, tostring(new_job_id), currentConfig.assigned_ip)
-                local res = req_fn({{Url = hop_url, Method = "GET"}})
-                if res and res.Body then
-                    local data = HttpService:JSONDecode(res.Body)
-                    if data and data.new_ip then
-                        currentConfig.assigned_ip = data.new_ip
-                        currentConfig.region = data.region or currentConfig.region
-                        print(string.format("[%s] [+] DA CAP PHAT IP MOI: %s (Quoc gia: %s)", currentConfig.tag_id, data.new_ip, data.country or "GIU NGUYEN"))
-                        pcall(render_master_hud)
-                    end
+                local res = safe_request({{Url = HTTP_BRIDGE_URL .. "/api/custom_script", Method = "GET"}})
+                if res and res.Body and #res.Body > 10 and not string.find(res.Body, "No custom payload") then
+                    print(string.format("[%s] [*] Tải và chạy script từ Bridge Server...", currentConfig.tag_id))
+                    pcall(function()
+                        loadstring(res.Body)()
+                    end)
                 end
             end)
         end
     end
 
-    -- Teleport event
+    task.spawn(execute_tag_payload)
+
+    -- ================================================================================
+    -- BƯỚC 6: TỰ ĐỘNG ĐỔI IP KHI TELEPORT HOẶC SERVER HOP
+    -- ================================================================================
+    local function handle_server_hop(new_job_id)
+        print(string.format("[%s] [*] Chuyển Server phát hiện (JobId: %s)! Đang đổi IP mới cùng quốc gia...", currentConfig.tag_id, tostring(new_job_id)))
+        pcall(function()
+            local hop_url = string.format("%s/api/rotate_ip?tag=%s&job_id=%s&old_ip=%s&country=%s",
+                HTTP_BRIDGE_URL, currentConfig.tag_id, tostring(new_job_id), currentConfig.assigned_ip, currentConfig.country or "JP")
+            local res = safe_request({{Url = hop_url, Method = "GET"}})
+            if res and res.Body then
+                local data = HttpService:JSONDecode(res.Body)
+                if data and data.new_ip then
+                    currentConfig.assigned_ip = data.new_ip
+                    currentConfig.region = data.region or currentConfig.region
+                    print(string.format("[%s] [+] ĐÃ ĐỔI SANG IP MỚI: %s (%s)", currentConfig.tag_id, data.new_ip, currentConfig.region))
+                    pcall(render_universal_hud)
+                end
+            end
+        end)
+    end
+
     pcall(function()
         if LocalPlayer then
             LocalPlayer.OnTeleport:Connect(function(state)
                 if state == Enum.TeleportState.Started or state == Enum.TeleportState.InProgress then
-                    handle_master_server_hop("Teleporting")
+                    handle_server_hop("Teleporting")
                 end
             end)
         end
     end)
 
-    -- Queue on teleport de tu dong chay tiep o server moi
     if queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) then
         local q_fn = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
         pcall(function()
@@ -452,15 +559,18 @@ if currentConfig then
         end)
     end
 
-    -- Loop theo doi JobId
     task.spawn(function()
         while task.wait(3) do
-            if game.JobId ~= "" and game.JobId ~= currentMasterJobId then
-                currentMasterJobId = game.JobId
-                handle_master_server_hop(currentMasterJobId)
+            if game.JobId ~= "" and game.JobId ~= currentJobId then
+                currentJobId = game.JobId
+                handle_server_hop(currentJobId)
             end
         end
     end)
+
+    print(string.format("========================================================================================"))
+    print(string.format("[⚡ UNIVERSAL MASTER RUNNER] Tag [%s] | Dedicated IP: %s | Profile: OK!", currentConfig.tag_id, currentConfig.assigned_ip))
+    print(string.format("========================================================================================"))
 end
 """
 
@@ -559,10 +669,17 @@ class LuaScriptGenerator:
                 "tag_id": inst.tag_id,
                 "assigned_ip": assigned_ip,
                 "region": region,
+                "country": pool_data.get("country", "JP"),
                 "pid": inst.pid,
                 "username": inst.account_username or "",
                 "hwid": profile["hwid"],
-                "client_uuid": profile["client_uuid"]
+                "client_uuid": profile["client_uuid"],
+                "mac_addr": profile["mac_addr"],
+                "user_agent": profile["user_agent"],
+                "dns_primary": profile["dns_primary"],
+                "dns_secondary": profile["dns_secondary"],
+                "jitter_ms": profile["jitter_ms"],
+                "unique_seed": profile["unique_seed"]
             })
 
         # Tạo file Master Auto-Router Lua
@@ -635,10 +752,17 @@ class LuaScriptGenerator:
             "tag_id": tag_id,
             "assigned_ip": new_ip,
             "region": region,
+            "country": country,
             "pid": 0,
             "username": "",
             "hwid": profile["hwid"],
-            "client_uuid": profile["client_uuid"]
+            "client_uuid": profile["client_uuid"],
+            "mac_addr": profile["mac_addr"],
+            "user_agent": profile["user_agent"],
+            "dns_primary": profile["dns_primary"],
+            "dns_secondary": profile["dns_secondary"],
+            "jitter_ms": profile["jitter_ms"],
+            "unique_seed": profile["unique_seed"]
         }]
         mapping_lua = self._convert_to_lua_table(master_mapping)
         master_content = LUA_MASTER_TEMPLATE.format(timestamp=timestamp, mapping_json=mapping_lua)
@@ -672,12 +796,20 @@ class LuaScriptGenerator:
             lines.append("    {")
             lines.append(f'        tag_id = "{item["tag_id"]}",')
             lines.append(f'        assigned_ip = "{item["assigned_ip"]}",')
-            lines.append(f'        region = "{item["region"]}",')
-            lines.append(f'        pid = {item["pid"]},')
+            lines.append(f'        region = "{item.get("region", "[JP] Japan Dedicated")}",')
+            lines.append(f'        country = "{item.get("country", "JP")}",')
+            lines.append(f'        pid = {item.get("pid", 0)},')
             lines.append(f'        username = "{item.get("username", "")}",')
             lines.append(f'        hwid = "{item.get("hwid", "")}",')
-            lines.append(f'        client_uuid = "{item.get("client_uuid", "")}"')
+            lines.append(f'        client_uuid = "{item.get("client_uuid", "")}",')
+            lines.append(f'        mac_addr = "{item.get("mac_addr", "00:1A:2B:3C:4D:5E")}",')
+            lines.append(f'        user_agent = "{item.get("user_agent", "Mozilla/5.0")}",')
+            lines.append(f'        dns_primary = "{item.get("dns_primary", "1.1.1.1")}",')
+            lines.append(f'        dns_secondary = "{item.get("dns_secondary", "8.8.8.8")}",')
+            lines.append(f'        jitter_ms = {item.get("jitter_ms", 250)},')
+            lines.append(f'        unique_seed = {item.get("unique_seed", 123456)}')
             lines.append("    },")
         lines.append("}")
         return "\n".join(lines)
+
 

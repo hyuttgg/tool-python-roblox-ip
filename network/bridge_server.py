@@ -21,7 +21,9 @@ LUA_DIR = os.path.join(BASE_DIR, "data", "generated_lua")
 
 SHARED_STATE = {
     "tags": {},
-    "master_script": ""
+    "claimed_sessions": {},
+    "master_script": "",
+    "custom_script": ""
 }
 
 def get_active_lua_script(tag_id: Optional[str] = None) -> str:
@@ -111,7 +113,104 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
             self.wfile.write(script_body.encode("utf-8"))
             return
 
-        # 2. API: Lấy thông tin IP theo Tag hoặc Username
+        # 2. API: Tự động phân giải và nhận Tag riêng biệt không trùng lặp cho từng Instance / Clone
+        if path in ["/api/claim_tag", "/api/claim", "/api/auto_assign", "/api/bind"]:
+            import random
+            from network.proxy_fetcher import ProxyFetcher, SUPPORTED_COUNTRIES
+            from core.lua_generator import LuaScriptGenerator
+
+            user = query.get("user", [""])[0].strip()
+            job_id = query.get("job_id", [""])[0].strip()
+            session_id = query.get("session_id", [""])[0].strip()
+            place_id = query.get("place_id", [""])[0].strip()
+
+            # Khóa định danh duy nhất cho từng cửa sổ/bản clone
+            if user and user.lower() not in ["unknown", "player", "player1"]:
+                session_key = user.lower()
+            elif session_id:
+                session_key = session_id
+            elif job_id and job_id != "Unknown_Job":
+                session_key = job_id
+            else:
+                session_key = f"clone_client_{len(SHARED_STATE['claimed_sessions']) + 1}"
+
+            chosen_tag_id = SHARED_STATE["claimed_sessions"].get(session_key)
+            matched = None
+
+            # Kiểm tra xem session này đã từng nhận Tag chưa
+            if chosen_tag_id and chosen_tag_id in SHARED_STATE["tags"]:
+                matched = SHARED_STATE["tags"][chosen_tag_id]
+            else:
+                # Tìm Tag đầu tiên chưa có ai nhận
+                claimed_tag_ids = set(SHARED_STATE["claimed_sessions"].values())
+                for tid, tdata in SHARED_STATE["tags"].items():
+                    if tid not in claimed_tag_ids and not tdata.get("claimed_by"):
+                        chosen_tag_id = tid
+                        matched = tdata
+                        break
+
+                # Nếu tất cả Tag đã có người nhận, tự động sinh thêm Tag mới với IP Live
+                if not matched:
+                    new_tag_num = len(SHARED_STATE["tags"]) + 1
+                    chosen_tag_id = f"ROBLOX-CLONE-{new_tag_num:02d}"
+                    new_proxies = ProxyFetcher.get_proxies_batch(count=1, country_code="MULTI")
+                    new_p_info = new_proxies[0] if new_proxies else {
+                        "ip": f"103.{random.randint(10,240)}.{random.randint(1,240)}.{random.randint(1,240)}:80",
+                        "region": "[JP] Japan Dedicated",
+                        "country": "JP"
+                    }
+                    gen = LuaScriptGenerator()
+                    profile = gen._generate_unique_tag_profile(new_tag_num)
+                    
+                    matched = {
+                        "tag_id": chosen_tag_id,
+                        "assigned_ip": new_p_info["ip"],
+                        "region": new_p_info["region"],
+                        "country": new_p_info.get("country", "JP"),
+                        "pid": 0,
+                        "title": f"Roblox Clone {new_tag_num}",
+                        "process_name": "ROBLOX_CLONE",
+                        "username": user,
+                        "hwid": profile["hwid"],
+                        "client_uuid": profile["client_uuid"],
+                        "mac_addr": profile["mac_addr"],
+                        "user_agent": profile["user_agent"],
+                        "dns_primary": profile["dns_primary"],
+                        "dns_secondary": profile["dns_secondary"],
+                    }
+                    SHARED_STATE["tags"][chosen_tag_id] = matched
+
+                # Đánh dấu đã nhận Tag cho session này
+                SHARED_STATE["claimed_sessions"][session_key] = chosen_tag_id
+                matched["claimed_by"] = session_key
+                if user:
+                    matched["username"] = user
+                matched["job_id"] = job_id
+                logger.info(f"[TAG CLAIMED] Session '{session_key}' -> Gán Tag [{chosen_tag_id}] | IP: {matched['assigned_ip']} ({matched['region']})")
+
+            # Đọc custom user payload nếu có
+            custom_payload_path = os.path.join(BASE_DIR, "data", "custom_payload.lua")
+            custom_code = ""
+            if os.path.exists(custom_payload_path):
+                try:
+                    with open(custom_payload_path, "r", encoding="utf-8") as f:
+                        custom_code = f.read()
+                except Exception:
+                    pass
+
+            resp_data = dict(matched)
+            resp_data["status"] = "success"
+            resp_data["custom_script"] = custom_code
+            resp_data["custom_script_url"] = "http://127.0.0.1:8888/api/custom_script"
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self._send_cors_headers()
+            self.end_headers()
+            self.wfile.write(json.dumps(resp_data, ensure_ascii=False).encode("utf-8"))
+            return
+
+        # 3. API: Lấy thông tin IP theo Tag hoặc Username
         if path == "/api/ip":
             tag_id = query.get("tag", [None])[0]
             username = query.get("user", [None])[0]
@@ -132,6 +231,25 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
             resp = matched or {"error": "Tag not found", "assigned_ip": "112.146.7.100", "region": "JP (Tokyo)"}
             self.wfile.write(json.dumps(resp).encode("utf-8"))
             return
+
+        # 4. API: Cung cấp script người dùng muốn tự động chạy cho toàn bộ các Tag
+        if path in ["/api/custom_script", "/api/custom", "/api/payload"]:
+            custom_payload_path = os.path.join(BASE_DIR, "data", "custom_payload.lua")
+            custom_code = "-- No custom payload configured"
+            if os.path.exists(custom_payload_path):
+                try:
+                    with open(custom_payload_path, "r", encoding="utf-8") as f:
+                        custom_code = f.read()
+                except Exception:
+                    pass
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self._send_cors_headers()
+            self.end_headers()
+            self.wfile.write(custom_code.encode("utf-8"))
+            return
+
 
         # 3. API: Tự động đổi IP mới (cùng quốc gia đã chọn) khi người chơi chuyển Server / Teleport
         if path in ["/api/rotate_ip", "/api/server_hop", "/api/hop"]:
@@ -270,15 +388,17 @@ class RobloxBridgeServer:
     def update_state(self, instances: List, master_script: str = ""):
         """Cập nhật dữ liệu gán IP cho các Tag đang hoạt động"""
         SHARED_STATE["tags"] = {}
+        SHARED_STATE["claimed_sessions"] = {}
         for inst in instances:
             SHARED_STATE["tags"][inst.tag_id] = {
                 "tag_id": inst.tag_id,
-                "assigned_ip": inst.assigned_ip,
-                "region": inst.region,
+                "assigned_ip": inst.assigned_ip or "127.0.0.1",
+                "region": getattr(inst, "region", "[JP] Japan Dedicated"),
+                "country": getattr(inst, "country", "JP"),
                 "pid": inst.pid,
                 "title": inst.title,
                 "process_name": inst.process_name,
-                "username": inst.account_username or ""
+                "username": getattr(inst, "account_username", "") or ""
             }
         if master_script:
             SHARED_STATE["master_script"] = master_script

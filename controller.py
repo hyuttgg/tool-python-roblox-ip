@@ -220,6 +220,7 @@ class MasterController:
             (Colors.C_CYAN, "[5] 📋 Xem danh sach Cloned Instances & Network Profiles"),
             (Colors.C_BLUE, "[6] 🌐 Quan ly Pool IP, ProxyScrape & Scrapestack API (5d1c5fb0...)"),
             (Colors.C_PURPLE, "[7] 📑 Xuat bao cao Snapshots JSON & Huong dan su dung Executor"),
+            (Colors.LIGHT_CYAN, "[9] 📝 Cau hinh Script Game (Custom Payload) tu dong chay cho tat ca Tag"),
             (Colors.LIGHT_RED, "[8] 🗑️  XOA / DON DEP Autoexec, Script Lua & Reset Pool IP"),
             (Colors.GRAY, "[0] ❌ Thoat chuong trinh"),
         ]
@@ -234,7 +235,7 @@ class MasterController:
         while True:
             try:
                 self.print_banner()
-                choice = safe_input(f"\n{Colors.BOLD}Lua chon chuc nang (0-8): {Colors.RESET}")
+                choice = safe_input(f"\n{Colors.BOLD}Lua chon chuc nang (0-9): {Colors.RESET}").strip()
 
                 if choice == "1":
                     self.scan_and_generate_lua_scripts()
@@ -250,6 +251,8 @@ class MasterController:
                     self.generate_ip_pool()
                 elif choice == "7":
                     self.export_report_and_guide()
+                elif choice == "9":
+                    self.configure_custom_payload()
                 elif choice == "8":
                     self.clean_and_reset_system()
                 elif choice in ["0", "exit", "quit"]:
@@ -736,7 +739,57 @@ class MasterController:
 
         safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
 
+    def configure_custom_payload(self):
+        """[9] Cấu hình Script Game (Custom Payload) tự động chạy cho tất cả các Tag/Clone"""
+        self.clear_screen()
+        print(f"{Colors.LIGHT_CYAN}{Colors.BOLD}================ [ 9. CAU HINH SCRIPT GAME TU DONG CHAY CHO TAT CA TAG ] ================{Colors.RESET}\n")
+        print(f"  {Colors.WHITE}File Execute Master duy nhat dong vai tro la Bo khoi chay tong hop (Universal Launcher).")
+        print(f"  Sau khi set IP rieng va cach ly mang, Script nay se {Colors.GREEN}{Colors.BOLD}TU DONG CHAY TREN TAT CA CAC TAG / CLONE!{Colors.RESET}\n")
+        
+        payload_file = os.path.join(DATA_DIR, "custom_payload.lua")
+        current_code = ""
+        if os.path.exists(payload_file):
+            try:
+                with open(payload_file, "r", encoding="utf-8") as f:
+                    current_code = f.read()
+            except Exception:
+                pass
+
+        print(f"  {Colors.BOLD}[1]{Colors.RESET} {Colors.GREEN}Xem noi dung Script Game Payload hien tai{Colors.RESET}")
+        print(f"  {Colors.BOLD}[2]{Colors.RESET} {Colors.YELLOW}Nhap Link Script Hub URL (loadstring game:HttpGet){Colors.RESET}")
+        print(f"  {Colors.BOLD}[3]{Colors.RESET} {Colors.CYAN}Dan ma Script Lua truc tiep tu ban phim{Colors.RESET}")
+        print(f"  {Colors.BOLD}[4]{Colors.RESET} {Colors.LIGHT_RED}Xoa Script Payload (Reset ve mac dinh){Colors.RESET}")
+        print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  {Colors.GRAY}Quay lai Menu chinh{Colors.RESET}\n")
+
+        opt = safe_input(f"{Colors.BOLD}Chon thao tac (0-4): {Colors.RESET}").strip()
+        if opt == "1":
+            print(f"\n{Colors.CYAN}--- NOI DUNG SCRIPT PAYLOAD DANG DUOC NAP ({payload_file}) ---{Colors.RESET}")
+            print(current_code or f"{Colors.YELLOW}[Chua co script]{Colors.RESET}")
+            print(f"{Colors.CYAN}-------------------------------------------------------------------{Colors.RESET}")
+        elif opt == "2":
+            url = safe_input(f"\n{Colors.BOLD}Nhap URL Script Lua (vi du: https://raw.githubusercontent.com/.../main.lua): {Colors.RESET}").strip()
+            if url:
+                wrapper_code = f'-- [[ AUTO-RUNNER SCRIPT FOR ALL TAGS ]]\npcall(function()\n    loadstring(game:HttpGet("{url}"))()\nend)\n'
+                with open(payload_file, "w", encoding="utf-8") as f:
+                    f.write(wrapper_code)
+                print(f"\n{Colors.GREEN}{Colors.BOLD}[+] Da luu Script URL thanh cong! Moi Tag mo len se tu dong chay script nay.{Colors.RESET}")
+        elif opt == "3":
+            print(f"\n{Colors.YELLOW}Nhap hoac dan dong Script Lua cua ban (Nhan Enter de luu):{Colors.RESET}")
+            script_line = safe_input(f"{Colors.BOLD}> {Colors.RESET}").strip()
+            if script_line:
+                with open(payload_file, "w", encoding="utf-8") as f:
+                    f.write(f"-- [[ USER CUSTOM SCRIPT PAYLOAD ]]\n{script_line}\n")
+                print(f"\n{Colors.GREEN}{Colors.BOLD}[+] Da luu Script Lua thanh cong!{Colors.RESET}")
+        elif opt == "4":
+            default_text = '-- [[ ROBLOX MULTI-TAG USER CUSTOM SCRIPT PAYLOAD ]]\nprint("[+] [UNIVERSAL MASTER EXECUTOR] All Tag scripts auto-executed successfully!")\n'
+            with open(payload_file, "w", encoding="utf-8") as f:
+                f.write(default_text)
+            print(f"\n{Colors.GREEN}[+] Da reset file Payload ve mac dinh!{Colors.RESET}")
+
+        safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
+
 if __name__ == "__main__":
+
     try:
         controller = MasterController()
         controller.main_menu()
