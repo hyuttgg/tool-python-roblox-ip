@@ -163,24 +163,25 @@ class MasterController:
 
     def print_banner(self):
         self.clear_screen()
-        W = 91
-        def pad_line(colored_str, visible_len):
+        W = 92
+        def pad_line(colored_str, visible_len, border_col=Colors.C_PURPLE):
             pad = max(0, W - visible_len)
-            return f"{Colors.C_PURPLE}{Colors.BOLD}║{Colors.RESET} {colored_str}{' ' * pad} {Colors.C_PURPLE}{Colors.BOLD}║{Colors.RESET}"
+            return f"{border_col}{Colors.BOLD}║{Colors.RESET} {colored_str}{' ' * pad} {border_col}{Colors.BOLD}║{Colors.RESET}"
 
         top = f"{Colors.C_PURPLE}{Colors.BOLD}╔{'═' * (W + 2)}╗{Colors.RESET}"
         mid = f"{Colors.C_PURPLE}{Colors.BOLD}╠{'═' * (W + 2)}╣{Colors.RESET}"
+        div = f"{Colors.C_PURPLE}{Colors.BOLD}╟{'─' * (W + 2)}╢{Colors.RESET}"
         bot = f"{Colors.C_PURPLE}{Colors.BOLD}╚{'═' * (W + 2)}╝{Colors.RESET}"
 
         print(top)
         # 6 dòng ASCII 3D đổ màu theo 6 dải quang phổ cầu vồng bên trong ô vuông
         banner_raw = [
-            "  ██████╗   ██████╗  ██████╗  ██╗       ██████╗  ██╗  ██╗    ███╗   ██╗ ███████╗ ████████╗  ",
-            "  ██╔══██╗ ██╔═══██╗ ██╔══██╗ ██║      ██╔═══██╗ ╚██╗██╔╝    ████╗  ██║ ██╔════╝ ╚══██╔══╝  ",
-            "  ██████╔╝ ██║   ██║ ██████╔╝ ██║      ██║   ██║  ╚███╔╝     ██╔██╗ ██║ █████╗      ██║    ",
-            "  ██╔══██╗ ██║   ██║ ██╔══██╗ ██║      ██║   ██║  ██╔██╗     ██║╚██╗██║ ██╔══╝      ██║    ",
-            "  ██║  ██║ ╚██████╔╝ ██████╔╝ ███████╗ ╚██████╔╝ ██╔╝ ██╗    ██║ ╚████║ ███████╗    ██║    ",
-            "  ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚══════╝  ╚═════╝  ╚═╝  ╚═╝    ╚═╝  ╚═══╝ ╚══════╝    ╚═╝    "
+            "  ██████╗   ██████╗  ██████╗  ██╗       ██████╗  ██╗  ██╗    ███╗   ██╗ ███████╗ ████████╗   ",
+            "  ██╔══██╗ ██╔═══██╗ ██╔══██╗ ██║      ██╔═══██╗ ╚██╗██╔╝    ████╗  ██║ ██╔════╝ ╚══██╔══╝   ",
+            "  ██████╔╝ ██║   ██║ ██████╔╝ ██║      ██║   ██║  ╚███╔╝     ██╔██╗ ██║ █████╗      ██║     ",
+            "  ██╔══██╗ ██║   ██║ ██╔══██╗ ██║      ██║   ██║  ██╔██╗     ██║╚██╗██║ ██╔══╝      ██║     ",
+            "  ██║  ██║ ╚██████╔╝ ██████╔╝ ███████╗ ╚██████╔╝ ██╔╝ ██╗    ██║ ╚████║ ███████╗    ██║     ",
+            "  ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚══════╝  ╚═════╝  ╚═╝  ╚═╝    ╚═╝  ╚═══╝ ╚══════╝    ╚═╝     "
         ]
         colors_6 = [Colors.C_RED, Colors.C_ORANGE, Colors.C_YELLOW, Colors.C_GREEN, Colors.C_CYAN, Colors.C_BLUE]
         for i, line in enumerate(banner_raw):
@@ -188,7 +189,7 @@ class MasterController:
 
         print(mid)
         # Tiêu đề chuyển sắc 7 màu từng chữ cái
-        title_text = "        [ MASTER CONTROLLER ] - ROBLOX MULTI-INSTANCE NETWORK MANAGER         "
+        title_text = "         [ MASTER CONTROLLER ] - ROBLOX MULTI-INSTANCE NETWORK MANAGER          "
         print(pad_line(Colors.BOLD + Colors.rainbow_text(title_text) + Colors.RESET, len(title_text)))
 
         # Trạng thái tự động nhận diện cả LIVE và CLONE CHƯA MỞ
@@ -211,24 +212,44 @@ class MasterController:
         print(pad_line(st_col, len(st_vis)))
 
         print(mid)
-        # Menu tính năng gọn gàng & cập nhật tính năng mới
-        menu = [
-            (Colors.C_RED, "[1] ⚡ QUET TOAN BO TAG & CLONE (MỞ / CHƯA MỞ) & TU DONG BOM AUTOEXEC"),
-            (Colors.C_ORANGE, "[2] 📊 Khoi chay Dashboard Real-time (Live Monitoring 3s)"),
-            (Colors.C_YELLOW, "[3] 🔄 Cap phat lai IP cho toan bo ban Clone & Autoexec"),
-            (Colors.C_GREEN, "[4] 🔍 Chay kiem tra chan doan mang chuyen sau & Scrapestack"),
-            (Colors.C_CYAN, "[5] 📋 Xem danh sach Cloned Instances & Network Profiles"),
-            (Colors.C_BLUE, "[6] 🌐 Quan ly Pool IP, ProxyScrape & Scrapestack API (5d1c5fb0...)"),
-            (Colors.C_PURPLE, "[7] 📑 Xuat bao cao Snapshots JSON & Huong dan su dung Executor"),
-            (Colors.LIGHT_CYAN, "[9] 📝 Cau hinh Script Game (Custom Payload) tu dong chay cho tat ca Tag"),
-            (Colors.LIGHT_GREEN, "[10] 🚀 AUTO LAUNCH TAGS & SELECTION SORT IP (Java + Python + Lua Engine)"),
-            (Colors.LIGHT_RED, "[8] 🗑️  XOA / DON DEP Autoexec, Script Lua & Reset Pool IP"),
-            (Colors.GRAY, "[0] ❌ Thoat chuong trinh"),
-        ]
+        
+        # Danh mục tính năng được phân nhóm chuyên nghiệp & trực quan
+        cat1 = f"  {Colors.C_CYAN}{Colors.BOLD}► [ NHÓM 1: QUẢN LÝ TAG & TỰ ĐỘNG KHỞI CHẠY ]{Colors.RESET}"
+        print(pad_line(cat1, len("  ► [ NHÓM 1: QUẢN LÝ TAG & TỰ ĐỘNG KHỞI CHẠY ]")))
+        m1 = f"    {Colors.C_RED}{Colors.BOLD}[1]{Colors.RESET}  ⚡ {Colors.WHITE}Quét toàn bộ Tag & Clone (Mở / Chưa mở) & Bơm Autoexec{Colors.RESET}"
+        m10 = f"    {Colors.LIGHT_GREEN}{Colors.BOLD}[10]{Colors.RESET} 🚀 {Colors.LIGHT_GREEN}{Colors.BOLD}Auto Launch Tags & Selection Sort IP (Java + Python + Lua){Colors.RESET}"
+        m2 = f"    {Colors.C_ORANGE}{Colors.BOLD}[2]{Colors.RESET}  📊 {Colors.WHITE}Khởi chạy Dashboard Giám sát Real-time (Chu kỳ 3s){Colors.RESET}"
+        print(pad_line(m1, len("    [1]  ⚡ Quét toàn bộ Tag & Clone (Mở / Chưa mở) & Bơm Autoexec")))
+        print(pad_line(m10, len("    [10] 🚀 Auto Launch Tags & Selection Sort IP (Java + Python + Lua)")))
+        print(pad_line(m2, len("    [2]  📊 Khởi chạy Dashboard Giám sát Real-time (Chu kỳ 3s)")))
+        print(div)
 
-        for col, text in menu:
-            colored = f"{col}{Colors.BOLD}{text}{Colors.RESET}"
-            print(pad_line(colored, len(text)))
+        cat2 = f"  {Colors.C_YELLOW}{Colors.BOLD}► [ NHÓM 2: TỐI ƯU HÓA IP & PROXY TOÀN CẦU ]{Colors.RESET}"
+        print(pad_line(cat2, len("  ► [ NHÓM 2: TỐI ƯU HÓA IP & PROXY TOÀN CẦU ]")))
+        m3 = f"    {Colors.C_YELLOW}{Colors.BOLD}[3]{Colors.RESET}  🔄 {Colors.WHITE}Cấp phát lại IP / Proxy Đa Quốc Gia cho toàn bộ bản Clone{Colors.RESET}"
+        m6 = f"    {Colors.C_BLUE}{Colors.BOLD}[6]{Colors.RESET}  🌐 {Colors.WHITE}Quản lý Pool IP, ProxyScrape & Scrapestack API (5d1c5fb0...){Colors.RESET}"
+        m4 = f"    {Colors.C_GREEN}{Colors.BOLD}[4]{Colors.RESET}  🔍 {Colors.WHITE}Chẩn đoán kết nối mạng chuyên sâu & Đo TCP Handshake{Colors.RESET}"
+        print(pad_line(m3, len("    [3]  🔄 Cấp phát lại IP / Proxy Đa Quốc Gia cho toàn bộ bản Clone")))
+        print(pad_line(m6, len("    [6]  🌐 Quản lý Pool IP, ProxyScrape & Scrapestack API (5d1c5fb0...)")))
+        print(pad_line(m4, len("    [4]  🔍 Chẩn đoán kết nối mạng chuyên sâu & Đo TCP Handshake")))
+        print(div)
+
+        cat3 = f"  {Colors.C_PURPLE}{Colors.BOLD}► [ NHÓM 3: SCRIPT GAME & EXECUTOR HUB ]{Colors.RESET}"
+        print(pad_line(cat3, len("  ► [ NHÓM 3: SCRIPT GAME & EXECUTOR HUB ]")))
+        m9 = f"    {Colors.LIGHT_CYAN}{Colors.BOLD}[9]{Colors.RESET}  📝 {Colors.WHITE}Cấu hình Script Game (Custom Payload) tự chạy cho mọi Tag{Colors.RESET}"
+        m5 = f"    {Colors.C_CYAN}{Colors.BOLD}[5]{Colors.RESET}  📋 {Colors.WHITE}Xem danh sách Cloned Instances & Network Profiles{Colors.RESET}"
+        m7 = f"    {Colors.C_PURPLE}{Colors.BOLD}[7]{Colors.RESET}  📑 {Colors.WHITE}Xuất báo cáo JSON Snapshots & Hướng dẫn Executor một dòng{Colors.RESET}"
+        print(pad_line(m9, len("    [9]  📝 Cấu hình Script Game (Custom Payload) tự chạy cho mọi Tag")))
+        print(pad_line(m5, len("    [5]  📋 Xem danh sách Cloned Instances & Network Profiles")))
+        print(pad_line(m7, len("    [7]  📑 Xuất báo cáo JSON Snapshots & Hướng dẫn Executor một dòng")))
+        print(div)
+
+        cat4 = f"  {Colors.GRAY}{Colors.BOLD}► [ NHÓM 4: BẢO TRÌ & ĐIỀU KHIỂN ]{Colors.RESET}"
+        print(pad_line(cat4, len("  ► [ NHÓM 4: BẢO TRÌ & ĐIỀU KHIỂN ]")))
+        m8 = f"    {Colors.LIGHT_RED}{Colors.BOLD}[8]{Colors.RESET}  🗑️  {Colors.WHITE}Dọn dẹp Autoexec, Script Lua, Cache Proxy & Reset Hệ Thống{Colors.RESET}"
+        m0 = f"    {Colors.GRAY}{Colors.BOLD}[0]{Colors.RESET}  ❌ {Colors.WHITE}Thoát chương trình{Colors.RESET}"
+        print(pad_line(m8, len("    [8]  🗑️  Dọn dẹp Autoexec, Script Lua, Cache Proxy & Reset Hệ Thống")))
+        print(pad_line(m0, len("    [0]  ❌ Thoát chương trình")))
 
         print(bot)
 
@@ -236,7 +257,15 @@ class MasterController:
         while True:
             try:
                 self.print_banner()
-                choice = safe_input(f"\n{Colors.BOLD}Lua chon chuc nang (0-10): {Colors.RESET}").strip()
+                
+                # Thanh điều hướng chọn chức năng phong cách Cyberpunk Neon Action Box
+                prompt_box = [
+                    f"{Colors.C_CYAN}{Colors.BOLD}╭────────────────────────────────────────────────────────────────────────────────────────────╮{Colors.RESET}",
+                    f"{Colors.C_CYAN}{Colors.BOLD}│{Colors.RESET}  {Colors.LIGHT_GREEN}{Colors.BOLD}🎮 BẢNG ĐIỀU KHIỂN:{Colors.RESET} {Colors.WHITE}Nhập số thứ tự tính năng để thực thi {Colors.BOLD}[ 0 ➔ 10 ]{Colors.RESET}                        {Colors.C_CYAN}{Colors.BOLD}│{Colors.RESET}",
+                    f"{Colors.C_CYAN}{Colors.BOLD}╰────────────────────────────────────────────────────────────────────────────────────────────╯{Colors.RESET}",
+                ]
+                print("\n" + "\n".join(prompt_box))
+                choice = safe_input(f" {Colors.YELLOW}{Colors.BOLD}➤ Nhập lựa chọn của bạn{Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
 
                 if choice == "1":
                     self.scan_and_generate_lua_scripts()
@@ -264,7 +293,8 @@ class MasterController:
                 elif choice == "":
                     continue
                 else:
-                    safe_input(f"{Colors.RED}Lua chon khong hop le! Nhan Enter de tiep tuc...{Colors.RESET}")
+                    safe_input(f"\n{Colors.RED}❌ Lựa chọn không hợp lệ! Nhấn Enter để tiếp tục...{Colors.RESET}")
+
 
             except (KeyboardInterrupt, EOFError):
                 self.shutdown()
@@ -288,12 +318,13 @@ class MasterController:
         print(f"  {Colors.BOLD}[7]{Colors.RESET} 🇬🇧 {Colors.C_BLUE}Anh Quoc (GB - UK){Colors.RESET}")
         print(f"  {Colors.BOLD}[8]{Colors.RESET} 🇫🇷 {Colors.C_ORANGE}Phap (FR - France){Colors.RESET}")
         
-        c_choice = safe_input(f"\n  {Colors.BOLD}Chon quoc gia mong muon (0-8, mac dinh 0): {Colors.RESET}").strip()
+        c_choice = safe_input(f"\n  {Colors.YELLOW}{Colors.BOLD}➤ Chọn quốc gia mong muốn (0-8, mặc định 0){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
         c_map = {
             "0": "MULTI", "1": "VN", "2": "JP", "3": "SG", "4": "US",
             "5": "KR", "6": "DE", "7": "GB", "8": "FR"
         }
         return c_map.get(c_choice, "MULTI")
+
 
     def render_detailed_tag_table(self, instances: List[RobloxWindowInstance]):
         """Hiển thị bảng chi tiết: TAG, STATUS (ON/OFF), CLIENT/EXECUTOR, IP, IP STATUS & PING, REGION"""
@@ -565,7 +596,7 @@ class MasterController:
         print(f"  {Colors.BOLD}[3]{Colors.RESET} {Colors.CYAN}Kiem tra & Lay IP truc tiep tu Scrapestack Proxy API (Key: 5d1c5fb0...){Colors.RESET}")
         print(f"  {Colors.BOLD}[4]{Colors.RESET} {Colors.LIGHT_CYAN}Cap phat IP Scrapestack cho toan bo ban Clone dang co{Colors.RESET}\n")
         
-        mode = safe_input(f"{Colors.BOLD}Chon che do (1-4): {Colors.RESET}")
+        mode = safe_input(f"  {Colors.YELLOW}{Colors.BOLD}➤ Chọn chế độ (1-4){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
         
         if mode == "1":
             print(f"\n  {Colors.CYAN}[*] Dang ket noi ProxyScrape API de lay danh sach Proxy HTTP toan cau...{Colors.RESET}")
@@ -593,7 +624,7 @@ class MasterController:
             for sp in s_proxies:
                 print(f"    -> {Colors.CYAN}{sp['ip']}{Colors.RESET} ({sp['region']})")
         else:
-            user_val = safe_input(f"\n{Colors.BOLD}Nhap so luong IP muon sinh (vi du: 20): {Colors.RESET}")
+            user_val = safe_input(f"\n  {Colors.YELLOW}{Colors.BOLD}➤ Nhập số lượng IP muốn sinh (ví dụ: 20){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
             try:
                 count = int(user_val) if user_val else 10
             except ValueError:
@@ -605,7 +636,8 @@ class MasterController:
             if len(ips) > 10:
                 print(f"  ... va {len(ips) - 10} IP khac.")
         
-        safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
+
 
 
     def export_report_and_guide(self):
@@ -656,7 +688,7 @@ class MasterController:
         print(f"  {Colors.BOLD}[5]{Colors.RESET} 🧹 {Colors.LIGHT_RED}{Colors.BOLD}XOA TAT CA & RESET TOAN BO HE THONG VE BAN DAU{Colors.RESET}")
         print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  {Colors.GRAY}Quay lai Menu chinh{Colors.RESET}\n")
         
-        opt = safe_input(f"{Colors.BOLD}Chon tinh nang xoa (0-5): {Colors.RESET}").strip()
+        opt = safe_input(f"  {Colors.YELLOW}{Colors.BOLD}➤ Chọn tính năng xóa (0-5){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
         
         if opt == "1":
             print(f"\n  {Colors.CYAN}[*] Dang xoa script khoi tat ca thu muc Autoexec...{Colors.RESET}")
@@ -741,7 +773,7 @@ class MasterController:
                     pass
             print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] HOAN TAT: Da xoa sach toan bo du lieu va reset he thong ve ban dau!{Colors.RESET}")
 
-        safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
 
     def configure_custom_payload(self):
         """[9] Cấu hình Script Game (Custom Payload) tự động chạy cho tất cả các Tag/Clone"""
@@ -765,21 +797,21 @@ class MasterController:
         print(f"  {Colors.BOLD}[4]{Colors.RESET} {Colors.LIGHT_RED}Xoa Script Payload (Reset ve mac dinh){Colors.RESET}")
         print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  {Colors.GRAY}Quay lai Menu chinh{Colors.RESET}\n")
 
-        opt = safe_input(f"{Colors.BOLD}Chon thao tac (0-4): {Colors.RESET}").strip()
+        opt = safe_input(f"  {Colors.YELLOW}{Colors.BOLD}➤ Chọn thao tác (0-4){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
         if opt == "1":
             print(f"\n{Colors.CYAN}--- NOI DUNG SCRIPT PAYLOAD DANG DUOC NAP ({payload_file}) ---{Colors.RESET}")
             print(current_code or f"{Colors.YELLOW}[Chua co script]{Colors.RESET}")
             print(f"{Colors.CYAN}-------------------------------------------------------------------{Colors.RESET}")
         elif opt == "2":
-            url = safe_input(f"\n{Colors.BOLD}Nhap URL Script Lua (vi du: https://raw.githubusercontent.com/.../main.lua): {Colors.RESET}").strip()
+            url = safe_input(f"\n  {Colors.YELLOW}{Colors.BOLD}➤ Nhập URL Script Lua (loadstring){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
             if url:
                 wrapper_code = f'-- [[ AUTO-RUNNER SCRIPT FOR ALL TAGS ]]\npcall(function()\n    loadstring(game:HttpGet("{url}"))()\nend)\n'
                 with open(payload_file, "w", encoding="utf-8") as f:
                     f.write(wrapper_code)
                 print(f"\n{Colors.GREEN}{Colors.BOLD}[+] Da luu Script URL thanh cong! Moi Tag mo len se tu dong chay script nay.{Colors.RESET}")
         elif opt == "3":
-            print(f"\n{Colors.YELLOW}Nhap hoac dan dong Script Lua cua ban (Nhan Enter de luu):{Colors.RESET}")
-            script_line = safe_input(f"{Colors.BOLD}> {Colors.RESET}").strip()
+            print(f"\n{Colors.YELLOW}Nhập hoặc dán dòng Script Lua của bạn (Nhấn Enter để lưu):{Colors.RESET}")
+            script_line = safe_input(f"  {Colors.YELLOW}{Colors.BOLD}➤ Script{Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
             if script_line:
                 with open(payload_file, "w", encoding="utf-8") as f:
                     f.write(f"-- [[ USER CUSTOM SCRIPT PAYLOAD ]]\n{script_line}\n")
@@ -790,7 +822,7 @@ class MasterController:
                 f.write(default_text)
             print(f"\n{Colors.GREEN}[+] Da reset file Payload ve mac dinh!{Colors.RESET}")
 
-        safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
 
     def auto_launch_and_selection_sort_ip(self):
         """[10] Tự động khởi động các Tag, kiểm tra và gán IP bằng thuật toán Selection Sort (Java + Python + Lua)"""
@@ -908,7 +940,7 @@ class MasterController:
 
         # 7. Tự Động Khởi Chạy Các Bản Roblox Clone (Auto-Launcher)
         print(f"\n{Colors.LIGHT_CYAN}{Colors.BOLD}================ [ TỰ ĐỘNG KHỞI CHẠY TIẾN TRÌNH ROBLOX ] ================{Colors.RESET}")
-        auto_launch_choice = safe_input(f"  {Colors.BOLD}Bạn có muốn Tool TỰ ĐỘNG MỞ các cửa sổ Roblox ngay bây giờ? (Nhập số lượng mở, ví dụ: 2, Y=Tất cả, N=Bỏ qua): {Colors.RESET}").strip()
+        auto_launch_choice = safe_input(f"\n  {Colors.YELLOW}{Colors.BOLD}➤ Tự động mở Roblox? (Nhập số lượng mở, ví dụ: 2, Y=Tất cả, N=Bỏ qua){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
 
         if auto_launch_choice.lower() not in ["n", "no", "khong", "0"]:
             try:
@@ -928,7 +960,8 @@ class MasterController:
         else:
             print(f"\n  {Colors.YELLOW}[*] Đã lưu cấu hình IP Selection Sort. Bạn có thể mở Roblox thủ công bất cứ lúc nào!{Colors.RESET}")
 
-        safe_input(f"\n{Colors.GRAY}Nhấn Enter để quay lại Menu...{Colors.RESET}")
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
+
 
 if __name__ == "__main__":
 
