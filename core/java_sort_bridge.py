@@ -154,20 +154,71 @@ class RobloxAutoLauncher:
         return None
 
     @classmethod
-    def launch_single_instance(cls, place_id: Optional[str] = None, tag_id: str = "ROBLOX-TAG-01") -> Dict:
+    def launch_single_instance(cls, place_id: Optional[str] = None, tag_id: str = "ROBLOX-TAG-01", clone_user: Optional[int] = None) -> Dict:
         """
-        Khởi chạy 1 cửa sổ Roblox Client vào đúng Game Place ID
+        Khởi chạy 1 cửa sổ / app Roblox Client vào đúng Game Place ID
+        (Hỗ trợ toàn diện Windows PC, Android Native, Termux, UGPhone Cloud Phone & Emulators)
         """
         from core.game_selector import game_manager
         if not place_id:
             target_g = game_manager.get_game_for_tag(tag_id)
             place_id = target_g.get("place_id", "2753915549")
 
+        url = f"roblox://experiences/start?placeId={place_id}"
+
+        # 1. XỬ LÝ TRÊN ANDROID / UGPHONE / TERMUX
+        if os.name != "nt" or os.path.exists("/system/bin/am") or shutil.which("am") is not None:
+            user_flag = []
+            if clone_user is not None:
+                user_flag = ["--user", str(clone_user)]
+            elif "CLONE-02" in tag_id or "CLONE-03" in tag_id:
+                user_flag = ["--user", "999"]
+            elif "CLONE-04" in tag_id or "CLONE-05" in tag_id:
+                user_flag = ["--user", "10"]
+
+            am_cmds = [
+                ["am", "start"] + user_flag + ["-a", "android.intent.action.VIEW", "-d", url],
+                ["am", "start"] + user_flag + ["-n", "com.roblox.client/com.roblox.client.ActivityProtocolLaunch", "-d", url],
+                ["am", "start"] + user_flag + ["-n", "com.roblox.client/com.roblox.client.RobloxMainActivity", "-d", url],
+                ["monkey", "-p", "com.roblox.client", "-c", "android.intent.category.LAUNCHER", "1"],
+            ]
+            for cmd in am_cmds:
+                try:
+                    res = subprocess.run(cmd, capture_output=True, text=True, timeout=4)
+                    if res.returncode == 0 or "Starting:" in res.stdout or "Events injected: 1" in res.stdout:
+                        return {
+                            "tag_id": tag_id,
+                            "status": "LAUNCHED",
+                            "method": f"UGPhone Android Intent ({cmd[0]} {cmd[1] if len(cmd) > 1 else ''})",
+                            "pid": 0,
+                            "place_id": place_id,
+                            "path": url
+                        }
+                except Exception:
+                    continue
+
+            # Thử qua Root su nếu trên Termux UGPhone có root
+            try:
+                su_cmd = f"am start -a android.intent.action.VIEW -d '{url}'"
+                res = subprocess.run(["su", "-c", su_cmd], capture_output=True, text=True, timeout=4)
+                if res.returncode == 0 or "Starting:" in res.stdout:
+                    return {
+                        "tag_id": tag_id,
+                        "status": "LAUNCHED",
+                        "method": "UGPhone SuperUser (Root Intent)",
+                        "pid": 0,
+                        "place_id": place_id,
+                        "path": url
+                    }
+            except Exception:
+                pass
+
+        # 2. XỬ LÝ TRÊN WINDOWS PC
         exe_path = cls.find_roblox_executable()
         try:
             if exe_path and os.path.exists(exe_path):
                 proc = subprocess.Popen(
-                    [exe_path, "--app", f"roblox://experiences/start?placeId={place_id}"],
+                    [exe_path, "--app", url],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )
@@ -180,13 +231,14 @@ class RobloxAutoLauncher:
                     "path": exe_path
                 }
             else:
-                # Windows URL Protocol
-                url = f"roblox://experiences/start?placeId={place_id}"
-                os.system(f'start "" "{url}"')
+                if os.name == "nt":
+                    os.system(f'start "" "{url}"')
+                else:
+                    os.system(f'xdg-open "{url}" 2>/dev/null || true')
                 return {
                     "tag_id": tag_id,
                     "status": "LAUNCHED",
-                    "method": "Windows Protocol (roblox://)",
+                    "method": "Protocol (roblox://)",
                     "pid": 0,
                     "place_id": place_id,
                     "path": url

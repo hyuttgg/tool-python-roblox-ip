@@ -242,8 +242,12 @@ class MasterController:
         w_status = f"{Colors.GREEN}[ON: {w_summary['total_restarts']} RESTARTS]{Colors.RESET}" if w_summary["is_enabled"] else f"{Colors.GRAY}[OFF]{Colors.RESET}"
         w_vis = f"[ON: {w_summary['total_restarts']} RESTARTS]" if w_summary["is_enabled"] else "[OFF]"
 
-        st_col = f"  {Colors.GRAY}Roblox:{Colors.RESET} {tag_status_str} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Game:{Colors.RESET} {game_status} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Watchdog:{Colors.RESET} {w_status} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Autoexec:{Colors.RESET} {autoexec_status}"
-        st_vis = f"  Roblox: {tag_vis} | Game: {game_vis} | Watchdog: {w_vis} | Autoexec: {autoexec_vis}"
+        is_android = os.path.exists("/system/build.prop") or "ANDROID_ROOT" in os.environ or os.path.exists("/sdcard")
+        plat_txt = f"{Colors.GREEN}[UGPhone Cloud]{Colors.RESET}" if is_android else f"{Colors.CYAN}[Windows PC]{Colors.RESET}"
+        plat_vis = "[UGPhone Cloud]" if is_android else "[Windows PC]"
+
+        st_col = f"  {Colors.GRAY}Plat:{Colors.RESET} {plat_txt} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Tags:{Colors.RESET} {tag_status_str} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Game:{Colors.RESET} {game_status} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Watchdog:{Colors.RESET} {w_status}"
+        st_vis = f"  Plat: {plat_vis} | Tags: {tag_vis} | Game: {game_vis} | Watchdog: {w_vis}"
         print(pad_line(st_col, len(st_vis)))
 
         print(mid)

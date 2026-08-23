@@ -117,24 +117,29 @@ class AutoexecManager:
                 if os.path.exists(direct_path_cap) and os.path.isdir(direct_path_cap):
                     found_folders.add(direct_path_cap)
 
-        # 2. Quét trực tiếp các đường dẫn Executor trên thiết bị Android / Termux
+        # 2. Quét trực tiếp các đường dẫn Executor trên thiết bị Android / Termux / UGPhone
         android_roots = [
             "/sdcard", "/storage/emulated/0", "/storage/emulated/999", "/storage/emulated/10"
         ]
+        ugphone_executors = [
+            "Delta", "Arceus", "ArceusX", "Arceus X", "Codex", "Fluxus", 
+            "VegaX", "Hydrogen", "Evon", "Trigon", "Electron"
+        ]
         for a_root in android_roots:
             if os.path.exists(a_root):
-                for exc in COMMON_EXECUTOR_NAMES:
+                for exc in ugphone_executors:
                     for sub_auto in ["Autoexec", "autoexec", "scripts", "Scripts"]:
                         candidate = os.path.join(a_root, exc, sub_auto)
                         if os.path.exists(candidate) and os.path.isdir(candidate):
                             found_folders.add(candidate)
-                        elif os.path.exists(os.path.join(a_root, exc)):
-                            # Nếu có thư mục Executor nhưng chưa có subfolder autoexec, tạo luôn
-                            try:
-                                os.makedirs(candidate, exist_ok=True)
-                                found_folders.add(candidate)
-                            except Exception:
-                                pass
+                    # Trên Android / UGPhone, tự động tạo sẵn thư mục Autoexec cho Delta, ArceusX, Codex
+                    if exc in ["Delta", "ArceusX", "Codex", "Fluxus"]:
+                        auto_target = os.path.join(a_root, exc, "autoexec")
+                        try:
+                            os.makedirs(auto_target, exist_ok=True)
+                            found_folders.add(auto_target)
+                        except Exception:
+                            pass
 
         # Quét đệ quy cấp 2 trong search_roots
         for root in search_roots:
