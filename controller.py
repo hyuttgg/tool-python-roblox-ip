@@ -77,9 +77,34 @@ class MasterController:
 
     def _get_combined_tag_instances(self) -> List[RobloxWindowInstance]:
         """Quét và kết hợp tất cả các bản Roblox (Đang chạy thực tế + Bản Clone / Giả lập trên đĩa)"""
-        live_windows = self.scanner.scan_roblox_instances()
-        cloned_profiles = self.clone_scanner.scan_all_profiles()
-        ugphone_instances = UGPhoneNetworkEngine.scan_cloud_devices()
+        live_windows: List[RobloxWindowInstance] = []
+        try:
+            if hasattr(self.scanner, "scan_roblox_instances"):
+                live_windows = self.scanner.scan_roblox_instances()
+            elif hasattr(self.scanner, "scan_active_roblox_windows"):
+                live_windows = self.scanner.scan_active_roblox_windows()
+            elif hasattr(self.scanner, "scan_instances"):
+                live_windows = self.scanner.scan_instances()
+        except Exception as e:
+            logger.warning(f"Live scanner fallback error: {e}")
+            live_windows = []
+
+        cloned_profiles = []
+        try:
+            if hasattr(self.clone_scanner, "scan_all_profiles"):
+                cloned_profiles = self.clone_scanner.scan_all_profiles()
+            elif hasattr(self.clone_scanner, "scan_all_clones"):
+                cloned_profiles = self.clone_scanner.scan_all_clones()
+        except Exception as e:
+            logger.warning(f"Clone scanner fallback error: {e}")
+            cloned_profiles = []
+
+        ugphone_instances = []
+        try:
+            if hasattr(UGPhoneNetworkEngine, "scan_cloud_devices"):
+                ugphone_instances = UGPhoneNetworkEngine.scan_cloud_devices()
+        except Exception:
+            ugphone_instances = []
 
         combined: List[RobloxWindowInstance] = list(live_windows)
         

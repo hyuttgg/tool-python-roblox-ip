@@ -68,15 +68,17 @@ else
     mkdir -p "$TARGET_DIR" 2>/dev/null || true
 fi
 
-# Cập nhật nếu đã có git, hoặc tải mới
-if [ -d "$TARGET_DIR/.git" ]; then
-    echo -e "${CYAN}[*] Thu muc da ton tai tai $TARGET_DIR, dang cap nhat ma nguon moi nhat...${NC}"
-    cd "$TARGET_DIR"
+# Cập nhật nếu đã có thư mục, hoặc tải mới
+if [ -d "$TARGET_DIR" ]; then
+    echo -e "${CYAN}[*] Dang cap nhat ma nguon moi nhat tai $TARGET_DIR...${NC}"
+    cd "$TARGET_DIR" 2>/dev/null || true
     git fetch origin main 2>/dev/null || true
-    git reset --hard origin/main 2>/dev/null || git pull origin main 2>/dev/null || true
+    git reset --hard origin/main 2>/dev/null || git pull origin main --force 2>/dev/null || true
+    # Đồng bộ trực tiếp gói tar mới nhất để tránh lỗi file cũ bị giữ lại trên Android
+    curl -sL https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz | tar -xz -C "$TARGET_DIR" --strip-components=1 2>/dev/null || true
 fi
 
-# Nếu chưa có file mã nguồn, tải trực tiếp bằng Git hoặc Python Engine
+# Nếu chưa có thư mục, clone / tải mới
 if [ ! -f "$TARGET_DIR/pyobfuscate_com.py" ] && [ ! -f "$TARGET_DIR/controller.py" ]; then
     echo -e "${CYAN}[*] Dang clone / tai ma nguon truc tiep vao $TARGET_DIR...${NC}"
     rm -rf "$TARGET_DIR" 2>/dev/null || true
