@@ -1,18 +1,24 @@
 # -*- coding: utf-8 -*-
 """
 Local Roblox HTTP Bridge Server
-Cung cấp API HTTP cục bộ (http://127.0.0.1:8888) cho phép Roblox Lua Client
-tự động đồng bộ và nạp IP động qua game:HttpGet hoặc loadstring.
+Cung cấp API HTTP cục bộ (http://127.0.0.1:8888) cho phép Roblox Lua Client:
+  1. Tự động đồng bộ và nạp IP động qua game:HttpGet hoặc loadstring.
+  2. Gửi Heartbeat thời gian thực (/api/heartbeat) về Python để theo dõi trạng thái Tag.
+  3. Báo cáo lỗi ngắt kết nối / crash / kick (/api/tag_status) để Python Watchdog tự mở lại Tag.
+  4. Lấy thông tin Game Place ID mục tiêu (/api/target_game) để tự động Teleport vào đúng game.
 """
 
 import os
 import json
 import threading
 import socket
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from typing import Dict, List, Optional
 from config.logging import setup_logger
+from core.game_selector import game_manager
+from core.watchdog_supervisor import watchdog
 
 logger = setup_logger("bridge_server")
 
@@ -26,9 +32,9 @@ SHARED_STATE = {
     "custom_script": ""
 }
 
+
 def get_active_lua_script(tag_id: Optional[str] = None) -> str:
     """Lấy nội dung script Lua khả dụng nhất (từ memory hoặc từ disk)"""
-    # 1. Nếu có trong memory
     if tag_id and tag_id in SHARED_STATE["tags"]:
         s = SHARED_STATE["tags"][tag_id].get("lua_script", "")
         if s:
@@ -37,7 +43,6 @@ def get_active_lua_script(tag_id: Optional[str] = None) -> str:
     if SHARED_STATE.get("master_script"):
         return SHARED_STATE["master_script"]
 
-    # 2. Đọc từ file master trên ổ đĩa
     master_path = os.path.join(LUA_DIR, "master_roblox_ip_setter.lua")
     if os.path.exists(master_path):
         try:
@@ -49,7 +54,6 @@ def get_active_lua_script(tag_id: Optional[str] = None) -> str:
         except Exception:
             pass
 
-    # 3. Đọc từ file tag đầu tiên nếu có
     if os.path.exists(LUA_DIR):
         for fname in os.listdir(LUA_DIR):
             if fname.endswith(".lua") and not fname.startswith("master"):
@@ -61,7 +65,6 @@ def get_active_lua_script(tag_id: Optional[str] = None) -> str:
                 except Exception:
                     pass
 
-    # 4. Tự động sinh tức thì một script Lua hợp lệ với IP ngẫu nhiên
     from core.lua_generator import LuaScriptGenerator
     from core.scanner import RobloxWindowScanner, RobloxWindowInstance, WindowRect
     gen = LuaScriptGenerator()
@@ -89,11 +92,92 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
     def _send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Roblox-Tag")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Roblox-Tag, Authorization")
+
+    def _respond_json(self, data: Dict, code: int = 200):
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self._send_cors_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _respond_text(self, text: str, code: int = 200, content_type: str = "text/plain; charset=utf-8"):
+        body = text.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self._send_cors_headers()
+        self.end_headers()
+        self.wfile.write(body)
 
     def do_OPTIONS(self):
         self.send_response(200)
         self._send_cors_headers()
+        self.end_headers()
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        content_length = int(self.headers.get('Content-Length', 0))
+        post_body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else ""
+
+        payload = {}
+        if post_body:
+            try:
+                payload = json.loads(post_body)
+            except Exception:
+                try:
+                    q = parse_qs(post_body)
+                    payload = {k: v[0] for k, v in q.items()}
+                except Exception:
+                    payload = {"raw": post_body}
+
+        # 1. API: Nhận Heartbeat thời gian thực từ Lua Client
+        if path in ["/api/heartbeat", "/api/ping", "/heartbeat"]:
+            tag_id = payload.get("tag_id") or payload.get("tag") or self.headers.get("X-Roblox-Tag") or "ROBLOX-TAG-01"
+            watchdog.record_heartbeat(tag_id, payload)
+            
+            if tag_id in SHARED_STATE["tags"]:
+                SHARED_STATE["tags"][tag_id]["status"] = "ONLINE"
+                SHARED_STATE["tags"][tag_id]["last_heartbeat"] = time.time()
+                if payload.get("username"):
+                    SHARED_STATE["tags"][tag_id]["username"] = payload.get("username")
+
+            target_game = game_manager.get_current_game()
+            resp = {
+                "status": "ok",
+                "ack": time.time(),
+                "tag_id": tag_id,
+                "target_game": target_game
+            }
+            self._respond_json(resp, 200)
+            return
+
+        # 2. API: Nhận Báo lỗi / Mất kết nối / Bị Kick từ Lua Client để Watchdog tự mở lại
+        if path in ["/api/tag_status", "/api/error", "/api/disconnect", "/api/report"]:
+            tag_id = payload.get("tag_id") or payload.get("tag") or self.headers.get("X-Roblox-Tag") or "ROBLOX-TAG-01"
+            err_msg = payload.get("error_message") or payload.get("error") or payload.get("reason") or "Roblox Disconnected / Crash Detected"
+            status_type = payload.get("status") or "DISCONNECTED"
+            
+            watchdog.record_error_or_disconnect(tag_id, err_msg, status_type=status_type)
+
+            if tag_id in SHARED_STATE["tags"]:
+                SHARED_STATE["tags"][tag_id]["status"] = status_type
+
+            resp = {
+                "status": "recorded",
+                "tag_id": tag_id,
+                "action": "watchdog_restart_triggered",
+                "timestamp": time.time()
+            }
+            self._respond_json(resp, 200)
+            return
+
+        # 3. Fallback POST
+        self.send_response(404)
         self.end_headers()
 
     def do_GET(self):
@@ -105,12 +189,7 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
         if path in ["/api/script", "/script.lua", "/api/lua", "/script"]:
             tag_id = query.get("tag", [None])[0]
             script_body = get_active_lua_script(tag_id)
-
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self._send_cors_headers()
-            self.end_headers()
-            self.wfile.write(script_body.encode("utf-8"))
+            self._respond_text(script_body, 200)
             return
 
         # 2. API: Tự động phân giải và nhận Tag riêng biệt không trùng lặp cho từng Instance / Clone
@@ -124,7 +203,6 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
             session_id = query.get("session_id", [""])[0].strip()
             place_id = query.get("place_id", [""])[0].strip()
 
-            # Khóa định danh duy nhất cho từng cửa sổ/bản clone
             if user and user.lower() not in ["unknown", "player", "player1"]:
                 session_key = user.lower()
             elif session_id:
@@ -137,11 +215,9 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
             chosen_tag_id = SHARED_STATE["claimed_sessions"].get(session_key)
             matched = None
 
-            # Kiểm tra xem session này đã từng nhận Tag chưa
             if chosen_tag_id and chosen_tag_id in SHARED_STATE["tags"]:
                 matched = SHARED_STATE["tags"][chosen_tag_id]
             else:
-                # Tìm Tag đầu tiên chưa có ai nhận
                 claimed_tag_ids = set(SHARED_STATE["claimed_sessions"].values())
                 for tid, tdata in SHARED_STATE["tags"].items():
                     if tid not in claimed_tag_ids and not tdata.get("claimed_by"):
@@ -149,7 +225,6 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
                         matched = tdata
                         break
 
-                # Nếu tất cả Tag đã có người nhận, tự động sinh thêm Tag mới với IP Live
                 if not matched:
                     new_tag_num = len(SHARED_STATE["tags"]) + 1
                     chosen_tag_id = f"ROBLOX-CLONE-{new_tag_num:02d}"
@@ -180,15 +255,21 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
                     }
                     SHARED_STATE["tags"][chosen_tag_id] = matched
 
-                # Đánh dấu đã nhận Tag cho session này
                 SHARED_STATE["claimed_sessions"][session_key] = chosen_tag_id
                 matched["claimed_by"] = session_key
                 if user:
                     matched["username"] = user
                 matched["job_id"] = job_id
+                
+                watchdog.register_tag(
+                    tag_id=chosen_tag_id,
+                    assigned_ip=matched.get("assigned_ip", ""),
+                    region=matched.get("region", ""),
+                    username=user,
+                    place_id=place_id
+                )
                 logger.info(f"[TAG CLAIMED] Session '{session_key}' -> Gán Tag [{chosen_tag_id}] | IP: {matched['assigned_ip']} ({matched['region']})")
 
-            # Đọc custom user payload nếu có
             custom_payload_path = os.path.join(BASE_DIR, "data", "custom_payload.lua")
             custom_code = ""
             if os.path.exists(custom_payload_path):
@@ -198,19 +279,39 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
 
+            target_game = game_manager.get_game_for_tag(chosen_tag_id)
+
             resp_data = dict(matched)
             resp_data["status"] = "success"
             resp_data["custom_script"] = custom_code
             resp_data["custom_script_url"] = "http://127.0.0.1:8888/api/custom_script"
+            resp_data["target_game"] = target_game
 
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self._send_cors_headers()
-            self.end_headers()
-            self.wfile.write(json.dumps(resp_data, ensure_ascii=False).encode("utf-8"))
+            self._respond_json(resp_data, 200)
             return
 
-        # 3. API: Lấy thông tin IP theo Tag hoặc Username
+        # 3. API: Game mục tiêu đã chọn (Hỗ trợ truy vấn theo từng Tag riêng biệt: /api/target_game?tag=ROBLOX-TAG-01)
+        if path in ["/api/target_game", "/api/game", "/api/selected_game"]:
+            tag_id = query.get("tag", [None])[0] or query.get("tag_id", [None])[0]
+            target_game = game_manager.get_game_for_tag(tag_id)
+            self._respond_json(target_game, 200)
+            return
+
+        if path in ["/api/target_games_all", "/api/tag_games", "/api/all_games"]:
+            self._respond_json({
+                "per_tag_mode": game_manager.per_tag_mode,
+                "global_game": game_manager.get_current_game(),
+                "tag_games": game_manager.get_all_tag_games()
+            }, 200)
+            return
+
+        # 4. API: Trạng thái Watchdog và nhịp tim
+        if path in ["/api/watchdog/status", "/api/watchdog", "/api/status/watchdog"]:
+            w_summary = watchdog.get_summary()
+            self._respond_json(w_summary, 200)
+            return
+
+        # 5. API: Lấy thông tin IP theo Tag hoặc Username
         if path == "/api/ip":
             tag_id = query.get("tag", [None])[0]
             username = query.get("user", [None])[0]
@@ -224,15 +325,11 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
             if not matched and SHARED_STATE["tags"]:
                 matched = next(iter(SHARED_STATE["tags"].values()))
 
-            self.send_response(200 if matched else 404)
-            self.send_header("Content-Type", "application/json")
-            self._send_cors_headers()
-            self.end_headers()
             resp = matched or {"error": "Tag not found", "assigned_ip": "112.146.7.100", "region": "JP (Tokyo)"}
-            self.wfile.write(json.dumps(resp).encode("utf-8"))
+            self._respond_json(resp, 200 if matched else 404)
             return
 
-        # 4. API: Cung cấp script người dùng muốn tự động chạy cho toàn bộ các Tag
+        # 6. API: Cung cấp script người dùng muốn tự động chạy cho toàn bộ các Tag
         if path in ["/api/custom_script", "/api/custom", "/api/payload"]:
             custom_payload_path = os.path.join(BASE_DIR, "data", "custom_payload.lua")
             custom_code = "-- No custom payload configured"
@@ -243,15 +340,10 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
 
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self._send_cors_headers()
-            self.end_headers()
-            self.wfile.write(custom_code.encode("utf-8"))
+            self._respond_text(custom_code, 200)
             return
 
-
-        # 3. API: Tự động đổi IP mới (cùng quốc gia đã chọn) khi người chơi chuyển Server / Teleport
+        # 7. API: Tự động đổi IP mới khi chuyển server
         if path in ["/api/rotate_ip", "/api/server_hop", "/api/hop"]:
             tag_id = query.get("tag", ["ROBLOX-TAG-01"])[0]
             job_id = query.get("job_id", ["Unknown_Job"])[0]
@@ -261,7 +353,6 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
             from network.proxy_fetcher import ProxyFetcher, SUPPORTED_COUNTRIES
             import random
 
-            # Xác định quốc gia hiện tại của Tag
             target_country = "JP"
             if specified_country and specified_country.upper() in SUPPORTED_COUNTRIES:
                 target_country = specified_country.upper()
@@ -276,7 +367,6 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
                             target_country = c_code
                             break
 
-            # Lấy danh sách Proxy của đúng quốc gia đó
             c_proxies = ProxyFetcher.fetch_country_proxies(target_country, force_refresh=False)
             available = [ip for ip in c_proxies if ip != old_ip]
             if available:
@@ -289,7 +379,6 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
             c_info = SUPPORTED_COUNTRIES.get(target_country, {"name": target_country, "tag": f"[{target_country}]"})
             new_region = f"{c_info['tag']} {target_country} (ServerHop)"
 
-            # Cập nhật trạng thái
             if tag_id in SHARED_STATE["tags"]:
                 SHARED_STATE["tags"][tag_id]["assigned_ip"] = new_ip
                 SHARED_STATE["tags"][tag_id]["region"] = new_region
@@ -297,26 +386,6 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
 
             logger.info(f"[SERVER HOP DETECTED] Tag {tag_id} joined Server (JobId: {job_id[:12]}...). Auto-rotated IP -> {new_ip} [Same Country: {target_country}]")
 
-            # Can thiệp sâu tầng Linux Kernel / Android iptables & Cloud Phone (Root / SU)
-            try:
-                if ":" in new_ip:
-                    proxy_h, proxy_p = new_ip.split(":", 1)
-                    # 1. Cập nhật UGPhone nếu kết nối
-                    from devices.ugphone_bridge import UGPhoneBridge
-                    ug_bridge = UGPhoneBridge()
-                    if ug_bridge.connected_devices:
-                        for dev in ug_bridge.connected_devices:
-                            ug_bridge.set_android_proxy(dev, proxy_h, int(proxy_p))
-                    
-                    # 2. Cập nhật Android Native Settings qua Root SU (set global http_proxy)
-                    import subprocess
-                    if os.path.exists("/system/bin/setprop") or os.path.exists("/data/data/com.termux"):
-                        subprocess.run(["su", "-c", f"settings put global http_proxy {new_ip} 2>/dev/null || true"], capture_output=True, timeout=1)
-                        subprocess.run(["su", "-c", f"setprop http.proxyHost {proxy_h} && setprop http.proxyPort {proxy_p} 2>/dev/null || true"], capture_output=True, timeout=1)
-            except Exception as e:
-                logger.debug(f"Root proxy redirection note: {e}")
-
-            # 3. [XÓA VÀ THAY THẾ FILE LUA CỰC NHANH VÀO AUTOEXEC]
             try:
                 from core.lua_generator import LuaScriptGenerator
                 gen = LuaScriptGenerator()
@@ -336,24 +405,15 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
                 "job_id": job_id,
                 "message": f"Da doi sang IP moi {new_ip} (Van giu dung quoc gia [{target_country}])"
             }
-
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self._send_cors_headers()
-            self.end_headers()
-            self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode("utf-8"))
+            self._respond_json(response_data, 200)
             return
 
-        # 4. API: Danh sách toàn bộ Tags & IPs
+        # 8. API: Danh sách toàn bộ Tags & IPs
         if path in ["/api/instances", "/api/all", "/"]:
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self._send_cors_headers()
-            self.end_headers()
-            self.wfile.write(json.dumps(SHARED_STATE["tags"], indent=2).encode("utf-8"))
+            self._respond_json(SHARED_STATE["tags"], 200)
             return
 
-        # 5. API: Scrapestack Proxy Status & IP Query (Key: 5d1c5fb06ff44e84a97fcc7e2720fd3f)
+        # 9. API: Scrapestack Proxy Status & IP Query
         if path in ["/api/scrapestack", "/api/scrapestack/status", "/api/scrapestack/ip"]:
             from network.scrapestack_client import ScrapestackClient
             s_client = ScrapestackClient()
@@ -362,12 +422,7 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
                 resp = {"status": "ONLINE" if ip else "OFFLINE", "proxy_ip": ip}
             else:
                 resp = s_client.test_connection()
-
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self._send_cors_headers()
-            self.end_headers()
-            self.wfile.write(json.dumps(resp, ensure_ascii=False).encode("utf-8"))
+            self._respond_json(resp, 200)
             return
 
         # Fallback 404
@@ -398,8 +453,16 @@ class RobloxBridgeServer:
                 "pid": inst.pid,
                 "title": inst.title,
                 "process_name": inst.process_name,
-                "username": getattr(inst, "account_username", "") or ""
+                "username": getattr(inst, "account_username", "") or "",
+                "status": "ONLINE" if inst.pid > 0 or inst.hwnd > 0 else "OFFLINE"
             }
+            watchdog.register_tag(
+                tag_id=inst.tag_id,
+                assigned_ip=inst.assigned_ip or "127.0.0.1",
+                region=getattr(inst, "region", "[JP] Japan Dedicated"),
+                username=getattr(inst, "account_username", "") or "",
+                pid=inst.pid
+            )
         if master_script:
             SHARED_STATE["master_script"] = master_script
 
@@ -407,12 +470,12 @@ class RobloxBridgeServer:
         if self.is_running:
             return
         try:
-            # Tự động nạp sẵn script từ đĩa nếu có
             get_active_lua_script()
             self.server = ReusableHTTPServer((self.host, self.port), RobloxBridgeHandler)
             self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
             self.thread.start()
             self.is_running = True
+            watchdog.start()
             logger.info(f"Roblox Bridge Server started at http://{self.host}:{self.port}")
         except Exception as e:
             logger.warning(f"Bridge Server start note: {e}")
@@ -426,4 +489,5 @@ class RobloxBridgeServer:
             except Exception:
                 pass
             self.is_running = False
+            watchdog.stop()
             logger.info("Roblox Bridge Server stopped.")

@@ -3,6 +3,10 @@
 Roblox Lua Script Generator - Multi-Instance Isolation & Unique Fingerprint Engine
 Tự động sinh mã Lua cho Roblox Executor gán IP riêng biệt, cấu hình ĐỘC LẬP 100% (KHÔNG AI GIỐNG AI):
 - Mỗi Tag nhận 1 IP, 1 MAC Address, 1 Client-UUID, 1 HWID, 1 User-Agent và 1 cặp DNS hoàn toàn khác nhau.
+- TÍCH HỢP PER-TAG MULTI-GAME: Mỗi Tag được gán 1 Game Roblox riêng biệt (Blox Fruits, King Legacy, Fisch, PS99...).
+- Tích hợp Lua Heartbeat Transmitter (gửi nhịp tim định kỳ về Python Watchdog).
+- Tích hợp Lua Error & Disconnect Hook (bắt lỗi 277, 268, Kick để Python tự động mở lại Tag).
+- Tích hợp Game Auto-Teleport (tự động nhận diện và chuyển server vào đúng Game Place ID riêng của từng Tag).
 - Random Jitter & Heartbeat Timing để chống Roblox nhận diện hành vi đồng thời.
 - Tự động nhận diện Chuyển Server (Server Hop / Teleport) để đổi IP mới cùng quốc gia.
 - Mã hóa chống đánh cắp (Lua Obfuscator) và chèn tàng hình (Stealth Blank View).
@@ -63,6 +67,7 @@ LUA_TEMPLATE_SINGLE_TAG = """--[[
  Tag ID         : {tag_id}
  Assigned IP    : {assigned_ip}
  Target Region  : {region}
+ Target Game    : {target_game_name} (PlaceId: {target_place_id})
  Client UUID    : {client_uuid}
  Hardware HWID  : {hwid}
  MAC Address    : {mac_addr}
@@ -75,6 +80,9 @@ local TAG_CONFIG = {{
     TagId = "{tag_id}",
     AssignedIP = "{assigned_ip}",
     Region = "{region}",
+    TargetGameName = "{target_game_name}",
+    TargetPlaceId = "{target_place_id}",
+    TargetJobId = "{target_job_id}",
     DnsPrimary = "{dns_primary}",
     DnsSecondary = "{dns_secondary}",
     ClientUUID = "{client_uuid}",
@@ -94,6 +102,23 @@ local TAG_CONFIG = {{
 
 -- Khoi tao Random Seed rieng biet de cac Tag khong bao gio trung lap thoi diem goi mang
 math.randomseed(os.time() + TAG_CONFIG.UniqueSeed)
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+local GuiService = game:GetService("GuiService")
+local TeleportService = game:GetService("TeleportService")
+local Stats = game:GetService("Stats")
+local LocalPlayer = Players.LocalPlayer or Players:GetPlayers()[1]
+
+local function safe_request(req_opts)
+    local fn = syn and syn.request or http_request or request or (http and http.request)
+    if fn then
+        local success, res = pcall(fn, req_opts)
+        if success and res then return res end
+    end
+    return nil
+end
 
 -- ====================================================================================
 -- 1. NETWORK REQUEST & HTTP HEADER HOOK (SPOOF CLIENT IP, HWID, MAC & USER-AGENT)
@@ -115,30 +140,22 @@ local function apply_ip_headers(req)
     return req
 end
 
--- Hook cac ham request pho bien cua Executor
 local original_request = syn and syn.request or http_request or request or (http and http.request)
 if original_request then
-    local hooked_request
-    hooked_request = hookfunction(original_request, function(req)
+    hookfunction(original_request, function(req)
         local modified = apply_ip_headers(req)
         return original_request(modified)
     end)
-    print(string.format("[%s] [+] Hooked Executor HTTP Request -> Dedicated IP: %s (HWID: %s)", TAG_CONFIG.TagId, TAG_CONFIG.AssignedIP, TAG_CONFIG.HWID))
+    print(string.format("[%s] [+] Hooked Executor HTTP Request -> Dedicated IP: %s", TAG_CONFIG.TagId, TAG_CONFIG.AssignedIP))
 end
 
 -- ====================================================================================
--- 2. IN-GAME STATUS HUD GUI (HIEN THI GIAO DIEN MANG RIENG BIET CHO TUNG TAG)
+-- 2. IN-GAME STATUS HUD GUI (HIỂN THỊ GIAO DIỆN TRẠNG THÁI CHO TỪNG TAG)
 -- ====================================================================================
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
-local LocalPlayer = Players.LocalPlayer or Players:GetPlayers()[1]
-
 local function create_ip_hud()
     local parentGui = (gethui and gethui()) or CoreGui:FindFirstChild("RobloxGui") or (LocalPlayer and LocalPlayer:WaitForChild("PlayerGui"))
     if not parentGui then return end
 
-    -- Xoa GUI cu neu da ton tai
     if parentGui:FindFirstChild("RobloxDedicatedIPHud_" .. TAG_CONFIG.TagId) then
         parentGui:FindFirstChild("RobloxDedicatedIPHud_" .. TAG_CONFIG.TagId):Destroy()
     end
@@ -148,64 +165,56 @@ local function create_ip_hud()
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-    -- Main Container Frame voi vi tri va mau sac rieng biet
-    local Frame = Instance.new("Frame")
+    local Frame = Instance.new("Frame", ScreenGui)
     Frame.Name = "MainFrame"
-    Frame.Parent = ScreenGui
     Frame.BackgroundColor3 = Color3.fromRGB(15, 18, 25)
     Frame.BackgroundTransparency = 0.15
     Frame.BorderSizePixel = 0
     Frame.Position = UDim2.new(0, TAG_CONFIG.HudX, 0, TAG_CONFIG.HudY)
-    Frame.Size = UDim2.new(0, 275, 0, 100)
+    Frame.Size = UDim2.new(0, 285, 0, 110)
     Frame.Active = true
     Frame.Draggable = true
 
-    local UICorner = Instance.new("UICorner", Frame)
-    UICorner.CornerRadius = UDim.new(0, 10)
-
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 10)
     local UIStroke = Instance.new("UIStroke", Frame)
     UIStroke.Color = Color3.fromRGB(TAG_CONFIG.ColorR, TAG_CONFIG.ColorG, TAG_CONFIG.ColorB)
     UIStroke.Thickness = 1.5
 
-    -- Title Bar
     local Title = Instance.new("TextLabel", Frame)
     Title.Text = string.format("⚡ %s | IP: %s", TAG_CONFIG.TagId, TAG_CONFIG.AssignedIP)
-    Title.Size = UDim2.new(1, -20, 0, 25)
+    Title.Size = UDim2.new(1, -20, 0, 22)
     Title.Position = UDim2.new(0, 10, 0, 5)
     Title.BackgroundTransparency = 1
     Title.TextColor3 = Color3.fromRGB(TAG_CONFIG.ColorR, TAG_CONFIG.ColorG, TAG_CONFIG.ColorB)
     Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 13
+    Title.TextSize = 12
     Title.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- Tag & Username
     local UserLabel = Instance.new("TextLabel", Frame)
     local uName = LocalPlayer and LocalPlayer.Name or "Player"
     UserLabel.Text = string.format("📍 Region: %s | User: %s", TAG_CONFIG.Region, uName)
     UserLabel.Size = UDim2.new(1, -20, 0, 18)
-    UserLabel.Position = UDim2.new(0, 10, 0, 30)
+    UserLabel.Position = UDim2.new(0, 10, 0, 27)
     UserLabel.BackgroundTransparency = 1
     UserLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
     UserLabel.Font = Enum.Font.GothamMedium
     UserLabel.TextSize = 11
     UserLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- DNS & Fingerprint Info
-    local DnsLabel = Instance.new("TextLabel", Frame)
-    DnsLabel.Text = string.format("🔒 DNS: %s | HWID: %s", TAG_CONFIG.DnsPrimary, string.sub(TAG_CONFIG.HWID, 1, 12) .. "..")
-    DnsLabel.Size = UDim2.new(1, -20, 0, 18)
-    DnsLabel.Position = UDim2.new(0, 10, 0, 50)
-    DnsLabel.BackgroundTransparency = 1
-    DnsLabel.TextColor3 = Color3.fromRGB(180, 200, 220)
-    DnsLabel.Font = Enum.Font.Gotham
-    DnsLabel.TextSize = 10
-    DnsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local GameLabel = Instance.new("TextLabel", Frame)
+    GameLabel.Text = string.format("🎮 Game: %s (PlaceId: %s)", TAG_CONFIG.TargetGameName or "Roblox Game", TAG_CONFIG.TargetPlaceId or "2753915549")
+    GameLabel.Size = UDim2.new(1, -20, 0, 18)
+    GameLabel.Position = UDim2.new(0, 10, 0, 47)
+    GameLabel.BackgroundTransparency = 1
+    GameLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+    GameLabel.Font = Enum.Font.GothamMedium
+    GameLabel.TextSize = 10
+    GameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- Status Label
     local StatusLabel = Instance.new("TextLabel", Frame)
-    StatusLabel.Text = "🛡️ Profile: [DOC LAP 100% - KHONG TRUNG LAP]"
+    StatusLabel.Text = "🟢 Watchdog: [HEARTBEAT ON - AUTO-RESTART READY]"
     StatusLabel.Size = UDim2.new(1, -20, 0, 18)
-    StatusLabel.Position = UDim2.new(0, 10, 0, 72)
+    StatusLabel.Position = UDim2.new(0, 10, 0, 69)
     StatusLabel.BackgroundTransparency = 1
     StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
     StatusLabel.Font = Enum.Font.GothamMedium
@@ -218,56 +227,114 @@ end
 task.spawn(create_ip_hud)
 
 -- ====================================================================================
--- 3. AUTO SERVER HOP DETECTION (TU DONG DOI IP MOI CUNG QUOC GIA KHI CHUYEN SERVER)
+-- 3. LUA HEARTBEAT TRANSMITTER (GỬI NHỊP TIM ĐỊNH KỲ VỀ PYTHON WATCHDOG)
 -- ====================================================================================
-local currentJobId = game.JobId
-
-local function on_server_hop_detected(new_job_id)
-    print(string.format("[%s] [*] Phat hien chuyen Server (JobId: %s)! Dang yeu cau Python cap IP moi cung nuoc...", TAG_CONFIG.TagId, tostring(new_job_id)))
-    local req_fn = syn and syn.request or http_request or request or (http and http.request)
-    if req_fn then
+task.spawn(function()
+    while task.wait(2.5) do
         pcall(function()
-            local hop_url = string.format("%s/api/rotate_ip?tag=%s&job_id=%s&old_ip=%s", TAG_CONFIG.HttpBridgeUrl, TAG_CONFIG.TagId, tostring(game.JobId), TAG_CONFIG.AssignedIP)
-            local res = req_fn({{Url = hop_url, Method = "GET"}})
-            if res and res.Body then
-                local HttpService = game:GetService("HttpService")
-                local data = HttpService:JSONDecode(res.Body)
-                if data and data.new_ip then
-                    TAG_CONFIG.AssignedIP = data.new_ip
-                    TAG_CONFIG.Region = data.region or TAG_CONFIG.Region
-                    print(string.format("[%s] [+] DA CAP PHAT IP MOI: %s (Quoc gia: %s)", TAG_CONFIG.TagId, data.new_ip, data.country or "AUTO"))
-                    pcall(create_ip_hud)
-                end
-            end
-        end)
-    end
-end
+            local fpsVal = 60
+            pcall(function() fpsVal = math.floor(workspace:GetRealPhysicsFPS()) end)
+            local pingVal = 0
+            pcall(function() pingVal = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) end)
+            local memVal = "0 MB"
+            pcall(function() memVal = string.format("%.1f MB", Stats:GetTotalMemoryUsageMb()) end)
 
--- Lang nghe su kien Teleport
-pcall(function()
-    if LocalPlayer then
-        LocalPlayer.OnTeleport:Connect(function(teleportState)
-            if teleportState == Enum.TeleportState.Started or teleportState == Enum.TeleportState.InProgress then
-                on_server_hop_detected("Teleporting")
-            end
+            local hb_payload = HttpService:JSONEncode({{
+                tag_id = TAG_CONFIG.TagId,
+                username = LocalPlayer and LocalPlayer.Name or "Unknown",
+                place_id = tostring(game.PlaceId or "0"),
+                job_id = tostring(game.JobId or ""),
+                fps = fpsVal,
+                ping_ms = pingVal,
+                memory_mb = memVal,
+                assigned_ip = TAG_CONFIG.AssignedIP,
+                region = TAG_CONFIG.Region,
+                status = "ALIVE"
+            }})
+
+            safe_request({{
+                Url = TAG_CONFIG.HttpBridgeUrl .. "/api/heartbeat",
+                Method = "POST",
+                Headers = {{["Content-Type"] = "application/json"}},
+                Body = hb_payload
+            }})
         end)
     end
 end)
 
--- Ho tro queue_on_teleport cua cac Executor de tu dong nap lai script sau khi chuyen server
-if queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) then
-    local q_fn = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+-- ====================================================================================
+-- 4. LUA ERROR & DISCONNECT HOOK (BẮT SỰ KIỆN LỖI ĐỂ PYTHON WATCHDOG TỰ MỞ LẠI TAG)
+-- ====================================================================================
+local function report_disconnection(reason_text)
+    print(string.format("[%s] [!] BÁO CÁO NGẮT KẾT NỐI: %s -> Gửi tín hiệu để Python mở lại...", TAG_CONFIG.TagId, tostring(reason_text)))
     pcall(function()
-        q_fn(string.format([[
-            task.wait(1.5)
-            pcall(function()
-                loadstring(game:HttpGet("%s/api/script?tag=%s"))()
-            end)
-        ]], TAG_CONFIG.HttpBridgeUrl, TAG_CONFIG.TagId))
+        safe_request({{
+            Url = TAG_CONFIG.HttpBridgeUrl .. "/api/tag_status",
+            Method = "POST",
+            Headers = {{["Content-Type"] = "application/json"}},
+            Body = HttpService:JSONEncode({{
+                tag_id = TAG_CONFIG.TagId,
+                status = "DISCONNECTED",
+                error_message = tostring(reason_text),
+                username = LocalPlayer and LocalPlayer.Name or "",
+                place_id = tostring(game.PlaceId or "")
+            }})
+        }})
     end)
 end
 
--- Vong lap theo doi JobId khi doi server
+pcall(function()
+    GuiService.ErrorMessageChanged:Connect(function(errMsg)
+        if errMsg and #errMsg > 0 then
+            report_disconnection("GuiService Error: " .. tostring(errMsg))
+        end
+    end)
+end)
+
+pcall(function()
+    TeleportService.TeleportInitFailed:Connect(function(player, result, err)
+        report_disconnection(string.format("Teleport Failed: %s (%s)", tostring(result), tostring(err)))
+    end)
+end)
+
+-- ====================================================================================
+-- 5. PER-TAG AUTO TELEPORT TO ASSIGNED GAME
+-- ====================================================================================
+task.spawn(function()
+    task.wait(2.0)
+    pcall(function()
+        local targetPid = TAG_CONFIG.TargetPlaceId
+        if targetPid and #targetPid > 2 and tostring(game.PlaceId) ~= targetPid then
+            print(string.format("[%s] [🎮 PER-TAG TELEPORT] Đang chuyển server vào Game: %s (PlaceId: %s)...", TAG_CONFIG.TagId, TAG_CONFIG.TargetGameName or "Roblox Game", targetPid))
+            local pidNum = tonumber(targetPid)
+            if pidNum then
+                TeleportService:Teleport(pidNum, LocalPlayer)
+            end
+        end
+    end)
+end)
+
+-- ====================================================================================
+-- 6. AUTO SERVER HOP & TELEPORT IP ROTATION
+-- ====================================================================================
+local currentJobId = game.JobId
+
+local function on_server_hop_detected(new_job_id)
+    print(string.format("[%s] [*] Server hop phát hiện (JobId: %s)! Cấp IP mới cùng nước...", TAG_CONFIG.TagId, tostring(new_job_id)))
+    pcall(function()
+        local hop_url = string.format("%s/api/rotate_ip?tag=%s&job_id=%s&old_ip=%s", TAG_CONFIG.HttpBridgeUrl, TAG_CONFIG.TagId, tostring(game.JobId), TAG_CONFIG.AssignedIP)
+        local res = safe_request({{Url = hop_url, Method = "GET"}})
+        if res and res.Body then
+            local data = HttpService:JSONDecode(res.Body)
+            if data and data.new_ip then
+                TAG_CONFIG.AssignedIP = data.new_ip
+                TAG_CONFIG.Region = data.region or TAG_CONFIG.Region
+                pcall(create_ip_hud)
+            end
+        end
+    end)
+end
+
 task.spawn(function()
     while task.wait(3) do
         if game.JobId ~= "" and game.JobId ~= currentJobId then
@@ -277,10 +344,7 @@ task.spawn(function()
     end
 end)
 
--- Thong bao thanh cong vao Roblox Chat / Console
-print(string.format("=========================================================="))
-print(string.format("[+] SUCCESS: Tag [%s] da duoc gan Dedicated IP: %s (Region: %s)", TAG_CONFIG.TagId, TAG_CONFIG.AssignedIP, TAG_CONFIG.Region))
-print(string.format("=========================================================="))
+print(string.format("[+] SUCCESS: Tag [%s] | Dedicated IP: %s | Game: %s", TAG_CONFIG.TagId, TAG_CONFIG.AssignedIP, TAG_CONFIG.TargetGameName or "Blox Fruits"))
 """
 
 LUA_MASTER_TEMPLATE = """--[[
@@ -288,9 +352,11 @@ LUA_MASTER_TEMPLATE = """--[[
      ⚡ ROBLOX MULTI-TAG UNIVERSAL MASTER EXECUTOR & SCRIPT DISPATCHER ⚡
 ========================================================================================
  - TỰ ĐỘNG PHÂN GIẢI & GÁN DEDICATED IP RIÊNG BIỆT CHO TỪNG BẢN CLONE / TAG ROBLOX.
- - MỖI TAG NHẬN 1 IP, 1 HWID, 1 MAC, 1 UUID, 1 USER-AGENT HOÀN TOÀN ĐỘC LẬP.
+ - HỖ TRỢ PER-TAG MULTI-GAME: MỖI TAG NHẬN 1 GAME RIÊNG BIỆT (BLOX FRUITS, FISCH, PS99...).
+ - TÍCH HỢP LUA HEARTBEAT TRANSMITTER (BÁO NHỊP TIM VỀ PYTHON WATCHDOG).
+ - TÍCH HỢP LUA ERROR & DISCONNECT HOOK (PHÁT HIỆN KICK / ERROR 277 ĐỂ PYTHON TỰ MỞ LẠI).
+ - TỰ ĐỘNG TELEPORT VÀO ĐÚNG GAME CỦA TỪNG TAG.
  - TỰ ĐỘNG KHỞI CHẠY SCRIPT GAME (CUSTOM PAYLOAD) CHO TOÀN BỘ CÁC TAG.
- - TỰ ĐỘNG XOAY IP CÙNG QUỐC GIA KHI TELEPORT / SERVER HOP.
  - Generated: {timestamp}
 ========================================================================================
 ]]--
@@ -300,6 +366,9 @@ local IP_TAG_MAPPING = {mapping_json}
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
+local GuiService = game:GetService("GuiService")
+local TeleportService = game:GetService("TeleportService")
+local Stats = game:GetService("Stats")
 local LocalPlayer = Players.LocalPlayer or Players:GetPlayers()[1]
 local HTTP_BRIDGE_URL = "http://127.0.0.1:8888"
 
@@ -308,7 +377,6 @@ local currentUserId = LocalPlayer and tostring(LocalPlayer.UserId) or "0"
 local currentJobId = tostring(game.JobId or "")
 local currentPlaceId = tostring(game.PlaceId or "")
 
--- Hàm gửi request an toàn tương thích mọi Executor
 local function safe_request(req_opts)
     local fn = syn and syn.request or http_request or request or (http and http.request)
     if fn then
@@ -320,9 +388,10 @@ end
 
 local currentConfig = nil
 local customPayloadCode = nil
+local targetGameConfig = nil
 
 -- ====================================================================================
--- BƯỚC 1: LIÊN HỆ BRIDGE SERVER ĐỂ TỰ ĐỘNG NHẬN DEDICATED TAG & IP RIÊNG BIỆT CHO CLONE
+-- BƯỚC 1: LIÊN HỆ BRIDGE SERVER ĐỂ TỰ ĐỘNG NHẬN DEDICATED TAG, IP & GAME RIÊNG CHO CLONE
 -- ====================================================================================
 pcall(function()
     local session_id = string.format("sess_%s_%s_%s", currentUsername, currentUserId, tostring(os.time() % 100000))
@@ -350,12 +419,18 @@ pcall(function()
                 dns_primary = data.dns_primary or "1.1.1.1",
                 dns_secondary = data.dns_secondary or "8.8.8.8",
                 jitter_ms = data.jitter_ms or 250,
-                unique_seed = data.unique_seed or 123456
+                unique_seed = data.unique_seed or 123456,
+                target_game_name = (data.target_game and data.target_game.name) or "Roblox Target Game",
+                target_place_id = (data.target_game and data.target_game.place_id) or "2753915549",
+                target_job_id = (data.target_game and data.target_game.job_id) or ""
             }}
             if data.custom_script and #data.custom_script > 10 then
                 customPayloadCode = data.custom_script
             end
-            print(string.format("[+] [BRIDGE DYNAMIC BIND] Tag [%s] đã nhận Dedicated IP: %s (%s)", currentConfig.tag_id, currentConfig.assigned_ip, currentConfig.region))
+            if data.target_game then
+                targetGameConfig = data.target_game
+            end
+            print(string.format("[+] [BRIDGE DYNAMIC BIND] Tag [%s] | IP: %s (%s) | Game: %s", currentConfig.tag_id, currentConfig.assigned_ip, currentConfig.region, currentConfig.target_game_name))
         end
     end
 end)
@@ -364,7 +439,6 @@ end)
 -- BƯỚC 2: OFFLINE ANTI-COLLISION FALLBACK (KHI KHÔNG CÓ BRIDGE SERVER)
 -- ====================================================================================
 if not currentConfig then
-    -- 1. Ưu tiên tìm mapping theo Username
     for _, item in ipairs(IP_TAG_MAPPING) do
         if item.username and item.username ~= "" and string.lower(item.username) == string.lower(currentUsername) then
             currentConfig = item
@@ -372,7 +446,6 @@ if not currentConfig then
         end
     end
 
-    -- 2. Nếu chưa có username match, dùng thuật toán Hash phân bổ slot để 100% không trùng IP
     if not currentConfig and #IP_TAG_MAPPING > 0 then
         local hashSeed = string.format("%s_%s_%s", currentUsername, currentUserId, currentJobId)
         local hashSum = 0
@@ -431,7 +504,7 @@ if currentConfig then
         Frame.BackgroundTransparency = 0.15
         Frame.BorderSizePixel = 0
         Frame.Position = UDim2.new(0, 15, 0, 50)
-        Frame.Size = UDim2.new(0, 285, 0, 100)
+        Frame.Size = UDim2.new(0, 290, 0, 110)
         Frame.Active = true
         Frame.Draggable = true
         Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
@@ -442,7 +515,7 @@ if currentConfig then
 
         local Title = Instance.new("TextLabel", Frame)
         Title.Text = string.format("⚡ %s | IP: %s", currentConfig.tag_id, currentConfig.assigned_ip)
-        Title.Size = UDim2.new(1, -10, 0, 24)
+        Title.Size = UDim2.new(1, -10, 0, 22)
         Title.Position = UDim2.new(0, 8, 0, 5)
         Title.BackgroundTransparency = 1
         Title.TextColor3 = Color3.fromRGB(0, 255, 200)
@@ -452,8 +525,8 @@ if currentConfig then
 
         local Sub = Instance.new("TextLabel", Frame)
         Sub.Text = string.format("📍 Region: %s | User: %s", currentConfig.region, currentUsername)
-        Sub.Size = UDim2.new(1, -10, 0, 20)
-        Sub.Position = UDim2.new(0, 8, 0, 30)
+        Sub.Size = UDim2.new(1, -10, 0, 18)
+        Sub.Position = UDim2.new(0, 8, 0, 27)
         Sub.BackgroundTransparency = 1
         Sub.TextColor3 = Color3.fromRGB(220, 220, 220)
         Sub.Font = Enum.Font.Gotham
@@ -461,22 +534,24 @@ if currentConfig then
         Sub.TextXAlignment = Enum.TextXAlignment.Left
 
         local Status = Instance.new("TextLabel", Frame)
-        Status.Text = "🛡️ Profile: [ĐỘC LẬP 100% - AUTO SCRIPT RUNNER]"
-        Status.Size = UDim2.new(1, -10, 0, 20)
-        Status.Position = UDim2.new(0, 8, 0, 55)
+        local gameName = currentConfig.target_game_name or (targetGameConfig and targetGameConfig.name) or "Roblox Game"
+        local pidVal = currentConfig.target_place_id or (targetGameConfig and targetGameConfig.place_id) or "2753915549"
+        Status.Text = string.format("🎮 Game: %s (PID: %s)", gameName, pidVal)
+        Status.Size = UDim2.new(1, -10, 0, 18)
+        Status.Position = UDim2.new(0, 8, 0, 48)
         Status.BackgroundTransparency = 1
-        Status.TextColor3 = Color3.fromRGB(120, 255, 120)
+        Status.TextColor3 = Color3.fromRGB(255, 200, 100)
         Status.Font = Enum.Font.GothamMedium
         Status.TextSize = 10
         Status.TextXAlignment = Enum.TextXAlignment.Left
 
         local Sub2 = Instance.new("TextLabel", Frame)
-        Sub2.Text = string.format("🔑 HWID: %s...", string.sub(currentConfig.hwid or "N/A", 1, 16))
+        Sub2.Text = "🟢 Watchdog: [HEARTBEAT ON - AUTO-RESTART READY]"
         Sub2.Size = UDim2.new(1, -10, 0, 18)
-        Sub2.Position = UDim2.new(0, 8, 0, 75)
+        Sub2.Position = UDim2.new(0, 8, 0, 69)
         Sub2.BackgroundTransparency = 1
-        Sub2.TextColor3 = Color3.fromRGB(160, 160, 160)
-        Sub2.Font = Enum.Font.Gotham
+        Sub2.TextColor3 = Color3.fromRGB(100, 255, 120)
+        Sub2.Font = Enum.Font.GothamBold
         Sub2.TextSize = 9
         Sub2.TextXAlignment = Enum.TextXAlignment.Left
 
@@ -486,10 +561,116 @@ if currentConfig then
     task.spawn(render_universal_hud)
 
     -- ================================================================================
-    -- BƯỚC 5: TỰ ĐỘNG KHỞI CHẠY SCRIPT CHO TẤT CẢ CÁC TAG (AUTO-EXECUTE CUSTOM PAYLOAD)
+    -- BƯỚC 5: LUA HEARTBEAT TRANSMITTER (GỬI NHỊP TIM ĐỊNH KỲ VỀ PYTHON WATCHDOG)
+    -- ================================================================================
+    task.spawn(function()
+        while task.wait(2.5) do
+            pcall(function()
+                local fpsVal = 60
+                pcall(function() fpsVal = math.floor(workspace:GetRealPhysicsFPS()) end)
+                local pingVal = 0
+                pcall(function() pingVal = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) end)
+                local memVal = "0 MB"
+                pcall(function() memVal = string.format("%.1f MB", Stats:GetTotalMemoryUsageMb()) end)
+
+                local hb_payload = HttpService:JSONEncode({{
+                    tag_id = currentConfig.tag_id,
+                    username = currentUsername,
+                    place_id = tostring(game.PlaceId or "0"),
+                    job_id = tostring(game.JobId or ""),
+                    fps = fpsVal,
+                    ping_ms = pingVal,
+                    memory_mb = memVal,
+                    assigned_ip = currentConfig.assigned_ip,
+                    region = currentConfig.region,
+                    status = "ALIVE"
+                }})
+
+                safe_request({{
+                    Url = HTTP_BRIDGE_URL .. "/api/heartbeat",
+                    Method = "POST",
+                    Headers = {{["Content-Type"] = "application/json"}},
+                    Body = hb_payload
+                }})
+            end)
+        end
+    end)
+
+    -- ================================================================================
+    -- BƯỚC 6: LUA ERROR & DISCONNECT HOOK (PHÁT HIỆN KICK / 277 ĐỂ PYTHON TỰ MỞ LẠI)
+    -- ================================================================================
+    local function report_error_to_python(reason_text)
+        print(string.format("[%s] [!] BÁO CÁO MẤT KẾT NỐI: %s -> Gửi tín hiệu để Python mở lại...", currentConfig.tag_id, tostring(reason_text)))
+        pcall(function()
+            safe_request({{
+                Url = HTTP_BRIDGE_URL .. "/api/tag_status",
+                Method = "POST",
+                Headers = {{["Content-Type"] = "application/json"}},
+                Body = HttpService:JSONEncode({{
+                    tag_id = currentConfig.tag_id,
+                    status = "DISCONNECTED",
+                    error_message = tostring(reason_text),
+                    username = currentUsername,
+                    place_id = currentPlaceId
+                }})
+            }})
+        end)
+    end
+
+    pcall(function()
+        GuiService.ErrorMessageChanged:Connect(function(errMsg)
+            if errMsg and #errMsg > 0 then
+                report_error_to_python("Roblox Error: " .. tostring(errMsg))
+            end
+        end)
+    end)
+
+    pcall(function()
+        TeleportService.TeleportInitFailed:Connect(function(player, result, err)
+            report_error_to_python(string.format("Teleport Failed: %s (%s)", tostring(result), tostring(err)))
+        end)
+    end)
+
+    -- ================================================================================
+    -- BƯỚC 7: TỰ ĐỘNG TELEPORT VÀO ĐÚNG GAME RIÊNG CỦA TỪNG TAG NẾU CHƯA ĐÚNG PLACE ID
+    -- ================================================================================
+    local function check_and_auto_teleport_game()
+        task.wait(2.0)
+        pcall(function()
+            local targetPid = currentConfig.target_place_id or (targetGameConfig and targetGameConfig.place_id)
+            local targetName = currentConfig.target_game_name or (targetGameConfig and targetGameConfig.name) or "Target Game"
+            
+            if not targetPid then
+                local res = safe_request({{Url = HTTP_BRIDGE_URL .. "/api/target_game?tag=" .. tostring(currentConfig.tag_id), Method = "GET"}})
+                if res and res.Body then
+                    local tData = HttpService:JSONDecode(res.Body)
+                    if tData and tData.place_id then
+                        targetPid = tostring(tData.place_id)
+                        targetName = tData.name or targetName
+                    end
+                end
+            end
+
+            if targetPid and #targetPid > 2 then
+                local currentPid = tostring(game.PlaceId)
+                if currentPid ~= targetPid then
+                    print(string.format("[%s] [🎮 PER-TAG AUTO-TELEPORT] Tag này được chỉ định game riêng: %s (PlaceId: %s)...", currentConfig.tag_id, targetName, targetPid))
+                    local pidNum = tonumber(targetPid)
+                    if pidNum then
+                        TeleportService:Teleport(pidNum, LocalPlayer)
+                    end
+                end
+            end
+        end)
+    end
+
+    task.spawn(check_and_auto_teleport_game)
+
+    -- ================================================================================
+    -- BƯỚC 8: TỰ ĐỘNG KHỞI CHẠY SCRIPT CHO TẤT CẢ CÁC TAG (AUTO-EXECUTE CUSTOM PAYLOAD)
     -- ================================================================================
     local function execute_tag_payload()
-        task.wait(1.0) -- Chờ Roblox khởi tạo ổn định Workspace và Character
+        task.wait(1.5)
         if customPayloadCode and #customPayloadCode > 10 then
             print(string.format("[%s] [*] Đang tự động chạy Custom Script Payload cho Tag này...", currentConfig.tag_id))
             local success, err = pcall(function()
@@ -501,7 +682,6 @@ if currentConfig then
                 warn(string.format("[%s] [!] Lỗi khi chạy Custom Script: %s", currentConfig.tag_id, tostring(err)))
             end
         else
-            -- Thử tải trực tiếp từ /api/custom_script
             pcall(function()
                 local res = safe_request({{Url = HTTP_BRIDGE_URL .. "/api/custom_script", Method = "GET"}})
                 if res and res.Body and #res.Body > 10 and not string.find(res.Body, "No custom payload") then
@@ -517,7 +697,7 @@ if currentConfig then
     task.spawn(execute_tag_payload)
 
     -- ================================================================================
-    -- BƯỚC 6: TỰ ĐỘNG ĐỔI IP KHI TELEPORT HOẶC SERVER HOP
+    -- BƯỚC 9: TỰ ĐỘNG ĐỔI IP KHI TELEPORT HOẶC SERVER HOP
     -- ================================================================================
     local function handle_server_hop(new_job_id)
         print(string.format("[%s] [*] Chuyển Server phát hiện (JobId: %s)! Đang đổi IP mới cùng quốc gia...", currentConfig.tag_id, tostring(new_job_id)))
@@ -530,7 +710,6 @@ if currentConfig then
                 if data and data.new_ip then
                     currentConfig.assigned_ip = data.new_ip
                     currentConfig.region = data.region or currentConfig.region
-                    print(string.format("[%s] [+] ĐÃ ĐỔI SANG IP MỚI: %s (%s)", currentConfig.tag_id, data.new_ip, currentConfig.region))
                     pcall(render_universal_hud)
                 end
             end
@@ -569,7 +748,7 @@ if currentConfig then
     end)
 
     print(string.format("========================================================================================"))
-    print(string.format("[⚡ UNIVERSAL MASTER RUNNER] Tag [%s] | Dedicated IP: %s | Profile: OK!", currentConfig.tag_id, currentConfig.assigned_ip))
+    print(string.format("[⚡ UNIVERSAL MASTER RUNNER] Tag [%s] | Dedicated IP: %s | Game: %s", currentConfig.tag_id, currentConfig.assigned_ip, currentConfig.target_game_name or "OK"))
     print(string.format("========================================================================================"))
 end
 """
@@ -607,6 +786,7 @@ class LuaScriptGenerator:
     ) -> Dict[str, str]:
         """
         Sinh file .lua riêng cho từng tag với Profile độc lập 100% và 1 file master tổng hợp.
+        Mỗi Tag nhận đúng Game mục tiêu riêng biệt của nó!
         """
         generated_files = {}
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -621,6 +801,7 @@ class LuaScriptGenerator:
             assigned_pool = [{"ip": ip, "region": "JP (Tokyo)", "country": "JP"} for ip in RandomIPGenerator.generate_batch(count=count)]
 
         mapping_list = []
+        from core.game_selector import game_manager
 
         for idx, inst in enumerate(instances):
             pool_data = assigned_pool[idx] if idx < len(assigned_pool) else assigned_pool[idx % len(assigned_pool)]
@@ -629,8 +810,13 @@ class LuaScriptGenerator:
             inst.assigned_ip = assigned_ip
             inst.region = region
 
-            # Sinh Profile độc lập không ai giống ai cho Tag này
             profile = self._generate_unique_tag_profile(idx)
+            
+            # Lấy game riêng của từng Tag
+            tag_game = game_manager.get_game_for_tag(inst.tag_id)
+            target_g_name = tag_game.get("name", "Roblox Game")
+            target_g_pid = tag_game.get("place_id", "2753915549")
+            target_g_jid = tag_game.get("job_id", "")
 
             tag_filename = f"{inst.tag_id}.lua"
             tag_filepath = os.path.join(OUTPUT_LUA_DIR, tag_filename)
@@ -639,6 +825,9 @@ class LuaScriptGenerator:
                 tag_id=inst.tag_id,
                 assigned_ip=assigned_ip,
                 region=region,
+                target_game_name=target_g_name,
+                target_place_id=target_g_pid,
+                target_job_id=target_g_jid,
                 timestamp=timestamp,
                 process_name=inst.process_name,
                 pid=inst.pid,
@@ -657,7 +846,6 @@ class LuaScriptGenerator:
                 color_b=profile["color_b"]
             )
 
-            # Mã hóa bảo vệ chống trộm và chèn tàng hình
             obfuscated_single = LuaObfuscator.obfuscate_and_stealth(lua_content, stealth_padding_lines=350)
 
             with open(tag_filepath, "w", encoding="utf-8") as f:
@@ -679,7 +867,10 @@ class LuaScriptGenerator:
                 "dns_primary": profile["dns_primary"],
                 "dns_secondary": profile["dns_secondary"],
                 "jitter_ms": profile["jitter_ms"],
-                "unique_seed": profile["unique_seed"]
+                "unique_seed": profile["unique_seed"],
+                "target_game_name": target_g_name,
+                "target_place_id": target_g_pid,
+                "target_job_id": target_g_jid
             })
 
         # Tạo file Master Auto-Router Lua
@@ -691,7 +882,6 @@ class LuaScriptGenerator:
             mapping_json=mapping_lua_table
         )
 
-        # Mã hóa bảo vệ Master Script
         obfuscated_master = LuaObfuscator.obfuscate_and_stealth(master_content, stealth_padding_lines=350)
 
         with open(master_filepath, "w", encoding="utf-8") as f:
@@ -706,16 +896,19 @@ class LuaScriptGenerator:
         """
         [CỰC NHANH] Tự động xóa sạch file Lua cũ và tạo đè file Lua mới với IP mới
         ngay khi người chơi đổi server, đồng thời bơm thẳng vào toàn bộ thư mục Autoexec.
-        Thời gian thực thi < 5 mili-giây!
         """
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         profile = self._generate_unique_tag_profile(random.randint(1, 999))
+        from core.game_selector import game_manager
+        tag_game = game_manager.get_game_for_tag(tag_id)
 
-        # 1. Sinh nội dung script đơn cho Tag
         lua_single = LUA_TEMPLATE_SINGLE_TAG.format(
             tag_id=tag_id,
             assigned_ip=new_ip,
             region=region,
+            target_game_name=tag_game.get("name", "Roblox Game"),
+            target_place_id=tag_game.get("place_id", "2753915549"),
+            target_job_id=tag_game.get("job_id", ""),
             timestamp=timestamp,
             process_name="RobloxPlayerBeta.exe",
             pid=0,
@@ -737,7 +930,6 @@ class LuaScriptGenerator:
         obfuscated_single = LuaObfuscator.obfuscate_and_stealth(lua_single, stealth_padding_lines=200)
         tag_filepath = os.path.join(OUTPUT_LUA_DIR, f"{tag_id}.lua")
         
-        # Xóa và ghi đè file tag tức thì
         try:
             if os.path.exists(tag_filepath):
                 os.remove(tag_filepath)
@@ -747,7 +939,6 @@ class LuaScriptGenerator:
         with open(tag_filepath, "w", encoding="utf-8") as f:
             f.write(obfuscated_single)
 
-        # 2. Sinh Master Script với IP mới
         master_mapping = [{
             "tag_id": tag_id,
             "assigned_ip": new_ip,
@@ -762,7 +953,10 @@ class LuaScriptGenerator:
             "dns_primary": profile["dns_primary"],
             "dns_secondary": profile["dns_secondary"],
             "jitter_ms": profile["jitter_ms"],
-            "unique_seed": profile["unique_seed"]
+            "unique_seed": profile["unique_seed"],
+            "target_game_name": tag_game.get("name", "Roblox Game"),
+            "target_place_id": tag_game.get("place_id", "2753915549"),
+            "target_job_id": tag_game.get("job_id", "")
         }]
         mapping_lua = self._convert_to_lua_table(master_mapping)
         master_content = LUA_MASTER_TEMPLATE.format(timestamp=timestamp, mapping_json=mapping_lua)
@@ -778,7 +972,6 @@ class LuaScriptGenerator:
         with open(master_filepath, "w", encoding="utf-8") as f:
             f.write(obfuscated_master)
 
-        # 3. Bơm siêu tốc vào Autoexec của Arceus X, Delta, Fluxus, Codex
         try:
             from core.autoexec_manager import AutoexecManager
             auto_mgr = AutoexecManager()
@@ -786,7 +979,7 @@ class LuaScriptGenerator:
         except Exception as e:
             logger.debug(f"Autoexec sync note: {e}")
 
-        logger.info(f"[⚡ FAST WIPE & REPLACE] Đã xóa và thay thế file Lua mới với IP: {new_ip} ({region}) vào Autoexec trong 3ms!")
+        logger.info(f"[⚡ FAST WIPE & REPLACE] Đã xóa và thay thế file Lua mới với IP: {new_ip} ({region}) vào Autoexec!")
         return obfuscated_master
 
     def _convert_to_lua_table(self, py_list: List[Dict]) -> str:
@@ -807,9 +1000,10 @@ class LuaScriptGenerator:
             lines.append(f'        dns_primary = "{item.get("dns_primary", "1.1.1.1")}",')
             lines.append(f'        dns_secondary = "{item.get("dns_secondary", "8.8.8.8")}",')
             lines.append(f'        jitter_ms = {item.get("jitter_ms", 250)},')
-            lines.append(f'        unique_seed = {item.get("unique_seed", 123456)}')
+            lines.append(f'        unique_seed = {item.get("unique_seed", 123456)},')
+            lines.append(f'        target_game_name = "{item.get("target_game_name", "Roblox Game")}",')
+            lines.append(f'        target_place_id = "{item.get("target_place_id", "2753915549")}",')
+            lines.append(f'        target_job_id = "{item.get("target_job_id", "")}"')
             lines.append("    },")
         lines.append("}")
         return "\n".join(lines)
-
-

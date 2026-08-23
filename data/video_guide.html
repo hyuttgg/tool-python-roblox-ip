@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roblox Multi-Tag Controller & Per-Tag Game Hub - Video Tutorial</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #090b10;
+            --bg-card: rgba(16, 20, 31, 0.85);
+            --border-neon: #00ffcc;
+            --neon-blue: #00d2ff;
+            --neon-purple: #9d4edd;
+            --neon-green: #00ff88;
+            --neon-red: #ff3366;
+            --neon-yellow: #ffcc00;
+            --text-main: #f0f4f8;
+            --text-muted: #8c9ba8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(157, 78, 221, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(0, 210, 255, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.08) 0%, transparent 60%);
+        }
+
+        .video-player-container {
+            width: 95%;
+            max-width: 1200px;
+            margin: 25px auto;
+            background: var(--bg-card);
+            border: 2px solid rgba(0, 255, 204, 0.3);
+            border-radius: 16px;
+            box-shadow: 0 0 40px rgba(0, 255, 204, 0.15), inset 0 0 20px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+            position: relative;
+        }
+
+        .player-header {
+            background: linear-gradient(90deg, #111522, #182033);
+            padding: 14px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .player-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--border-neon);
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+        }
+
+        .badge-live {
+            background: var(--neon-red);
+            color: #fff;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 900;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .video-screen {
+            width: 100%;
+            height: 580px;
+            background: #05070a;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .scene {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 30px;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            flex-direction: column;
+        }
+
+        .scene.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .terminal-box {
+            background: #0a0d14;
+            border: 1px solid #232d42;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .term-bar {
+            background: #141a29;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #232d42;
+        }
+
+        .term-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+        .dot-red { background: #ff5f56; }
+        .dot-yellow { background: #ffbd2e; }
+        .dot-green { background: #27c93f; }
+
+        .term-content {
+            padding: 20px;
+            font-size: 0.92rem;
+            line-height: 1.6;
+            color: #d1d5db;
+            overflow-y: auto;
+            flex-grow: 1;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .glow-cyan { color: var(--border-neon); text-shadow: 0 0 8px rgba(0,255,204,0.6); }
+        .glow-green { color: var(--neon-green); font-weight: 700; }
+        .glow-yellow { color: var(--neon-yellow); }
+        .glow-red { color: var(--neon-red); font-weight: 700; }
+        .glow-purple { color: var(--neon-purple); }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .game-card {
+            background: #121824;
+            border: 1px solid #283548;
+            padding: 12px 16px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        .game-card.tag-assigned {
+            border-color: var(--neon-green);
+            background: rgba(0, 255, 136, 0.12);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+        }
+
+        .roblox-multi-screen {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            height: 100%;
+        }
+
+        .roblox-window {
+            background: #11141d;
+            border: 2px solid #2d3748;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .roblox-window.error-state {
+            border-color: var(--neon-red);
+            animation: errorPulse 1s infinite alternate;
+        }
+
+        @keyframes errorPulse {
+            0% { box-shadow: 0 0 5px rgba(255, 51, 102, 0.4); }
+            100% { box-shadow: 0 0 25px rgba(255, 51, 102, 0.8); }
+        }
+
+        .roblox-game-preview {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle, #1a2333 0%, #0d121c 100%);
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: #94a3b8;
+            position: relative;
+        }
+
+        .game-hud-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 250px;
+            background: rgba(15, 18, 26, 0.9);
+            border: 1.5px solid var(--neon-green);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 0.75rem;
+            font-family: 'Fira Code', monospace;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.7);
+        }
+
+        .error-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1e2433;
+            border: 2px solid var(--neon-red);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            width: 80%;
+            box-shadow: 0 0 30px rgba(0,0,0,0.9);
+            z-index: 100;
+        }
+
+        .subtitles-banner {
+            background: rgba(10, 14, 22, 0.95);
+            border-top: 1px solid #232d42;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .sub-icon {
+            font-size: 1.4rem;
+            color: var(--neon-yellow);
+        }
+
+        .sub-text {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #ffffff;
+            line-height: 1.4;
+        }
+
+        .player-controls {
+            background: #0d111a;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .timeline-bar {
+            width: 100%;
+            height: 6px;
+            background: #232d42;
+            border-radius: 3px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: pointer;
+        }
+
+        .timeline-progress {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-green));
+            border-radius: 3px;
+            transition: width 0.2s linear;
+        }
+
+        .ctrl-btns {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-ctrl {
+            background: #1b2333;
+            border: 1px solid #334155;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-ctrl:hover, .btn-ctrl.active {
+            background: var(--border-neon);
+            color: #000;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.5);
+        }
+
+        .step-tabs {
+            display: flex;
+            gap: 8px;
+        }
+
+        .step-tab {
+            padding: 6px 12px;
+            background: #141a26;
+            border: 1px solid #283548;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .step-tab.active {
+            background: var(--neon-blue);
+            color: #000;
+            font-weight: 800;
+            border-color: var(--neon-blue);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="video-player-container">
+        <!-- Header -->
+        <div class="player-header">
+            <div class="player-title">
+                <span>⚡</span> ROBLOX MULTI-TAG MASTER CONTROLLER & PER-TAG MULTI-GAME HUB
+                <span class="badge-live">LIVE VIDEO DEMO</span>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">
+                Engine: <span class="glow-green">Java 8 JRE + Python 3.14 + Per-Tag Auto-Teleport</span>
+            </div>
+        </div>
+
+        <!-- Video Screen -->
+        <div class="video-screen">
+            <div class="timeline-bar" onclick="seekVideo(event)">
+                <div class="timeline-progress" id="progressBar"></div>
+            </div>
+
+            <!-- SCENE 1: KHỞI ĐỘNG & BANNER MASTER CONTROLLER -->
+            <div class="scene active" id="scene1">
+                <div class="terminal-box">
+                    <div class="term-bar">
+                        <div class="term-dots">
+                            <div class="dot dot-red"></div>
+                            <div class="dot dot-yellow"></div>
+                            <div class="dot dot-green"></div>
+                        </div>
+                        <div style="color: #64748b; font-size: 0.8rem;">C:\Users\khanh\Desktop\tool-python-roblox-ip> python controller.py</div>
+                    </div>
+                    <div class="term-content" id="term1">
+                        <pre class="glow-purple">
+╔════════════════════════════════════════════════════════════════════════════════════════════════╗
+║   ██████╗   ██████╗  ██████╗  ██╗       ██████╗  ██╗  ██╗    ███╗   ██╗ ███████╗ ████████╗   ║
+║   ██╔══██╗ ██╔═══██╗ ██╔══██╗ ██║      ██╔═══██╗ ╚██╗██╔╝    ████╗  ██║ ██╔════╝ ╚══██╔══╝   ║
+║   ██████╔╝ ██║   ██║ ██████╔╝ ██║      ██║   ██║  ╚███╔╝     ██╔██╗ ██║ █████╗      ██║     ║
+║   ██╔══██╗ ██║   ██║ ██╔══██╗ ██║      ██║   ██║  ██╔██╗     ██║╚██╗██║ ██╔══╝      ██║     ║
+║   ██║  ██║ ╚██████╔╝ ██████╔╝ ███████╗ ╚██████╔╝ ██╔╝ ██╗    ██║ ╚████║ ███████╗    ██║     ║
+║   ╚═╝  ╚═╝  ╚═════╝  ╚═════╝  ╚══════╝  ╚═════╝  ╚═╝  ╚═╝    ╚═╝  ╚═══╝ ╚══════╝    ╚═╝     ║
+╠════════════════════════════════════════════════════════════════════════════════════════════════╣
+║          [ MASTER CONTROLLER ] - PER-TAG MULTI-GAME & AUTO-RESTART WATCHDOG                    ║
+║   Roblox: <span class="glow-green">[2 LIVE | 3 CLONE]</span> | Mode: <span class="glow-cyan">[PER-TAG MULTI-GAME]</span> | Watchdog: <span class="glow-green">[ON]</span> | Proxy: <span class="glow-green">[ACTIVE]</span> ║
+╠════════════════════════════════════════════════════════════════════════════════════════════════╣
+║   ► [ NHÓM 1: QUẢN LÝ TAG, CHỌN GAME RIÊNG BIỆT & TỰ ĐỘNG MỞ LẠI ]                              ║
+║     <span class="glow-red">[1]</span>  ⚡ Quét toàn bộ Tag & Clone (Mở / Chưa mở) & Bơm Autoexec                              ║
+║     <span class="glow-cyan">[11]</span> 🎮 Chọn Game Roblox & Gán MỖI TAG MỘT GAME KHÁC NHAU (Place ID Hub)               ║
+║     <span class="glow-green">[12]</span> 🛡️ Giám sát & Bật/Tắt Auto-Restart Watchdog (Tự động mở lại Tag khi tắt)              ║
+║     <span class="glow-green">[10]</span> 🚀 Auto Launch Tags & Selection Sort IP (Java + Python + Lua)                         ║
+╚════════════════════════════════════════════════════════════════════════════════════════════════╝
+                        </pre>
+                        <p class="glow-yellow">➤ Nhập lựa chọn của bạn [ 0 ➔ 12 ] ❯❯ <span style="color:#fff; font-weight:bold;">11</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCENE 2: MENU [11] PER-TAG MULTI-GAME SELECTION -->
+            <div class="scene" id="scene2">
+                <div class="terminal-box">
+                    <div class="term-bar">
+                        <span class="glow-cyan">🎮 [11] GÁN MỖI TAG MỘT GAME KHÁC NHAU (PER-TAG MULTI-GAME)</span>
+                        <span class="glow-green">Per-Tag Routing Active</span>
+                    </div>
+                    <div class="term-content">
+                        <p class="glow-yellow">⚡ BẢNG PHÂN BỔ GAME ĐỘC LẬP CHO TỪNG TAG:</p>
+                        <div class="game-grid">
+                            <div class="game-card tag-assigned">
+                                <span class="glow-green">🎯 ROBLOX-TAG-01</span>
+                                <span style="color:#ffffff; font-weight:bold; font-size:0.9rem;">⚔️ Blox Fruits</span>
+                                <span style="color:#94a3b8; font-size:0.75rem;">Place ID: 2753915549 | IP: VN</span>
+                            </div>
+                            <div class="game-card tag-assigned">
+                                <span class="glow-cyan">🎯 ROBLOX-TAG-02</span>
+                                <span style="color:#ffffff; font-weight:bold; font-size:0.9rem;">👑 King Legacy</span>
+                                <span style="color:#94a3b8; font-size:0.75rem;">Place ID: 4520749081 | IP: JP</span>
+                            </div>
+                            <div class="game-card tag-assigned">
+                                <span class="glow-yellow">🎯 ROBLOX-TAG-03</span>
+                                <span style="color:#ffffff; font-weight:bold; font-size:0.9rem;">🐟 Fisch (Fishing Sim)</span>
+                                <span style="color:#94a3b8; font-size:0.75rem;">Place ID: 16732694052 | IP: SG</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; border-top: 1px dashed #232d42; padding-top: 10px;">
+                            <p class="glow-green">[+] ĐÃ ĐỒNG BỘ: Mỗi Tag nhận 1 Game hoàn toàn khác nhau!</p>
+                            <p style="color:#cbd5e1;">⚡ Khi mở lên, Tag 1 tự vào Blox Fruits, Tag 2 tự vào King Legacy, Tag 3 tự vào Fisch!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCENE 3: JAVA SELECTION SORT & GÁN IP CHO CÁC TAG -->
+            <div class="scene" id="scene3">
+                <div class="terminal-box">
+                    <div class="term-bar">
+                        <span class="glow-yellow">⚡ [10] JAVA SELECTION SORT ENGINE & BƠM AUTOEXEC</span>
+                        <span class="glow-green">JVM JRE 8 Active</span>
+                    </div>
+                    <div class="term-content">
+                        <pre style="color: #cbd5e1;">
+[+] KẾT QUẢ GÁN DEDICATED IP & GAME RIÊNG CHO TỪNG TAG ROBLOX:
+RANK   TAG ID           ASSIGNED IP        PING      TARGET GAME ASSIGNED
+---------------------------------------------------------------------------------
+#1     ROBLOX-TAG-01    <span class="glow-cyan">103.28.12.88:80</span>    <span class="glow-green">18 ms</span>     <span class="glow-green">⚔️ Blox Fruits (Sea 3)</span>
+#2     ROBLOX-TAG-02    <span class="glow-cyan">112.146.7.100:80</span>   <span class="glow-green">25 ms</span>     <span class="glow-cyan">👑 King Legacy</span>
+#3     ROBLOX-TAG-03    <span class="glow-cyan">139.180.200.12:80</span>  <span class="glow-green">38 ms</span>     <span class="glow-yellow">🐟 Fisch (Fishing Sim)</span>
+
+[+] ĐÃ TỰ ĐỘNG BƠM SCRIPT LUA VÀO TẤT CẢ THƯ MỤC AUTOEXEC:
+    -> Delta, Arceus X, Solara, Wave, Codex Autoexec Sync OK!
+                        </pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCENE 4: GAMEPLAY MOCKUP VỚI MỖI ACC 1 GAME KHÁC NHAU -->
+            <div class="scene" id="scene4">
+                <div class="roblox-multi-screen">
+                    <!-- Window 1: Blox Fruits -->
+                    <div class="roblox-window" id="win1">
+                        <div class="term-bar" style="padding: 4px 10px; background:#182030;">
+                            <span style="font-size: 0.75rem; color:#00ffcc;">Roblox Client - Tag #01 (Acc: Gamer_VN)</span>
+                            <span style="font-size: 0.7rem; color:#4ade80;">FPS: 60 | Ping: 18ms</span>
+                        </div>
+                        <div class="roblox-game-preview">
+                            <div class="game-hud-overlay">
+                                <div style="color:var(--border-neon); font-weight:bold;">⚡ ROBLOX-TAG-01</div>
+                                <div style="color:#e2e8f0;">📍 IP: 103.28.12.88 (VN)</div>
+                                <div style="color:#4ade80;">🎮 Game: Blox Fruits (Sea 3)</div>
+                                <div style="color:#4ade80; font-weight:bold;">🟢 Watchdog: HEARTBEAT ON</div>
+                            </div>
+                            <span>⚔️ BLOX FRUITS (FARMING SEA 3)</span>
+                        </div>
+                    </div>
+
+                    <!-- Window 2: King Legacy (Simulates Error & Auto-Restart into King Legacy) -->
+                    <div class="roblox-window" id="win2">
+                        <div class="term-bar" style="padding: 4px 10px; background:#182030;">
+                            <span style="font-size: 0.75rem; color:#ffcc00;" id="win2Title">Roblox Client - Tag #02 (Acc: Gamer_JP)</span>
+                            <span style="font-size: 0.7rem;" id="win2Fps">FPS: 60 | Ping: 25ms</span>
+                        </div>
+                        <div class="roblox-game-preview" id="win2Body">
+                            <div class="game-hud-overlay" id="win2Hud">
+                                <div style="color:var(--neon-yellow); font-weight:bold;">⚡ ROBLOX-TAG-02</div>
+                                <div style="color:#e2e8f0;">📍 IP: 112.146.7.100 (JP)</div>
+                                <div style="color:#00d2ff;">🎮 Game: King Legacy</div>
+                                <div style="color:#4ade80; font-weight:bold;">🟢 Watchdog: HEARTBEAT ON</div>
+                            </div>
+                            <span id="win2GameText">👑 KING LEGACY (DUNGEON)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCENE 5: WATCHDOG AUTO-RESTART MÔ PHỎNG VÀO ĐÚNG GAME RIÊNG -->
+            <div class="scene" id="scene5">
+                <div class="terminal-box">
+                    <div class="term-bar">
+                        <span class="glow-red">🛡️ [12] WATCHDOG SUPERVISOR: TỰ MỞ LẠI VÀO ĐÚNG GAME RIÊNG</span>
+                        <span class="glow-green">Auto-Reopen: ENABLED</span>
+                    </div>
+                    <div class="term-content">
+                        <pre style="color: #cbd5e1;">
+[11:52:05] <span class="glow-red">⚠️ PHÁT HIỆN LỖI: Tag [ROBLOX-TAG-02] bị mất kết nối (Error 277)!</span>
+[11:52:06] <span class="glow-yellow">[*] Watchdog nhận diện Tag [ROBLOX-TAG-02] được gán Game riêng: [King Legacy] (PlaceId: 4520749081)</span>
+[11:52:07] <span class="glow-green">🚀 [AUTO-WATCHDOG] ĐANG TỰ ĐỘNG MỞ LẠI Tag [ROBLOX-TAG-02] VÀO ĐÚNG GAME [King Legacy]!</span>
+[11:52:08] <span class="glow-cyan">    -> Khởi chạy: roblox://experiences/start?placeId=4520749081</span>
+[11:52:09] <span class="glow-cyan">    -> Gán lại Dedicated IP: 112.146.7.100 (Tokyo Dedicated)</span>
+[11:52:10] <span class="glow-green">✅ [AUTO-WATCHDOG] MỞ LẠI THÀNH CÔNG! Tag [ROBLOX-TAG-02] đã vào lại Game [King Legacy]!</span>
+                        </pre>
+                        <div style="margin-top: 15px; background: rgba(0, 255, 136, 0.1); border: 1px solid var(--neon-green); padding: 12px; border-radius: 6px;">
+                            <p class="glow-green" style="font-size: 0.95rem;">⚡ KẾT QUẢ: Mỗi Acc cày một game hoàn toàn độc lập (Blox Fruits, King Legacy, Fisch...) và tự mở lại đúng game khi văng!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Subtitles Bar -->
+        <div class="subtitles-banner">
+            <span class="sub-icon">💡</span>
+            <div class="sub-text" id="subText">Chào mừng bạn đến với Video hướng dẫn tính năng Gán Mỗi Tag Một Game Khác Nhau!</div>
+        </div>
+
+        <!-- Controls -->
+        <div class="player-controls">
+            <div class="ctrl-btns">
+                <button class="btn-ctrl" id="playBtn" onclick="togglePlay()">▶ PHÁT VIDEO</button>
+                <button class="btn-ctrl" onclick="restartVideo()">🔄 BẮT ĐẦU LẠI</button>
+            </div>
+
+            <div class="step-tabs">
+                <div class="step-tab active" onclick="gotoScene(1)">1. Menu Tổng</div>
+                <div class="step-tab" onclick="gotoScene(2)">2. Gán Game Riêng (11)</div>
+                <div class="step-tab" onclick="gotoScene(3)">3. Gán IP Java (10)</div>
+                <div class="step-tab" onclick="gotoScene(4)">4. Multi-Game In-Game</div>
+                <div class="step-tab" onclick="gotoScene(5)">5. Watchdog Mở Đúng Game (12)</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentScene = 1;
+        let isPlaying = false;
+        let timer = null;
+        const totalDuration = 25;
+        let elapsed = 0;
+
+        const subtitles = {
+            1: "Bước 1: Menu [11] giờ đây hỗ trợ chế độ 'Per-Tag Multi-Game' - Gán mỗi Tag một Game khác nhau!",
+            2: "Bước 2: Gán Tag 1 vào Blox Fruits, Tag 2 vào King Legacy, Tag 3 vào Fisch... Tool tự đồng bộ Place ID riêng.",
+            3: "Bước 3: Java Selection Sort tối ưu hóa IP riêng và nạp cấu hình từng Game vào thư mục Autoexec.",
+            4: "Bước 4: Mở đồng thời các acc - Tag 1 vào Blox Fruits (Sea 3), Tag 2 vào King Legacy với HUD độc lập.",
+            5: "Bước 5: Khi bất kỳ acc nào bị văng game (Error 277), Watchdog tự mở lại vào ĐÚNG GAME của riêng acc đó!"
+        };
+
+        function showScene(n) {
+            currentScene = n;
+            document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.step-tab').forEach(t => t.classList.remove('active'));
+
+            const target = document.getElementById('scene' + n);
+            if (target) target.classList.add('active');
+
+            const tab = document.querySelectorAll('.step-tab')[n - 1];
+            if (tab) tab.classList.add('active');
+
+            document.getElementById('subText').innerText = subtitles[n] || "";
+
+            if (n === 4) {
+                simulateGameWindows();
+            }
+        }
+
+        function gotoScene(n) {
+            showScene(n);
+            elapsed = (n - 1) * 5;
+            updateProgress();
+        }
+
+        function simulateGameWindows() {
+            const win2 = document.getElementById('win2');
+            const win2Body = document.getElementById('win2Body');
+            const win2Fps = document.getElementById('win2Fps');
+
+            win2.classList.remove('error-state');
+            win2Fps.innerText = "FPS: 60 | Ping: 25ms";
+
+            setTimeout(() => {
+                if (currentScene === 4) {
+                    win2.classList.add('error-state');
+                    win2Fps.innerText = "DISCONNECTED";
+                    win2Fps.style.color = "#ff3366";
+                    
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'error-modal';
+                    errorDiv.id = 'errModal';
+                    errorDiv.innerHTML = `
+                        <div style="color:#ff3366; font-weight:bold; font-size:1.1rem;">⚠️ MẤT KẾT NỐI (Error 277)</div>
+                        <div style="color:#cbd5e1; font-size:0.8rem; margin:8px 0;">Lost connection to the game server. Please reconnect.</div>
+                        <div style="color:#00ffcc; font-size:0.75rem; font-weight:bold;">🛡️ Python Watchdog đang tự động mở lại vào King Legacy trong 1.5s...</div>
+                    `;
+                    win2Body.appendChild(errorDiv);
+
+                    setTimeout(() => {
+                        const modal = document.getElementById('errModal');
+                        if (modal) modal.remove();
+                        win2.classList.remove('error-state');
+                        win2Fps.innerText = "FPS: 60 | Ping: 25ms (RELOADED)";
+                        win2Fps.style.color = "#00ff88";
+                    }, 2500);
+                }
+            }, 1800);
+        }
+
+        function updateProgress() {
+            const percent = (elapsed / totalDuration) * 100;
+            document.getElementById('progressBar').style.width = percent + "%";
+        }
+
+        function togglePlay() {
+            const btn = document.getElementById('playBtn');
+            if (isPlaying) {
+                isPlaying = false;
+                btn.innerText = "▶ TIẾP TỤC";
+                clearInterval(timer);
+            } else {
+                isPlaying = true;
+                btn.innerText = "⏸ TẠM DỪNG";
+                timer = setInterval(() => {
+                    elapsed += 0.2;
+                    updateProgress();
+
+                    const sceneIndex = Math.min(5, Math.floor(elapsed / 5) + 1);
+                    if (sceneIndex !== currentScene) {
+                        showScene(sceneIndex);
+                    }
+
+                    if (elapsed >= totalDuration) {
+                        isPlaying = false;
+                        btn.innerText = "🔄 XEM LẠI";
+                        clearInterval(timer);
+                    }
+                }, 200);
+            }
+        }
+
+        function restartVideo() {
+            clearInterval(timer);
+            elapsed = 0;
+            updateProgress();
+            showScene(1);
+            isPlaying = false;
+            document.getElementById('playBtn').innerText = "▶ PHÁT VIDEO";
+            togglePlay();
+        }
+
+        function seekVideo(e) {
+            const bar = e.currentTarget;
+            const rect = bar.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const ratio = clickX / rect.width;
+            elapsed = ratio * totalDuration;
+            const sceneIndex = Math.min(5, Math.floor(elapsed / 5) + 1);
+            showScene(sceneIndex);
+            updateProgress();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(togglePlay, 500);
+        });
+    </script>
+</body>
+</html>

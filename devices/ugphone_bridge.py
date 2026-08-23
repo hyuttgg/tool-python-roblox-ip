@@ -185,3 +185,17 @@ class JavaNetworkBridge:
         except Exception as e:
             return {"proxy": f"{host}:{port}", "tcp_latency_ms": -1, "proxy_status": "OFFLINE", "error": str(e)}
 
+
+class UGPhoneNetworkEngine:
+    """Điều phối quét và quản lý thiết bị đám mây UGPhone"""
+
+    @classmethod
+    def scan_cloud_devices(cls) -> List[Dict]:
+        try:
+            bridge = UGPhoneBridge()
+            devices = bridge.refresh_devices()
+            return [{"device_id": f"UGPHONE-{d.replace(':', '_').replace('.', '_')}", "ip": d, "status": "ONLINE"} for d in devices]
+        except Exception:
+            return []
+
+

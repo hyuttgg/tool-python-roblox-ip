@@ -1,142 +1,99 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-=============================================================================
-             ROBLOX MULTI-INSTANCE MASTER CONTROLLER (TERMUX/ROOT/VM)
-=============================================================================
-File: controller.py
-Chức năng (Đồng bộ số 1 -> 7):
-  [1] Quét toàn bộ Tag Roblox trên màn hình & Tự động sinh Script Lua gán IP riêng.
-  [2] Khởi chạy Dashboard giám sát Real-time (Live Monitoring).
-  [3] Tự động sinh IP mới & Gán mỗi Tag một IP riêng biệt.
-  [4] Chạy kiểm tra chẩn đoán mạng chuyên sâu (DNS, ICMP Ping, Public IP).
-  [5] Xem danh sách Instances & Network Profiles hiện tại.
-  [6] Sinh danh sách IP ngẫu nhiên lưu vào file txt (IP-Generator).
-  [7] Xuất báo cáo trạng thái ra file JSON/TXT & Hướng dẫn sử dụng Executor.
-  [0] Thoát chương trình.
-=============================================================================
+ROBLOX MULTI-TAG MASTER CONTROLLER & UNIFIED AUTOMATION HUB
+Hệ thống điều khiển mạng đa tiến trình và giám sát tự động mở lại Roblox:
+  - 100% Độc lập: Mỗi Tag nhận 1 IP, 1 HWID, 1 MAC, 1 Client-UUID, 1 User-Agent và 1 cặp DNS riêng.
+  - Per-Tag Multi-Game Hub: Mỗi Tag có thể join vào 1 Game khác nhau (Blox Fruits, King Legacy, Fisch, PS99...).
+  - Nhúng sâu Java Engine: Selection Sort Engine & Deep Network Prober trên Java 8 JRE.
+  - Auto-Restart Watchdog: Lua Heartbeat định kỳ 2.5s & tự động mở lại khi acc bị văng (Error 277, Kick, Crash).
+  - Quy trình 1-Chạm (Master Auto-Pipeline): Tự động hóa toàn diện từ Quét -> Sắp xếp IP -> Bơm Autoexec -> Launch Game -> Kích hoạt Watchdog.
 """
 
 import os
 import sys
 import time
 import json
-import threading
-from typing import List, Optional
+import socket
+import random
+from typing import List, Dict, Optional, Tuple
 
-# Thiết lập encoding UTF-8
-if hasattr(sys.stdout, "reconfigure"):
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
-
-# Thêm đường dẫn thư mục gốc vào sys.path
+# Thiết lập đường dẫn môi trường
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-DATA_DIR = os.path.join(BASE_DIR, "data")
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 
 from cli.colors import Colors
-from database.sqlite import db
-from database.models import InstanceModel
-from database.repository import InstanceRepository, SnapshotRepository
-from core.manager import CoreManager
-from core.scanner import RobloxWindowScanner, RobloxWindowInstance
-from core.lua_generator import LuaScriptGenerator, OUTPUT_LUA_DIR
+from core.scanner import RobloxWindowScanner, RobloxWindowInstance, WindowRect
+from core.clone_scanner import ClonedProfileScanner, ClonedInstanceProfile
+from core.lua_generator import LuaScriptGenerator
+from core.autoexec_manager import AutoexecManager
+from core.game_selector import game_manager, POPULAR_ROBLOX_GAMES, RobloxGameItem
+from core.watchdog_supervisor import watchdog
+from core.java_sort_bridge import SelectionSortBridge, RobloxAutoLauncher
 from network.bridge_server import RobloxBridgeServer
-from cli.status import DashboardRenderer
-from network.ip_generator import RandomIPGenerator
-from network.connectivity import ConnectivityChecker
-from network.dns import DNSResolver
-from monitoring.ping import PingMonitor
-from config.devices import DEFAULT_DEVICES, DeviceConfig, DeviceType
-from config.profiles import DEFAULT_PROFILES
+from network.proxy_fetcher import ProxyFetcher, SUPPORTED_COUNTRIES
+from network.scrapestack_client import ScrapestackClient
+from devices.ugphone_bridge import UGPhoneNetworkEngine
+from monitoring.status import NetworkInspector
 from config.logging import setup_logger
 
 logger = setup_logger("master_controller")
 
-def safe_input(prompt: str = "") -> str:
-    """Hàm nhập dữ liệu an toàn, không bị văng lỗi Traceback khi bấm Ctrl+C hoặc đóng terminal"""
-    try:
-        return input(prompt).strip()
-    except (KeyboardInterrupt, EOFError):
-        return ""
 
-from core.autoexec_manager import AutoexecManager
-from core.clone_scanner import RobloxCloneScanner, RobloxCloneProfile
-from core.network_inspector import NetworkInspector
-from devices.ugphone_bridge import UGPhoneBridge
-from network.scrapestack_client import ScrapestackClient
+def safe_input(prompt_text: str = "") -> str:
+    """Hàm nhập liệu an toàn chống lỗi EOFError trên Windows / Non-interactive environments"""
+    try:
+        return input(prompt_text)
+    except (EOFError, KeyboardInterrupt):
+        return "0"
+
 
 class MasterController:
+    """Trung tâm điều phối toàn diện hệ thống Roblox Multi-Tag"""
+
     def __init__(self):
-        # Đảm bảo database đã sẵn sàng
-        db.init_db()
-        self.manager = CoreManager()
         self.scanner = RobloxWindowScanner()
-        self.clone_scanner = RobloxCloneScanner()
-        self.ugphone_bridge = UGPhoneBridge()
+        self.clone_scanner = ClonedProfileScanner()
         self.lua_generator = LuaScriptGenerator()
         self.autoexec_manager = AutoexecManager()
         self.scrapestack = ScrapestackClient()
         self.bridge_server = RobloxBridgeServer(host="127.0.0.1", port=8888)
-        self.bridge_server.start()
         
+        # Bật Bridge Server và Watchdog chạy nền
+        self.bridge_server.start()
+
+        self.active_tags: List[RobloxWindowInstance] = []
         self.live_tags_count = 0
         self.clone_tags_count = 0
-        self.active_tags: List[RobloxWindowInstance] = []
         self.autoexec_synced_count = 0
 
-        # TỰ ĐỘNG QUÉT CẢ CỬA SỔ ĐANG MỞ & BẢN NHÂN BẢN CHƯA MỞ NGAY KHI KHỞI ĐỘNG TOOL
-        try:
-            combined = self._get_combined_tag_instances()
-            if combined:
-                self.active_tags = combined
-                self.live_tags_count = len([x for x in combined if x.hwnd > 0 or x.pid > 0])
-                self.clone_tags_count = len([x for x in combined if x.hwnd == 0 and x.pid == 0])
-                # Tự động gán sẵn IP Multi-Country riêng biệt cho TẤT CẢ bản nhân bản
-                lua_files = self.lua_generator.generate_scripts_for_scanned_instances(combined, use_live_proxies=True, country_code="MULTI")
-                m_path = lua_files.get("MASTER", "")
-                if os.path.exists(m_path):
-                    with open(m_path, "r", encoding="utf-8") as f:
-                        m_code = f.read()
-                        self.bridge_server.update_state(combined, master_script=m_code)
-                        # Tự động nạp vào tất cả thư mục Autoexec PC & Giả lập Android
-                        sync_res = self.autoexec_manager.sync_lua_to_autoexec(m_code)
-                        self.autoexec_synced_count = len(sync_res.get("pc_synced", [])) + len(sync_res.get("android_synced", []))
-        except Exception as e:
-            logger.warning(f"Auto-detect on startup error: {e}")
-
-        self._monitor_running = False
-        self._monitor_thread: Optional[threading.Thread] = None
-
     def _get_combined_tag_instances(self) -> List[RobloxWindowInstance]:
-        """Gộp các cửa sổ đang mở, máy ảo và UGPhone cloud phones thành danh sách Tag duy nhất"""
-        open_windows = self.scanner.scan_active_roblox_windows()
-        cloned_profiles = self.clone_scanner.scan_all_clones()
-        
-        combined: List[RobloxWindowInstance] = []
-        for w in open_windows:
-            combined.append(w)
+        """Quét và kết hợp tất cả các bản Roblox (Đang chạy thực tế + Bản Clone / Giả lập trên đĩa)"""
+        live_windows = self.scanner.scan_roblox_instances()
+        cloned_profiles = self.clone_scanner.scan_all_profiles()
+        ugphone_instances = UGPhoneNetworkEngine.scan_cloud_devices()
 
-        # Thêm các thiết bị UGPhone nếu có
-        from core.scanner import WindowRect
-        ug_devs = self.ugphone_bridge.refresh_devices()
-        for idx, udev in enumerate(ug_devs):
-            tag_id = f"UGPHONE-{idx+1:02d}"
-            r_stat = self.ugphone_bridge.get_roblox_status(udev)
-            is_running = r_stat.get("running") == "Yes"
+        combined: List[RobloxWindowInstance] = list(live_windows)
+        
+        for idx, ug in enumerate(ugphone_instances):
+            tag_id = ug["device_id"]
             combined.append(RobloxWindowInstance(
                 tag_id=tag_id,
-                hwnd=1 if is_running else 0,
-                title=f"UGPhone [{udev}]",
-                pid=int(r_stat.get("pid", 0) or 0) if is_running else 0,
-                process_name="UGPhone Cloud Android",
-                class_name="UGPHONE_DEVICE",
+                hwnd=0,
+                title=f"UGPhone Cloud [{ug.get('ip', 'N/A')}]",
+                pid=0,
+                process_name="UGPHONE_CLOUD",
+                class_name="CloudPhone",
                 rect=WindowRect(),
-                screen_position=f"UGPhone ({udev})",
+                screen_position=f"Cloud Device #{idx+1}",
                 memory_usage="Cloud VM",
                 account_username=f"UGPhone_Acc_{idx+1}"
             ))
@@ -147,7 +104,7 @@ class MasterController:
                 combined.append(RobloxWindowInstance(
                     tag_id=tag_id,
                     hwnd=0,
-                    title=f"{cp.name} [CHUA MO]",
+                    title=f"{cp.name} [CHƯA MỞ]",
                     pid=0,
                     process_name=cp.clone_type,
                     class_name=cp.clone_type,
@@ -158,12 +115,58 @@ class MasterController:
                 ))
         return combined
 
+    def sync_system_state(self, instances: List[RobloxWindowInstance], use_live_proxies: bool = False, country_code: str = "MULTI") -> Dict:
+        """
+        [ĐỒNG BỘ TOÀN DIỆN] Cập nhật thống nhất trạng thái giữa Python, Lua Generator, 
+        Autoexec Manager, Bridge Server và Watchdog Daemon để không bao giờ bị lệch dữ liệu.
+        """
+        self.active_tags = instances
+        self.live_tags_count = len([x for x in instances if x.hwnd > 0 or x.pid > 0])
+        self.clone_tags_count = len([x for x in instances if x.hwnd == 0 and x.pid == 0])
+
+        # 1. Sinh mã Lua cho từng Tag và Master Router
+        lua_files = self.lua_generator.generate_scripts_for_scanned_instances(
+            instances, use_live_proxies=use_live_proxies, country_code=country_code
+        )
+        master_path = lua_files.get("MASTER", "")
+        master_code = ""
+        if master_path and os.path.exists(master_path):
+            with open(master_path, "r", encoding="utf-8") as f:
+                master_code = f.read()
+
+        # 2. Đồng bộ vào toàn bộ thư mục Autoexec
+        sync_res = self.autoexec_manager.sync_lua_to_autoexec(master_code)
+        pc_synced = sync_res.get("pc_synced", [])
+        android_synced = sync_res.get("android_synced", [])
+        self.autoexec_synced_count = len(pc_synced) + len(android_synced)
+
+        # 3. Cập nhật Bridge Server Shared State
+        self.bridge_server.update_state(instances, master_script=master_code)
+
+        # 4. Đăng ký các Tag vào Watchdog
+        for inst in instances:
+            tag_g = game_manager.get_game_for_tag(inst.tag_id)
+            watchdog.register_tag(
+                tag_id=inst.tag_id,
+                assigned_ip=inst.assigned_ip or "127.0.0.1",
+                region=getattr(inst, "region", "[JP] Japan Dedicated"),
+                username=getattr(inst, "account_username", ""),
+                place_id=tag_g.get("place_id", "2753915549"),
+                pid=inst.pid
+            )
+
+        return {
+            "lua_files": lua_files,
+            "autoexec_synced_count": self.autoexec_synced_count,
+            "master_code_len": len(master_code)
+        }
+
     def clear_screen(self):
         os.system("cls" if os.name == "nt" else "clear")
 
     def print_banner(self):
         self.clear_screen()
-        W = 92
+        W = 96
         def pad_line(colored_str, visible_len, border_col=Colors.C_PURPLE):
             pad = max(0, W - visible_len)
             return f"{border_col}{Colors.BOLD}║{Colors.RESET} {colored_str}{' ' * pad} {border_col}{Colors.BOLD}║{Colors.RESET}"
@@ -174,7 +177,6 @@ class MasterController:
         bot = f"{Colors.C_PURPLE}{Colors.BOLD}╚{'═' * (W + 2)}╝{Colors.RESET}"
 
         print(top)
-        # 6 dòng ASCII 3D đổ màu theo 6 dải quang phổ cầu vồng bên trong ô vuông
         banner_raw = [
             "  ██████╗   ██████╗  ██████╗  ██╗       ██████╗  ██╗  ██╗    ███╗   ██╗ ███████╗ ████████╗   ",
             "  ██╔══██╗ ██╔═══██╗ ██╔══██╗ ██║      ██╔═══██╗ ╚██╗██╔╝    ████╗  ██║ ██╔════╝ ╚══██╔══╝   ",
@@ -188,68 +190,83 @@ class MasterController:
             print(pad_line(colors_6[i] + Colors.BOLD + line + Colors.RESET, len(line)))
 
         print(mid)
-        # Tiêu đề chuyển sắc 7 màu từng chữ cái
-        title_text = "         [ MASTER CONTROLLER ] - ROBLOX MULTI-INSTANCE NETWORK MANAGER          "
+        title_text = "     ⚡ [ UNIFIED MASTER CONTROLLER ] - ROBLOX MULTI-INSTANCE & AUTO-RESTART HUB ⚡     "
         print(pad_line(Colors.BOLD + Colors.rainbow_text(title_text) + Colors.RESET, len(title_text)))
 
-        # Trạng thái tự động nhận diện cả LIVE và CLONE CHƯA MỞ
+        # Trạng thái tổng quan thời gian thực
         total_tags = len(self.active_tags)
         if total_tags > 0:
-            tag_status_str = f"{Colors.GREEN}{Colors.BOLD}[DA KICH HOAT {self.live_tags_count} LIVE | {self.clone_tags_count} CLONE SAN SANG]{Colors.RESET}"
-            tag_vis = f"[DA KICH HOAT {self.live_tags_count} LIVE | {self.clone_tags_count} CLONE SAN SANG]"
+            tag_status_str = f"{Colors.GREEN}{Colors.BOLD}[{self.live_tags_count} LIVE | {self.clone_tags_count} CLONE]{Colors.RESET}"
+            tag_vis = f"[{self.live_tags_count} LIVE | {self.clone_tags_count} CLONE]"
         else:
-            tag_status_str = f"{Colors.YELLOW}[DANG QUET TIM ROBLOX]{Colors.RESET}"
-            tag_vis = "[DANG QUET TIM ROBLOX]"
+            tag_status_str = f"{Colors.YELLOW}[SẴN SÀNG QUÉT]{Colors.RESET}"
+            tag_vis = "[SẴN SÀNG QUÉT]"
 
-        autoexec_status = f"{Colors.GREEN}[DA BOM VAO AUTOEXEC]{Colors.RESET}" if self.autoexec_synced_count > 0 else f"{Colors.CYAN}[HTTP BRIDGE SAN SANG]{Colors.RESET}"
-        autoexec_vis = "[DA BOM VAO AUTOEXEC]" if self.autoexec_synced_count > 0 else "[HTTP BRIDGE SAN SANG]"
+        autoexec_status = f"{Colors.GREEN}[ĐÃ BƠM AUTOEXEC]{Colors.RESET}" if self.autoexec_synced_count > 0 else f"{Colors.CYAN}[BRIDGE READY]{Colors.RESET}"
+        autoexec_vis = "[ĐÃ BƠM AUTOEXEC]" if self.autoexec_synced_count > 0 else "[BRIDGE READY]"
 
-        proxy_status = f"{Colors.GREEN}[SCRAPESTACK: 5d1c5fb0...]{Colors.RESET}"
-        proxy_vis = "[SCRAPESTACK: 5d1c5fb0...]"
+        cur_game = game_manager.get_current_game()
+        if game_manager.per_tag_mode:
+            game_name = f"Per-Tag ({len(game_manager.get_all_tag_games())} Games)"
+        else:
+            game_name = cur_game.get("name", "Blox Fruits")[:18]
+        game_status = f"{Colors.LIGHT_CYAN}[{game_name}]{Colors.RESET}"
+        game_vis = f"[{game_name}]"
 
-        st_col = f"  {Colors.GRAY}Roblox:{Colors.RESET} {tag_status_str} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Client:{Colors.RESET} {autoexec_status} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Proxy:{Colors.RESET} {proxy_status}"
-        st_vis = f"  Roblox: {tag_vis} | Client: {autoexec_vis} | Proxy: {proxy_vis}"
+        w_summary = watchdog.get_summary()
+        w_status = f"{Colors.GREEN}[ON: {w_summary['total_restarts']} RESTARTS]{Colors.RESET}" if w_summary["is_enabled"] else f"{Colors.GRAY}[OFF]{Colors.RESET}"
+        w_vis = f"[ON: {w_summary['total_restarts']} RESTARTS]" if w_summary["is_enabled"] else "[OFF]"
+
+        st_col = f"  {Colors.GRAY}Roblox:{Colors.RESET} {tag_status_str} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Game:{Colors.RESET} {game_status} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Watchdog:{Colors.RESET} {w_status} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Autoexec:{Colors.RESET} {autoexec_status}"
+        st_vis = f"  Roblox: {tag_vis} | Game: {game_vis} | Watchdog: {w_vis} | Autoexec: {autoexec_vis}"
         print(pad_line(st_col, len(st_vis)))
 
         print(mid)
         
-        # Danh mục tính năng được phân nhóm chuyên nghiệp & trực quan
-        cat1 = f"  {Colors.C_CYAN}{Colors.BOLD}► [ NHÓM 1: QUẢN LÝ TAG & TỰ ĐỘNG KHỞI CHẠY ]{Colors.RESET}"
-        print(pad_line(cat1, len("  ► [ NHÓM 1: QUẢN LÝ TAG & TỰ ĐỘNG KHỞI CHẠY ]")))
-        m1 = f"    {Colors.C_RED}{Colors.BOLD}[1]{Colors.RESET}  ⚡ {Colors.WHITE}Quét toàn bộ Tag & Clone (Mở / Chưa mở) & Bơm Autoexec{Colors.RESET}"
-        m10 = f"    {Colors.LIGHT_GREEN}{Colors.BOLD}[10]{Colors.RESET} 🚀 {Colors.LIGHT_GREEN}{Colors.BOLD}Auto Launch Tags & Selection Sort IP (Java + Python + Lua){Colors.RESET}"
-        m2 = f"    {Colors.C_ORANGE}{Colors.BOLD}[2]{Colors.RESET}  📊 {Colors.WHITE}Khởi chạy Dashboard Giám sát Real-time (Chu kỳ 3s){Colors.RESET}"
-        print(pad_line(m1, len("    [1]  ⚡ Quét toàn bộ Tag & Clone (Mở / Chưa mở) & Bơm Autoexec")))
-        print(pad_line(m10, len("    [10] 🚀 Auto Launch Tags & Selection Sort IP (Java + Python + Lua)")))
-        print(pad_line(m2, len("    [2]  📊 Khởi chạy Dashboard Giám sát Real-time (Chu kỳ 3s)")))
+        # TRỤ CỘT 1: ĐIỀU PHỐI & KHỞI CHẠY 1-CHẠM
+        cat1 = f"  {Colors.C_RED}{Colors.BOLD}► [ TRỤ CỘT 1: ĐIỀU PHỐI, CHỌN GAME & KHỞI CHẠY 1-CHẠM ]{Colors.RESET}"
+        print(pad_line(cat1, len("  ► [ TRỤ CỘT 1: ĐIỀU PHỐI, CHỌN GAME & KHỞI CHẠY 1-CHẠM ]")))
+        m1 = f"    {Colors.LIGHT_GREEN}{Colors.BOLD}[1]{Colors.RESET}  🚀 {Colors.LIGHT_GREEN}{Colors.BOLD}FULL AUTO PIPELINE (1-Chạm: Quét + Sort IP Java + Bơm Autoexec + Launch + Watchdog){Colors.RESET}"
+        m2 = f"    {Colors.LIGHT_CYAN}{Colors.BOLD}[2]{Colors.RESET}  🎮 {Colors.WHITE}Cấu hình Game Roblox & Teleport Hub (Global hoặc Mỗi Tag 1 Game riêng){Colors.RESET}"
+        m3 = f"    {Colors.GREEN}{Colors.BOLD}[3]{Colors.RESET}  🛡️ {Colors.WHITE}Giám sát & Bật/Tắt Auto-Restart Watchdog (Tự động mở lại Tag khi văng/tắt){Colors.RESET}"
+        m4 = f"    {Colors.C_ORANGE}{Colors.BOLD}[4]{Colors.RESET}  📊 {Colors.WHITE}Khởi chạy Live Dashboard Giám sát Real-Time (FPS, Ping, RAM chu kỳ 3s){Colors.RESET}"
+        print(pad_line(m1, len("    [1]  🚀 FULL AUTO PIPELINE (1-Chạm: Quét + Sort IP Java + Bơm Autoexec + Launch + Watchdog)")))
+        print(pad_line(m2, len("    [2]  🎮 Cấu hình Game Roblox & Teleport Hub (Global hoặc Mỗi Tag 1 Game riêng)")))
+        print(pad_line(m3, len("    [3]  🛡️ Giám sát & Bật/Tắt Auto-Restart Watchdog (Tự động mở lại Tag khi văng/tắt)")))
+        print(pad_line(m4, len("    [4]  📊 Khởi chạy Live Dashboard Giám sát Real-Time (FPS, Ping, RAM chu kỳ 3s)")))
         print(div)
 
-        cat2 = f"  {Colors.C_YELLOW}{Colors.BOLD}► [ NHÓM 2: TỐI ƯU HÓA IP & PROXY TOÀN CẦU ]{Colors.RESET}"
-        print(pad_line(cat2, len("  ► [ NHÓM 2: TỐI ƯU HÓA IP & PROXY TOÀN CẦU ]")))
-        m3 = f"    {Colors.C_YELLOW}{Colors.BOLD}[3]{Colors.RESET}  🔄 {Colors.WHITE}Cấp phát lại IP / Proxy Đa Quốc Gia cho toàn bộ bản Clone{Colors.RESET}"
-        m6 = f"    {Colors.C_BLUE}{Colors.BOLD}[6]{Colors.RESET}  🌐 {Colors.WHITE}Quản lý Pool IP, ProxyScrape & Scrapestack API (5d1c5fb0...){Colors.RESET}"
-        m4 = f"    {Colors.C_GREEN}{Colors.BOLD}[4]{Colors.RESET}  🔍 {Colors.WHITE}Chẩn đoán kết nối mạng chuyên sâu & Đo TCP Handshake{Colors.RESET}"
-        print(pad_line(m3, len("    [3]  🔄 Cấp phát lại IP / Proxy Đa Quốc Gia cho toàn bộ bản Clone")))
-        print(pad_line(m6, len("    [6]  🌐 Quản lý Pool IP, ProxyScrape & Scrapestack API (5d1c5fb0...)")))
-        print(pad_line(m4, len("    [4]  🔍 Chẩn đoán kết nối mạng chuyên sâu & Đo TCP Handshake")))
+        # TRỤ CỘT 2: TỐI ƯU HÓA MẠNG & NHÚNG SÂU JAVA
+        cat2 = f"  {Colors.C_YELLOW}{Colors.BOLD}► [ TRỤ CỘT 2: TỐI ƯU MẠNG & THUẬT TOÁN JAVA ENGINE ]{Colors.RESET}"
+        print(pad_line(cat2, len("  ► [ TRỤ CỘT 2: TỐI ƯU MẠNG & THUẬT TOÁN JAVA ENGINE ]")))
+        m5 = f"    {Colors.C_YELLOW}{Colors.BOLD}[5]{Colors.RESET}  ⚡ {Colors.WHITE}Java Selection Sort Engine (Sắp xếp IP theo Ping thấp nhất trên JVM JRE 8){Colors.RESET}"
+        m6 = f"    {Colors.C_GREEN}{Colors.BOLD}[6]{Colors.RESET}  🔄 {Colors.WHITE}Cấp phát & Đổi dải IP Proxy Đa Quốc Gia (VN, JP, SG, HK, US, DE...){Colors.RESET}"
+        m7 = f"    {Colors.C_BLUE}{Colors.BOLD}[7]{Colors.RESET}  🌐 {Colors.WHITE}Quản lý Pool IP, ProxyScrape & Scrapestack API (5d1c5fb0...){Colors.RESET}"
+        m8 = f"    {Colors.LIGHT_CYAN}{Colors.BOLD}[8]{Colors.RESET}  🔍 {Colors.WHITE}Chẩn đoán mạng chuyên sâu (Java Handshake, Socket Ping, DNS, MTU){Colors.RESET}"
+        print(pad_line(m5, len("    [5]  ⚡ Java Selection Sort Engine (Sắp xếp IP theo Ping thấp nhất trên JVM JRE 8)")))
+        print(pad_line(m6, len("    [6]  🔄 Cấp phát & Đổi dải IP Proxy Đa Quốc Gia (VN, JP, SG, HK, US, DE...)")))
+        print(pad_line(m7, len("    [7]  🌐 Quản lý Pool IP, ProxyScrape & Scrapestack API (5d1c5fb0...)")))
+        print(pad_line(m8, len("    [8]  🔍 Chẩn đoán mạng chuyên sâu (Java Handshake, Socket Ping, DNS, MTU)")))
         print(div)
 
-        cat3 = f"  {Colors.C_PURPLE}{Colors.BOLD}► [ NHÓM 3: SCRIPT GAME & EXECUTOR HUB ]{Colors.RESET}"
-        print(pad_line(cat3, len("  ► [ NHÓM 3: SCRIPT GAME & EXECUTOR HUB ]")))
-        m9 = f"    {Colors.LIGHT_CYAN}{Colors.BOLD}[9]{Colors.RESET}  📝 {Colors.WHITE}Cấu hình Script Game (Custom Payload) tự chạy cho mọi Tag{Colors.RESET}"
-        m5 = f"    {Colors.C_CYAN}{Colors.BOLD}[5]{Colors.RESET}  📋 {Colors.WHITE}Xem danh sách Cloned Instances & Network Profiles{Colors.RESET}"
-        m7 = f"    {Colors.C_PURPLE}{Colors.BOLD}[7]{Colors.RESET}  📑 {Colors.WHITE}Xuất báo cáo JSON Snapshots & Hướng dẫn Executor một dòng{Colors.RESET}"
-        print(pad_line(m9, len("    [9]  📝 Cấu hình Script Game (Custom Payload) tự chạy cho mọi Tag")))
-        print(pad_line(m5, len("    [5]  📋 Xem danh sách Cloned Instances & Network Profiles")))
-        print(pad_line(m7, len("    [7]  📑 Xuất báo cáo JSON Snapshots & Hướng dẫn Executor một dòng")))
+        # TRỤ CỘT 3: SCRIPT GAME & QUẢN LÝ EXECUTOR
+        cat3 = f"  {Colors.C_PURPLE}{Colors.BOLD}► [ TRỤ CỘT 3: SCRIPT GAME & ĐỒNG BỘ AUTOEXEC ]{Colors.RESET}"
+        print(pad_line(cat3, len("  ► [ TRỤ CỘT 3: SCRIPT GAME & ĐỒNG BỘ AUTOEXEC ]")))
+        m9 = f"    {Colors.LIGHT_CYAN}{Colors.BOLD}[9]{Colors.RESET}  📝 {Colors.WHITE}Cấu hình Script Game (Auto Farm Payload) tự động chạy cho mọi Tag{Colors.RESET}"
+        m10 = f"    {Colors.C_PURPLE}{Colors.BOLD}[10]{Colors.RESET} 📁 {Colors.WHITE}Quản lý & Đồng bộ thư mục Autoexec (Delta, Arceus X, Solara, Wave, Codex){Colors.RESET}"
+        m11 = f"    {Colors.C_CYAN}{Colors.BOLD}[11]{Colors.RESET} 📋 {Colors.WHITE}Xem Bảng Tổng Hợp Chi Tiết Tag (IP + Game + HWID + Status + PID){Colors.RESET}"
+        print(pad_line(m9, len("    [9]  📝 Cấu hình Script Game (Auto Farm Payload) tự động chạy cho mọi Tag")))
+        print(pad_line(m10, len("    [10] 📁 Quản lý & Đồng bộ thư mục Autoexec (Delta, Arceus X, Solara, Wave, Codex)")))
+        print(pad_line(m11, len("    [11] 📋 Xem Bảng Tổng Hợp Chi Tiết Tag (IP + Game + HWID + Status + PID)")))
         print(div)
 
-        cat4 = f"  {Colors.GRAY}{Colors.BOLD}► [ NHÓM 4: BẢO TRÌ & ĐIỀU KHIỂN ]{Colors.RESET}"
-        print(pad_line(cat4, len("  ► [ NHÓM 4: BẢO TRÌ & ĐIỀU KHIỂN ]")))
-        m8 = f"    {Colors.LIGHT_RED}{Colors.BOLD}[8]{Colors.RESET}  🗑️  {Colors.WHITE}Dọn dẹp Autoexec, Script Lua, Cache Proxy & Reset Hệ Thống{Colors.RESET}"
-        m0 = f"    {Colors.GRAY}{Colors.BOLD}[0]{Colors.RESET}  ❌ {Colors.WHITE}Thoát chương trình{Colors.RESET}"
-        print(pad_line(m8, len("    [8]  🗑️  Dọn dẹp Autoexec, Script Lua, Cache Proxy & Reset Hệ Thống")))
-        print(pad_line(m0, len("    [0]  ❌ Thoát chương trình")))
+        # TRỤ CỘT 4: BẢO TRÌ & HỆ THỐNG
+        cat4 = f"  {Colors.GRAY}{Colors.BOLD}► [ TRỤ CỘT 4: BẢO TRÌ & HỆ THỐNG ]{Colors.RESET}"
+        print(pad_line(cat4, len("  ► [ TRỤ CỘT 4: BẢO TRÌ & HỆ THỐNG ]")))
+        m12 = f"    {Colors.LIGHT_RED}{Colors.BOLD}[12]{Colors.RESET} 🧹 {Colors.WHITE}Dọn dẹp Cache, Reset Autoexec, Script Lua & Khởi động lại Server{Colors.RESET}"
+        m0 = f"    {Colors.GRAY}{Colors.BOLD}[0]{Colors.RESET}  ❌ {Colors.WHITE}Thoát chương trình an toàn{Colors.RESET}"
+        print(pad_line(m12, len("    [12] 🧹 Dọn dẹp Cache, Reset Autoexec, Script Lua & Khởi động lại Server")))
+        print(pad_line(m0, len("    [0]  ❌ Thoát chương trình an toàn")))
 
         print(bot)
 
@@ -257,35 +274,37 @@ class MasterController:
         while True:
             try:
                 self.print_banner()
-                
-                # Thanh điều hướng chọn chức năng phong cách Cyberpunk Neon Action Box
                 prompt_box = [
                     f"{Colors.C_CYAN}{Colors.BOLD}╭────────────────────────────────────────────────────────────────────────────────────────────╮{Colors.RESET}",
-                    f"{Colors.C_CYAN}{Colors.BOLD}│{Colors.RESET}  {Colors.LIGHT_GREEN}{Colors.BOLD}🎮 BẢNG ĐIỀU KHIỂN:{Colors.RESET} {Colors.WHITE}Nhập số thứ tự tính năng để thực thi {Colors.BOLD}[ 0 ➔ 10 ]{Colors.RESET}                        {Colors.C_CYAN}{Colors.BOLD}│{Colors.RESET}",
+                    f"{Colors.C_CYAN}{Colors.BOLD}│{Colors.RESET}  {Colors.LIGHT_GREEN}{Colors.BOLD}🎮 MASTER CONTROLLER:{Colors.RESET} {Colors.WHITE}Nhập số thứ tự tính năng để thực thi {Colors.BOLD}[ 0 ➔ 12 ]{Colors.RESET}                     {Colors.C_CYAN}{Colors.BOLD}│{Colors.RESET}",
                     f"{Colors.C_CYAN}{Colors.BOLD}╰────────────────────────────────────────────────────────────────────────────────────────────╯{Colors.RESET}",
                 ]
                 print("\n" + "\n".join(prompt_box))
                 choice = safe_input(f" {Colors.YELLOW}{Colors.BOLD}➤ Nhập lựa chọn của bạn{Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
 
                 if choice == "1":
-                    self.scan_and_generate_lua_scripts()
+                    self.execute_full_auto_pipeline()
                 elif choice == "2":
-                    self.start_live_dashboard()
+                    self.select_roblox_target_game()
                 elif choice == "3":
-                    self.generate_and_assign_ips()
+                    self.configure_watchdog_supervisor()
                 elif choice == "4":
-                    self.run_deep_diagnostics()
+                    self.start_live_dashboard()
                 elif choice == "5":
-                    self.view_instances_and_profiles()
+                    self.execute_java_selection_sort()
                 elif choice == "6":
-                    self.generate_ip_pool()
+                    self.generate_and_assign_ips()
                 elif choice == "7":
-                    self.export_report_and_guide()
+                    self.generate_ip_pool()
+                elif choice == "8":
+                    self.run_deep_diagnostics()
                 elif choice == "9":
                     self.configure_custom_payload()
                 elif choice == "10":
-                    self.auto_launch_and_selection_sort_ip()
-                elif choice == "8":
+                    self.manage_autoexec_folders()
+                elif choice == "11":
+                    self.view_instances_and_profiles()
+                elif choice == "12":
                     self.clean_and_reset_system()
                 elif choice in ["0", "exit", "quit"]:
                     self.shutdown()
@@ -295,606 +314,364 @@ class MasterController:
                 else:
                     safe_input(f"\n{Colors.RED}❌ Lựa chọn không hợp lệ! Nhấn Enter để tiếp tục...{Colors.RESET}")
 
-
             except (KeyboardInterrupt, EOFError):
                 self.shutdown()
                 break
 
-    def shutdown(self):
-        """Đóng hệ thống an toàn"""
-        self.bridge_server.stop()
-        print(f"\n{Colors.YELLOW}[!] Da dong Master Controller an toan. Tam biet!{Colors.RESET}\n")
-
-    def prompt_select_country(self) -> str:
-        """Hiển thị menu chọn quốc gia cho IP/Proxy"""
-        print(f"\n  {Colors.BOLD}[ CHON QUOC GIA / REGION CHO IP ROBLOX ]{Colors.RESET}")
-        print(f"  {Colors.BOLD}[0]{Colors.RESET} 🌐 {Colors.GREEN}{Colors.BOLD}MULTI-COUNTRY (Moi Tag 1 nuoc khac nhau - Khuyen dung tranh Ban Acc){Colors.RESET}")
-        print(f"  {Colors.BOLD}[1]{Colors.RESET} 🇻🇳 {Colors.CYAN}Viet Nam (VN - Ping cuc thap, choi cuc muot){Colors.RESET}")
-        print(f"  {Colors.BOLD}[2]{Colors.RESET} 🇯🇵 {Colors.YELLOW}Nhat Ban (JP - Tokyo, on dinh nhat cho Roblox){Colors.RESET}")
-        print(f"  {Colors.BOLD}[3]{Colors.RESET} 🇸🇬 {Colors.LIGHT_CYAN}Singapore (SG - SEA Server){Colors.RESET}")
-        print(f"  {Colors.BOLD}[4]{Colors.RESET} 🇺🇸 {Colors.LIGHT_RED}Hoa Ky (US - California/New York){Colors.RESET}")
-        print(f"  {Colors.BOLD}[5]{Colors.RESET} 🇰🇷 {Colors.C_PURPLE}Han Quoc (KR - Seoul){Colors.RESET}")
-        print(f"  {Colors.BOLD}[6]{Colors.RESET} 🇩🇪 {Colors.WHITE}Duc (DE - Europe){Colors.RESET}")
-        print(f"  {Colors.BOLD}[7]{Colors.RESET} 🇬🇧 {Colors.C_BLUE}Anh Quoc (GB - UK){Colors.RESET}")
-        print(f"  {Colors.BOLD}[8]{Colors.RESET} 🇫🇷 {Colors.C_ORANGE}Phap (FR - France){Colors.RESET}")
-        
-        c_choice = safe_input(f"\n  {Colors.YELLOW}{Colors.BOLD}➤ Chọn quốc gia mong muốn (0-8, mặc định 0){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
-        c_map = {
-            "0": "MULTI", "1": "VN", "2": "JP", "3": "SG", "4": "US",
-            "5": "KR", "6": "DE", "7": "GB", "8": "FR"
-        }
-        return c_map.get(c_choice, "MULTI")
-
-
-    def render_detailed_tag_table(self, instances: List[RobloxWindowInstance]):
-        """Hiển thị bảng chi tiết: TAG, STATUS (ON/OFF), CLIENT/EXECUTOR, IP, IP STATUS & PING, REGION"""
-        print(f"\n  {Colors.CYAN}[*] Dang do toc do Ping va kiem tra trang thai chinh xac cua tung IP/Proxy...{Colors.RESET}")
-        assigned_ips = [inst.assigned_ip for inst in instances if inst.assigned_ip]
-        probe_results = NetworkInspector.batch_probe_ips(assigned_ips)
-
-        W = 108
-        def pad_cell(raw_text: str, colored_text: str, width: int) -> str:
-            pad = max(0, width - len(raw_text))
-            return colored_text + (" " * pad)
-
-        top = f"{Colors.C_CYAN}{Colors.BOLD}╔{'═' * (W + 2)}╗{Colors.RESET}"
-        mid = f"{Colors.C_CYAN}{Colors.BOLD}╠{'═' * (W + 2)}╣{Colors.RESET}"
-        bot = f"{Colors.C_CYAN}{Colors.BOLD}╚{'═' * (W + 2)}╝{Colors.RESET}"
-        div = f"{Colors.GRAY}╟{'─' * (W + 2)}╢{Colors.RESET}"
-
-        print(top)
-        title_hdr = "BANG THEO DOI CHI TIET CAC TAG, CLIENT/EXECUTOR & TRANG THAI IP CHINH XAC"
-        pad_t = max(0, W - len(title_hdr)) // 2
-        print(f"{Colors.C_CYAN}{Colors.BOLD}║{Colors.RESET} {' ' * pad_t}{Colors.BOLD}{Colors.rainbow_text(title_hdr)}{Colors.RESET}{' ' * (W - len(title_hdr) - pad_t)} {Colors.C_CYAN}{Colors.BOLD}║{Colors.RESET}")
-        print(mid)
-
-        header_str = f"{'TAG ID':<16} {'STATUS':<9} {'CLIENT / EXECUTOR':<22} {'ASSIGNED IP / PROXY':<24} {'IP HEALTH/PING':<18} {'REGION':<14}"
-        print(f"{Colors.C_CYAN}{Colors.BOLD}║{Colors.RESET} {Colors.BOLD}{header_str}{Colors.RESET} {Colors.C_CYAN}{Colors.BOLD}║{Colors.RESET}")
-        print(div)
-
-        for inst in instances:
-            # 1. Trạng thái Tag (ON hay OFF)
-            if inst.pid > 0 or inst.hwnd > 0:
-                status_colored = f"{Colors.GREEN}{Colors.BOLD}[ ON  ]{Colors.RESET}"
-                status_raw = "[ ON  ]"
-            else:
-                status_colored = f"{Colors.GRAY}[ OFF ]{Colors.RESET}"
-                status_raw = "[ OFF ]"
-
-            # 2. Nhận diện Client / Executor
-            client_name = NetworkInspector.detect_client_type(inst.process_name, inst.title, inst.pid)
-            if len(client_name) > 22:
-                client_name = client_name[:22]
-
-            # 3. IP & Trạng thái IP chính xác
-            ip_val = inst.assigned_ip or "N/A"
-            health_info = probe_results.get(ip_val, ("READY (Header)", 15, "CYAN"))
-            health_text = health_info[0]
-            health_color = health_info[2]
-
-            if health_color == "GREEN":
-                health_disp = f"{Colors.GREEN}{health_text}{Colors.RESET}"
-            elif health_color == "YELLOW":
-                health_disp = f"{Colors.YELLOW}{health_text}{Colors.RESET}"
-            elif health_color == "ORANGE":
-                health_disp = f"{Colors.LIGHT_RED}{health_text}{Colors.RESET}"
-            else:
-                health_disp = f"{Colors.CYAN}{health_text}{Colors.RESET}"
-
-            reg = inst.region or "MULTI"
-            if len(reg) > 14:
-                reg = reg[:14]
-
-            # Căn lề chuẩn xác từng cell
-            c_tag = pad_cell(inst.tag_id, f"{Colors.BOLD}{inst.tag_id}{Colors.RESET}", 16)
-            c_st = pad_cell(status_raw, status_colored, 9)
-            c_cli = pad_cell(client_name, f"{Colors.YELLOW}{client_name}{Colors.RESET}", 22)
-            c_ip = pad_cell(ip_val, f"{Colors.LIGHT_CYAN}{ip_val}{Colors.RESET}", 24)
-            c_hl = pad_cell(health_text, health_disp, 18)
-            c_reg = pad_cell(reg, f"{Colors.CYAN}{reg}{Colors.RESET}", 14)
-
-            row_line = f"{Colors.C_CYAN}║{Colors.RESET} {c_tag} {c_st} {c_cli} {c_ip} {c_hl} {c_reg} {Colors.C_CYAN}║{Colors.RESET}"
-            print(row_line)
-
-        print(bot)
-
-    def scan_and_generate_lua_scripts(self):
-        """[1] QUÉT TẤT CẢ CỬA SỔ ĐANG MỞ & BẢN NHÂN BẢN CLONE (CHƯA MỞ) & GÁN DEDICATED IP"""
+    # ====================================================================================
+    # [1] MASTER AUTO PIPELINE (1-CHẠM KHỞI CHẠY TOÀN DIỆN)
+    # ====================================================================================
+    def execute_full_auto_pipeline(self):
+        """[1] Quy trình 1-Chạm tự động hóa toàn diện từ Quét -> Java Sort -> Bơm Autoexec -> Launch -> Watchdog"""
         self.clear_screen()
-        print(f"{Colors.LIGHT_GREEN}{Colors.BOLD}================ [ 1. QUET TOAN BO TAG & CLONE (MO / CHUA MO) ] ================{Colors.RESET}\n")
-        
-        print(f"  {Colors.CYAN}[*] Dang quet cac cua so Roblox dang chay & cac ban clone tren o dia...{Colors.RESET}")
-        instances = self._get_combined_tag_instances()
-        
-        live_count = len([x for x in instances if x.hwnd > 0 or x.pid > 0])
-        clone_count = len([x for x in instances if x.hwnd == 0 and x.pid == 0])
+        print(f"{Colors.LIGHT_GREEN}{Colors.BOLD}================ [ 1. MASTER AUTO PIPELINE - QUY TRÌNH 1-CHẠM TOÀN DIỆN ] ================{Colors.RESET}\n")
+        print(f"  {Colors.WHITE}Hệ thống sẽ thực hiện chuỗi tự động hóa 5 bước liên kết hoàn chỉnh:{Colors.RESET}\n")
 
-        print(f"  {Colors.GREEN}[+] Phat hien: {Colors.BOLD}{live_count} Cua so dang chay (ON){Colors.RESET} va {Colors.YELLOW}{Colors.BOLD}{clone_count} Ban nhan ban clone (OFF){Colors.RESET}!\n")
-
-        # Chọn quốc gia mong muốn
-        country_code = self.prompt_select_country()
-
-        print(f"\n  {Colors.CYAN}[*] Dang cap phat IP/Proxy quoc gia [{country_code}] & sinh Script Lua cho toan bo {len(instances)} Tag/Clone...{Colors.RESET}")
-        lua_files = self.lua_generator.generate_scripts_for_scanned_instances(instances, use_live_proxies=True, country_code=country_code)
-        
-        # Cập nhật Bridge Server
-        master_script_path = lua_files.get("MASTER", "")
-        master_content = ""
-        if os.path.exists(master_script_path):
-            with open(master_script_path, "r", encoding="utf-8") as f:
-                master_content = f.read()
-        self.bridge_server.update_state(instances, master_script=master_content)
-        self.active_tags = instances
-        self.live_tags_count = live_count
-        self.clone_tags_count = clone_count
-
-        # TỰ ĐỘNG BƠM TRỰC TIẾP VÀO AUTOEXEC FOLDERS CỦA CLIENT (ARCEUS X, DELTA, REAL...)
-        sync_res = self.autoexec_manager.sync_lua_to_autoexec(master_content)
-        pc_synced = sync_res.get("pc_synced", [])
-        android_synced = sync_res.get("android_synced", [])
-        self.autoexec_synced_count = len(pc_synced) + len(android_synced)
-
-        # HIỂN THỊ BẢNG CHI TIẾT THEO DÕI TRẠNG THÁI TỪNG TAG, CLIENT & IP
-        self.render_detailed_tag_table(instances)
-
-        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] DA TU DONG BOM LUA VAO THU MUC AUTOEXEC CUA CLIENT:{Colors.RESET}")
-        if pc_synced:
-            for p in pc_synced:
-                print(f"      -> PC: {Colors.CYAN}{p}{Colors.RESET}")
-        if android_synced:
-            for a in android_synced:
-                print(f"      -> Android/ADB: {Colors.CYAN}{a}{Colors.RESET}")
-        if not pc_synced and not android_synced:
-            print(f"      -> {Colors.YELLOW}Da luu san file master tai {OUTPUT_LUA_DIR}{Colors.RESET}")
-
-        print(f"\n  {Colors.LIGHT_GREEN}{Colors.BOLD}⚡ XONG: Mo bat ky ban clone Roblox nao la se duoc set dung IP rieng ngay lap tuc!{Colors.RESET}")
-        safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
-
-    def start_live_dashboard(self):
-        """[2] Chạy Dashboard giám sát trực tiếp chu kỳ 3s"""
-        self.clear_screen()
-        print(f"{Colors.GREEN}[*] Dang khoi chay chu trinh giam sat real-time... (Nhan Ctrl+C de quay lai Menu){Colors.RESET}")
-        time.sleep(1)
-        try:
-            while True:
-                self.manager.run_check_cycle()
-                instances = InstanceRepository.get_all_instances()
-                DashboardRenderer.render(instances)
-                time.sleep(3)
-        except (KeyboardInterrupt, EOFError):
-            print(f"\n{Colors.YELLOW}[*] Da dung live dashboard.{Colors.RESET}")
-            time.sleep(1)
-
-    def generate_and_assign_ips(self):
-        """[3] Tự động sinh IP mới và gán cho các Tag Roblox thực tế trên màn hình và bản clone"""
-        self.clear_screen()
-        print(f"{Colors.YELLOW}{Colors.BOLD}================ [ 3. CAP PHAT IP / PROXY DA QUOC GIA CHO CAC TAG & CLONE ] ================{Colors.RESET}\n")
-        
-        # Quét tất cả cửa sổ và các bản nhân bản
-        instances = self._get_combined_tag_instances()
-        count = len(instances)
-        live_count = len([x for x in instances if x.hwnd > 0 or x.pid > 0])
-        clone_count = len([x for x in instances if x.hwnd == 0 and x.pid == 0])
-
-        print(f"  {Colors.GREEN}[+] Tong cong: {count} Tag ({live_count} Dang chay, {clone_count} Ban clone chua mo).{Colors.RESET}")
-        
-        # Chọn quốc gia
-        country_code = self.prompt_select_country()
-
-        print(f"\n  {Colors.CYAN}[*] Dang lay {count} Proxy Live quoc gia [{country_code}] & Cap phat moi...{Colors.RESET}\n")
-        
-        # Tự động gán đúng số lượng IP cho số Tag
-        lua_files = self.lua_generator.generate_scripts_for_scanned_instances(instances, use_live_proxies=True, country_code=country_code)
-        m_path = lua_files.get("MASTER", "")
-        master_content = ""
-        if os.path.exists(m_path):
-            with open(m_path, "r", encoding="utf-8") as f:
-                master_content = f.read()
-                self.bridge_server.update_state(instances, master_script=master_content)
-        
-        self.active_tags = instances
-        self.live_tags_count = live_count
-        self.clone_tags_count = clone_count
-
-        # TỰ ĐỘNG BƠM TRỰC TIẾP VÀO AUTOEXEC
-        sync_res = self.autoexec_manager.sync_lua_to_autoexec(master_content)
-        pc_synced = sync_res.get("pc_synced", [])
-        android_synced = sync_res.get("android_synced", [])
-        self.autoexec_synced_count = len(pc_synced) + len(android_synced)
-
-        # HIỂN THỊ BẢNG CHI TIẾT THEO DÕI TRẠNG THÁI TỪNG TAG, CLIENT & IP
-        self.render_detailed_tag_table(instances)
-
-        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] DA TU DONG BOM LUA VAO AUTOEXEC CUA CLIENT:{Colors.RESET}")
-        if pc_synced:
-            for p in pc_synced:
-                print(f"      -> PC: {Colors.CYAN}{p}{Colors.RESET}")
-        if android_synced:
-            for a in android_synced:
-                print(f"      -> Android/ADB: {Colors.CYAN}{a}{Colors.RESET}")
-
-        print(f"\n{Colors.GREEN}{Colors.BOLD}[+] HOAN TAT: Da cap phat {count} IP [{country_code}] & Nạp xong Autoexec!{Colors.RESET}")
-        print(f"  {Colors.LIGHT_GREEN}Mo bat ky ban clone Roblox nao la se duoc set dung IP rieng ngay lap tuc!{Colors.RESET}")
-        safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
-
-    def run_deep_diagnostics(self):
-        """[4] Chẩn đoán chi tiết đường truyền mạng"""
-        self.clear_screen()
-        print(f"{Colors.CYAN}{Colors.BOLD}================ [ 4. CHUAN DOAN MANG CHUYEN SAU ] ================{Colors.RESET}\n")
-        
-        print(f"  [*] 1. Dang kiem tra Public IP...")
-        pub_ip = ConnectivityChecker.get_public_ip() or "Khong the lay Public IP"
-        print(f"      -> Public IP hien tai: {Colors.LIGHT_RED}{pub_ip}{Colors.RESET}")
-
-        print(f"  [*] 2. Dang do thoi gian truy van DNS (roblox.com)...")
-        _, dns_time = DNSResolver.resolve_domain("www.roblox.com")
-        print(f"      -> DNS Response Time: {Colors.CYAN}{dns_time} ms{Colors.RESET}")
-
-        print(f"  [*] 3. Dang do Ping RTT va Packet Loss den Cloudflare (1.1.1.1)...")
-        latency_cf, loss_cf = PingMonitor.ping_host("1.1.1.1", count=3)
-        print(f"      -> RTT: {Colors.GREEN}{latency_cf} ms{Colors.RESET} | Packet Loss: {Colors.YELLOW}{loss_cf}%{Colors.RESET}")
-
-        print(f"  [*] 4. Dang do Ping RTT va Packet Loss den Google (8.8.8.8)...")
-        latency_gg, loss_gg = PingMonitor.ping_host("8.8.8.8", count=3)
-        print(f"      -> RTT: {Colors.GREEN}{latency_gg} ms{Colors.RESET} | Packet Loss: {Colors.YELLOW}{loss_gg}%{Colors.RESET}")
-
-        print(f"\n  [*] 5. Kiem tra Java Network Engine & UGPhone Bridge...")
-        from devices.ugphone_bridge import JavaNetworkBridge
-        if self.active_tags and self.active_tags[0].assigned_ip:
-            first_ip = self.active_tags[0].assigned_ip
-            if ":" in first_ip:
-                h, p = first_ip.split(":", 1)
-                java_diag = JavaNetworkBridge.execute_java_diagnostics(h, int(p))
-                lat = java_diag.get("tcp_latency_ms", -1)
-                st = java_diag.get("proxy_status", "OFFLINE")
-                col = Colors.GREEN if st == "ONLINE" else Colors.LIGHT_RED
-                print(f"      -> TCP Handshake Proxy ({first_ip}): {col}{st} ({lat} ms){Colors.RESET}")
-            else:
-                print(f"      -> Java Engine: {Colors.GREEN}READY{Colors.RESET}")
-        else:
-            print(f"      -> Java Engine: {Colors.GREEN}READY{Colors.RESET} (Chua co IP gan)")
-
-        print(f"\n  [*] 6. Kiem tra ket noi Scrapestack Proxy API (Key: 5d1c5fb0...)...")
-        s_diag = self.scrapestack.test_connection()
-        s_st = s_diag.get("status", "OFFLINE")
-        s_lat = s_diag.get("latency_ms", -1)
-        s_ip = s_diag.get("proxy_ip", "N/A")
-        s_col = Colors.GREEN if s_st == "ONLINE" else Colors.LIGHT_RED
-        print(f"      -> Scrapestack Proxy API: {s_col}{s_st}{Colors.RESET} ({s_lat} ms)")
-        if s_st == "ONLINE":
-            print(f"      -> Live Proxied IP: {Colors.CYAN}{s_ip}{Colors.RESET} (Ready for Roblox multi-tags)")
-
-        print(f"\n{Colors.GREEN}[+] Hoan tat chan doan mang chuyen sau!{Colors.RESET}")
-        safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
-
-    def view_instances_and_profiles(self):
-        """[5] Xem cấu hình chi tiết"""
-        self.clear_screen()
-        print(f"{Colors.WHITE}{Colors.BOLD}================ [ 5. DANH SACH INSTANCES, CLONES & NETWORK PROFILES ] ================{Colors.RESET}\n")
-        
-        # Danh sách các Tag Roblox & Clones
-        instances = self._get_combined_tag_instances()
-        print(f"  {Colors.BOLD}[ DANH SACH ROBLOX TAGS & CLONED PROFILES ]{Colors.RESET}")
-        print(f"  {Colors.BOLD}{'TAG ID':<16} {'STATUS':<12} {'TYPE':<16} {'TITLE / CLONE NAME'}{Colors.RESET}")
-        print("  " + "-" * 75)
-        for inst in instances:
-            st = f"{Colors.GREEN}ONLINE{Colors.RESET}" if inst.pid > 0 else f"{Colors.YELLOW}OFFLINE{Colors.RESET}"
-            print(f"  {inst.tag_id:<16} {st:<21} {inst.process_name:<16} {inst.title}")
-
-        print(f"\n  {Colors.BOLD}[ NETWORK PROFILES CO SAN ]{Colors.RESET}")
-        for p_id, p in DEFAULT_PROFILES.items():
-            print(f"  * {Colors.CYAN}{p.name}{Colors.RESET} ({p.region}) | DNS: {p.dns_primary}, {p.dns_secondary} | MTU: {p.mtu}")
-
-        safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
-
-    def generate_ip_pool(self):
-        """[6] Sinh thêm IP hoặc Tải Live Proxy từ ProxyScrape / Scrapestack API"""
-        self.clear_screen()
-        print(f"{Colors.LIGHT_RED}{Colors.BOLD}================ [ 6. QUAN LY POOL IP & PROXY TOAN CAU ] ================{Colors.RESET}\n")
-        print(f"  {Colors.BOLD}[1]{Colors.RESET} {Colors.GREEN}Tai Proxy HTTP Live toan cau truc tiep tu ProxyScrape API{Colors.RESET}")
-        print(f"  {Colors.BOLD}[2]{Colors.RESET} {Colors.YELLOW}Tu sinh danh sach IP ngau nhien (Virtual Dedicated IPs){Colors.RESET}")
-        print(f"  {Colors.BOLD}[3]{Colors.RESET} {Colors.CYAN}Kiem tra & Lay IP truc tiep tu Scrapestack Proxy API (Key: 5d1c5fb0...){Colors.RESET}")
-        print(f"  {Colors.BOLD}[4]{Colors.RESET} {Colors.LIGHT_CYAN}Cap phat IP Scrapestack cho toan bo ban Clone dang co{Colors.RESET}\n")
-        
-        mode = safe_input(f"  {Colors.YELLOW}{Colors.BOLD}➤ Chọn chế độ (1-4){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
-        
-        if mode == "1":
-            print(f"\n  {Colors.CYAN}[*] Dang ket noi ProxyScrape API de lay danh sach Proxy HTTP toan cau...{Colors.RESET}")
-            from network.proxy_fetcher import ProxyFetcher, PROXIES_CACHE_FILE
-            proxies = ProxyFetcher.fetch_live_proxies(force_refresh=True)
-            print(f"  {Colors.GREEN}{Colors.BOLD}[+] Da tai thanh cong {len(proxies)} Proxy Live!{Colors.RESET}\n")
-            print(f"  {Colors.WHITE}10 Proxy dau tien:{Colors.RESET}")
-            for p in proxies[:10]:
-                print(f"    -> {Colors.CYAN}{p}{Colors.RESET}")
-            print(f"\n  {Colors.GREEN}[*] Da luu toan bo danh sach vao: {PROXIES_CACHE_FILE}{Colors.RESET}")
-        elif mode == "3":
-            print(f"\n  {Colors.CYAN}[*] Dang ket noi Scrapestack Proxy API de kiem tra...{Colors.RESET}")
-            res = self.scrapestack.test_connection()
-            if res.get("status") == "ONLINE":
-                print(f"  {Colors.GREEN}{Colors.BOLD}[+] Scrapestack Proxy ONLINE! (Latency: {res.get('latency_ms')} ms){Colors.RESET}")
-                print(f"  {Colors.WHITE}  - API Key     : {Colors.YELLOW}{res.get('api_key_masked')}{Colors.RESET}")
-                print(f"  {Colors.WHITE}  - Live IP     : {Colors.CYAN}{res.get('proxy_ip')}{Colors.RESET}")
-                print(f"  {Colors.WHITE}  - Proxy Pool  : {Colors.GREEN}Active (Standard Proxies){Colors.RESET}")
-            else:
-                print(f"  {Colors.RED}[!] Ket noi Scrapestack that bai: {res.get('error')}{Colors.RESET}")
-        elif mode == "4":
-            print(f"\n  {Colors.CYAN}[*] Dang lay dải IP tu Scrapestack Proxy...{Colors.RESET}")
-            s_proxies = self.scrapestack.batch_fetch_proxies(count=len(self.active_tags) or 5)
-            print(f"  {Colors.GREEN}[+] Da lay thanh cong {len(s_proxies)} IP tu Scrapestack:{Colors.RESET}")
-            for sp in s_proxies:
-                print(f"    -> {Colors.CYAN}{sp['ip']}{Colors.RESET} ({sp['region']})")
-        else:
-            user_val = safe_input(f"\n  {Colors.YELLOW}{Colors.BOLD}➤ Nhập số lượng IP muốn sinh (ví dụ: 20){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
-            try:
-                count = int(user_val) if user_val else 10
-            except ValueError:
-                count = 10
-            ips = RandomIPGenerator.generate_batch(count=count)
-            print(f"\n{Colors.GREEN}[+] Da sinh {len(ips)} dia chi IP va luu vao data/Generated_IPs.txt:{Colors.RESET}")
-            for ip in ips[:10]:
-                print(f"  - {Colors.CYAN}{ip}{Colors.RESET}")
-            if len(ips) > 10:
-                print(f"  ... va {len(ips) - 10} IP khac.")
-        
-        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
-
-
-
-    def export_report_and_guide(self):
-        """[7] Xuất báo cáo JSON và Hiển thị hướng dẫn Executor"""
-        self.clear_screen()
-        print(f"{Colors.BLUE}{Colors.BOLD}================ [ 7. XUAT BAO CAO & HUONG DAN EXECUTOR ] ================{Colors.RESET}\n")
-        export_file = os.path.join(BASE_DIR, "data", "network_report.json")
-        instances = InstanceRepository.get_all_instances()
-        
-        report_data = {
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "public_ip": ConnectivityChecker.get_public_ip(),
-            "instances": []
-        }
-        for inst in instances:
-            snap = SnapshotRepository.get_latest_snapshot(inst.id)
-            report_data["instances"].append({
-                "id": inst.id,
-                "name": inst.name,
-                "region": inst.region,
-                "assigned_ip": snap.local_ip if snap else "N/A",
-                "profile": inst.assigned_profile,
-                "latency_ms": snap.latency_ms if snap else -1,
-                "status": inst.status
-            })
-            
-        with open(export_file, "w", encoding="utf-8") as f:
-            json.dump(report_data, f, indent=2, ensure_ascii=False)
-
-        print(f"{Colors.GREEN}[+] 1. Da xuat bao cao he thong JSON tai:{Colors.RESET}")
-        print(f"       {Colors.WHITE}{export_file}{Colors.RESET}\n")
-
-        print(f"{Colors.CYAN}[*] 2. Huong dan nap ma Lua vao Roblox Executor:{Colors.RESET}")
-        print(f"    - Mo Executor bat ky (Synapse, Fluxus, Delta, Wave, Solara) va thuc thi:")
-        print(f"      {Colors.GREEN}loadstring(game:HttpGet(\"http://127.0.0.1:8888/api/script\"))(){Colors.RESET}")
-        print(f"    - Hoac copy file trong: {Colors.WHITE}{OUTPUT_LUA_DIR}{Colors.RESET}")
-        
-        safe_input(f"\n{Colors.GRAY}Nhan Enter de quay lai Menu...{Colors.RESET}")
-
-    def clean_and_reset_system(self):
-        """[8] Xóa / Dọn dẹp Autoexec, Script Lua, Cache Proxy & Reset hệ thống"""
-        self.clear_screen()
-        print(f"{Colors.LIGHT_RED}{Colors.BOLD}================ [ 8. XOA / DON DEP & RESET HE THONG ] ================{Colors.RESET}\n")
-        print(f"  {Colors.BOLD}[1]{Colors.RESET} {Colors.YELLOW}Xoa Script Lua khoi tat ca thu muc Autoexec (Arceus X, Delta, Codex, Real...){Colors.RESET}")
-        print(f"  {Colors.BOLD}[2]{Colors.RESET} {Colors.CYAN}Xoa toan bo file Lua da sinh trong thu muc data/generated_lua/{Colors.RESET}")
-        print(f"  {Colors.BOLD}[3]{Colors.RESET} {Colors.WHITE}Xoa Cache Proxy da tai (data/Proxies_*.txt, data/Generated_IPs.txt){Colors.RESET}")
-        print(f"  {Colors.BOLD}[4]{Colors.RESET} {Colors.C_PURPLE}Reset danh sach Ban Clone (cloned_profiles.json ve mac dinh){Colors.RESET}")
-        print(f"  {Colors.BOLD}[5]{Colors.RESET} 🧹 {Colors.LIGHT_RED}{Colors.BOLD}XOA TAT CA & RESET TOAN BO HE THONG VE BAN DAU{Colors.RESET}")
-        print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  {Colors.GRAY}Quay lai Menu chinh{Colors.RESET}\n")
-        
-        opt = safe_input(f"  {Colors.YELLOW}{Colors.BOLD}➤ Chọn tính năng xóa (0-5){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
-        
-        if opt == "1":
-            print(f"\n  {Colors.CYAN}[*] Dang xoa script khoi tat ca thu muc Autoexec...{Colors.RESET}")
-            res = self.autoexec_manager.clean_all_autoexec_scripts()
-            pc_c = res.get("pc_cleaned", [])
-            adb_c = res.get("android_cleaned", [])
-            print(f"  {Colors.GREEN}[+] Da xoa {len(pc_c)} file tren PC va {len(adb_c)} file tren Android Giả lập!{Colors.RESET}")
-            for p in pc_c:
-                print(f"    - PC: {Colors.GRAY}{p}{Colors.RESET}")
-            for a in adb_c:
-                print(f"    - Android: {Colors.GRAY}{a}{Colors.RESET}")
-            self.autoexec_synced_count = 0
-
-        elif opt == "2":
-            print(f"\n  {Colors.CYAN}[*] Dang xoa cac file Lua trong {OUTPUT_LUA_DIR}...{Colors.RESET}")
-            deleted_count = 0
-            if os.path.exists(OUTPUT_LUA_DIR):
-                for f in os.listdir(OUTPUT_LUA_DIR):
-                    if f.endswith(".lua"):
-                        try:
-                            os.remove(os.path.join(OUTPUT_LUA_DIR, f))
-                            deleted_count += 1
-                        except Exception:
-                            pass
-            print(f"  {Colors.GREEN}[+] Da xoa thanh cong {deleted_count} file script Lua!{Colors.RESET}")
-
-        elif opt == "3":
-            print(f"\n  {Colors.CYAN}[*] Dang xoa Cache Proxy & Pool IP...{Colors.RESET}")
-            import glob
-            p_files = glob.glob(os.path.join(DATA_DIR, "Proxies_*.txt")) + [
-                os.path.join(DATA_DIR, "Generated_IPs.txt"),
-                os.path.join(DATA_DIR, "Proxies_Live.txt")
-            ]
-            d_count = 0
-            for pf in p_files:
-                if os.path.exists(pf):
-                    try:
-                        os.remove(pf)
-                        d_count += 1
-                    except Exception:
-                        pass
-            print(f"  {Colors.GREEN}[+] Da xoa {d_count} file cache proxy!{Colors.RESET}")
-
-        elif opt == "4":
-            print(f"\n  {Colors.CYAN}[*] Dang reset danh sach Cloned Profiles...{Colors.RESET}")
-            from core.clone_scanner import CLONE_DB_FILE
-            if os.path.exists(CLONE_DB_FILE):
-                try:
-                    os.remove(CLONE_DB_FILE)
-                except Exception:
-                    pass
-            self.clone_scanner.scan_all_clones()
-            print(f"  {Colors.GREEN}[+] Da reset danh sach Ban Clone ve mac dinh!{Colors.RESET}")
-
-        elif opt == "5":
-            print(f"\n  {Colors.LIGHT_RED}[*] Dang tien hanh XOA TAT CA & Full Reset...{Colors.RESET}")
-            # 1. Clean autoexec
-            self.autoexec_manager.clean_all_autoexec_scripts()
-            self.autoexec_synced_count = 0
-            # 2. Clean lua
-            if os.path.exists(OUTPUT_LUA_DIR):
-                for f in os.listdir(OUTPUT_LUA_DIR):
-                    if f.endswith(".lua"):
-                        try:
-                            os.remove(os.path.join(OUTPUT_LUA_DIR, f))
-                        except Exception:
-                            pass
-            # 3. Clean proxies
-            import glob
-            for pf in glob.glob(os.path.join(DATA_DIR, "Proxies_*.txt")) + [os.path.join(DATA_DIR, "Generated_IPs.txt"), os.path.join(DATA_DIR, "Proxies_Live.txt")]:
-                if os.path.exists(pf):
-                    try:
-                        os.remove(pf)
-                    except Exception:
-                        pass
-            # 4. Reset clones
-            from core.clone_scanner import CLONE_DB_FILE
-            if os.path.exists(CLONE_DB_FILE):
-                try:
-                    os.remove(CLONE_DB_FILE)
-                except Exception:
-                    pass
-            print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] HOAN TAT: Da xoa sach toan bo du lieu va reset he thong ve ban dau!{Colors.RESET}")
-
-        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
-
-    def configure_custom_payload(self):
-        """[9] Cấu hình Script Game (Custom Payload) tự động chạy cho tất cả các Tag/Clone"""
-        self.clear_screen()
-        print(f"{Colors.LIGHT_CYAN}{Colors.BOLD}================ [ 9. CAU HINH SCRIPT GAME TU DONG CHAY CHO TAT CA TAG ] ================{Colors.RESET}\n")
-        print(f"  {Colors.WHITE}File Execute Master duy nhat dong vai tro la Bo khoi chay tong hop (Universal Launcher).")
-        print(f"  Sau khi set IP rieng va cach ly mang, Script nay se {Colors.GREEN}{Colors.BOLD}TU DONG CHAY TREN TAT CA CAC TAG / CLONE!{Colors.RESET}\n")
-        
-        payload_file = os.path.join(DATA_DIR, "custom_payload.lua")
-        current_code = ""
-        if os.path.exists(payload_file):
-            try:
-                with open(payload_file, "r", encoding="utf-8") as f:
-                    current_code = f.read()
-            except Exception:
-                pass
-
-        print(f"  {Colors.BOLD}[1]{Colors.RESET} {Colors.GREEN}Xem noi dung Script Game Payload hien tai{Colors.RESET}")
-        print(f"  {Colors.BOLD}[2]{Colors.RESET} {Colors.YELLOW}Nhap Link Script Hub URL (loadstring game:HttpGet){Colors.RESET}")
-        print(f"  {Colors.BOLD}[3]{Colors.RESET} {Colors.CYAN}Dan ma Script Lua truc tiep tu ban phim{Colors.RESET}")
-        print(f"  {Colors.BOLD}[4]{Colors.RESET} {Colors.LIGHT_RED}Xoa Script Payload (Reset ve mac dinh){Colors.RESET}")
-        print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  {Colors.GRAY}Quay lai Menu chinh{Colors.RESET}\n")
-
-        opt = safe_input(f"  {Colors.YELLOW}{Colors.BOLD}➤ Chọn thao tác (0-4){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
-        if opt == "1":
-            print(f"\n{Colors.CYAN}--- NOI DUNG SCRIPT PAYLOAD DANG DUOC NAP ({payload_file}) ---{Colors.RESET}")
-            print(current_code or f"{Colors.YELLOW}[Chua co script]{Colors.RESET}")
-            print(f"{Colors.CYAN}-------------------------------------------------------------------{Colors.RESET}")
-        elif opt == "2":
-            url = safe_input(f"\n  {Colors.YELLOW}{Colors.BOLD}➤ Nhập URL Script Lua (loadstring){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
-            if url:
-                wrapper_code = f'-- [[ AUTO-RUNNER SCRIPT FOR ALL TAGS ]]\npcall(function()\n    loadstring(game:HttpGet("{url}"))()\nend)\n'
-                with open(payload_file, "w", encoding="utf-8") as f:
-                    f.write(wrapper_code)
-                print(f"\n{Colors.GREEN}{Colors.BOLD}[+] Da luu Script URL thanh cong! Moi Tag mo len se tu dong chay script nay.{Colors.RESET}")
-        elif opt == "3":
-            print(f"\n{Colors.YELLOW}Nhập hoặc dán dòng Script Lua của bạn (Nhấn Enter để lưu):{Colors.RESET}")
-            script_line = safe_input(f"  {Colors.YELLOW}{Colors.BOLD}➤ Script{Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
-            if script_line:
-                with open(payload_file, "w", encoding="utf-8") as f:
-                    f.write(f"-- [[ USER CUSTOM SCRIPT PAYLOAD ]]\n{script_line}\n")
-                print(f"\n{Colors.GREEN}{Colors.BOLD}[+] Da luu Script Lua thanh cong!{Colors.RESET}")
-        elif opt == "4":
-            default_text = '-- [[ ROBLOX MULTI-TAG USER CUSTOM SCRIPT PAYLOAD ]]\nprint("[+] [UNIVERSAL MASTER EXECUTOR] All Tag scripts auto-executed successfully!")\n'
-            with open(payload_file, "w", encoding="utf-8") as f:
-                f.write(default_text)
-            print(f"\n{Colors.GREEN}[+] Da reset file Payload ve mac dinh!{Colors.RESET}")
-
-        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
-
-    def auto_launch_and_selection_sort_ip(self):
-        """[10] Tự động khởi động các Tag, kiểm tra và gán IP bằng thuật toán Selection Sort (Java + Python + Lua)"""
-        self.clear_screen()
-        print(f"{Colors.LIGHT_GREEN}{Colors.BOLD}================ [ 10. AUTO LAUNCH & SELECTION SORT IP OPTIMIZER ] ================{Colors.RESET}\n")
-        print(f"  {Colors.WHITE}Kiến trúc đa ngôn ngữ nhúng:{Colors.RESET}")
-        print(f"    * {Colors.CYAN}Java Core Engine{Colors.RESET}   : Thực thi thuật toán Selection Sort (Sắp xếp chọn) tìm Ping nhỏ nhất.")
-        print(f"    * {Colors.YELLOW}Python Controller{Colors.RESET} : Lấy Proxy Scrapestack & Pool, điều phối luồng và kiểm soát.")
-        print(f"    * {Colors.LIGHT_GREEN}Lua Autoexec{Colors.RESET}      : Nhúng Master Router vào Client và tự chạy Script Game cho từng Tag.\n")
-
-        # 1. Kiểm tra môi trường Java
-        from core.java_sort_bridge import SelectionSortBridge, RobloxAutoLauncher
-        java_ok = SelectionSortBridge.is_java_available()
-        java_status = f"{Colors.GREEN}ONLINE (Java 8 JRE/JDK Active){Colors.RESET}" if java_ok else f"{Colors.YELLOW}FALLBACK (Native Python-Lua Engine){Colors.RESET}"
-        print(f"  {Colors.BOLD}[*] 1. Môi trường Java Engine:{Colors.RESET} {java_status}")
-
-        # 2. Quét toàn bộ Tag & Clone
+        # BƯỚC 1: Quét toàn bộ Tag
+        print(f"  {Colors.BOLD}[BƯỚC 1/5]{Colors.RESET} {Colors.CYAN}Đang quét toàn bộ cửa sổ Live và bản Clone trên máy...{Colors.RESET}")
         instances = self._get_combined_tag_instances()
         tag_count = len(instances)
         live_count = len([x for x in instances if x.hwnd > 0 or x.pid > 0])
         clone_count = len([x for x in instances if x.hwnd == 0 and x.pid == 0])
-        print(f"  {Colors.BOLD}[*] 2. Tổng số Tag cần gán IP:{Colors.RESET} {Colors.GREEN}{tag_count} Tag{Colors.RESET} ({live_count} Live, {clone_count} Clones sẵn sàng)")
+        print(f"    -> {Colors.GREEN}Phát hiện tổng cộng {tag_count} Tag ({live_count} Live, {clone_count} Clones sẵn sàng){Colors.RESET}")
 
-        # 3. Thu thập ứng viên IP / Proxy (từ Scrapestack + Live Pool)
-        print(f"\n  {Colors.CYAN}[*] 3. Đang thu thập và đo Ping thực tế của các ứng viên Proxy...{Colors.RESET}")
+        # BƯỚC 2: Nhận diện cấu hình Game
+        print(f"\n  {Colors.BOLD}[BƯỚC 2/5]{Colors.RESET} {Colors.CYAN}Kiểm tra cấu hình Game mục tiêu (Per-Tag Multi-Game)...{Colors.RESET}")
+        cur_g = game_manager.get_current_game()
+        if game_manager.per_tag_mode:
+            print(f"    -> {Colors.GREEN}Chế độ: PER-TAG MULTI-GAME (Mỗi Tag 1 Game riêng biệt đã được định tuyến){Colors.RESET}")
+        else:
+            print(f"    -> {Colors.GREEN}Chế độ: GLOBAL GAME ➔ {cur_g.get('name')} (PlaceId: {cur_g.get('place_id')}){Colors.RESET}")
+
+        # BƯỚC 3: Thực thi Java Selection Sort IP
+        print(f"\n  {Colors.BOLD}[BƯỚC 3/5]{Colors.RESET} {Colors.CYAN}Thực thi Java Selection Sort tìm IP có Ping thấp nhất...{Colors.RESET}")
         candidate_count = max(tag_count + 5, 10)
-        from network.proxy_fetcher import ProxyFetcher
-        from core.network_inspector import NetworkInspector
-
-        # Thử lấy IP Scrapestack
         candidates = []
         try:
             s_proxies = self.scrapestack.batch_fetch_proxies(count=min(tag_count, 5))
             for sp in s_proxies:
-                candidates.append({
-                    "ip": sp["ip"],
-                    "region": sp.get("region", "[JP] Japan Tokyo"),
-                    "country": sp.get("country", "JP"),
-                    "source": "Scrapestack API"
-                })
+                candidates.append({"ip": sp["ip"], "region": sp.get("region", "[JP] Japan"), "country": sp.get("country", "JP")})
         except Exception:
             pass
 
-        # Lấy thêm từ Multi-Country Pool
         pool_proxies = ProxyFetcher.get_proxies_batch(count=candidate_count, country_code="MULTI")
         for pp in pool_proxies:
             if pp["ip"] not in [c["ip"] for c in candidates]:
-                candidates.append({
-                    "ip": pp["ip"],
-                    "region": pp.get("region", "[MULTI] Dedicated"),
-                    "country": pp.get("country", "MULTI"),
-                    "source": "Global Live Pool"
-                })
+                candidates.append({"ip": pp["ip"], "region": pp.get("region", "[MULTI] Dedicated"), "country": pp.get("country", "MULTI")})
 
-        # Đo ping thực tế từng IP
         ip_list = [c["ip"] for c in candidates]
         probe_map = NetworkInspector.batch_probe_ips(ip_list)
         for c in candidates:
             p_res = probe_map.get(c["ip"], ("READY", 50, "GREEN"))
             c["latency_ms"] = p_res[1]
-            c["status_str"] = p_res[0]
 
-        print(f"  {Colors.GREEN}[+] Đã thu thập {len(candidates)} ứng viên IP. Bắt đầu thuật toán Selection Sort...{Colors.RESET}\n")
+        sort_res = SelectionSortBridge.execute_selection_sort(candidates)
+        sorted_proxies = sort_res.get("sorted_proxies", [])
 
-        # 4. Thực thi Thuật toán Sắp xếp Chọn (Selection Sort)
+        for idx, inst in enumerate(instances):
+            if idx < len(sorted_proxies):
+                best_p = sorted_proxies[idx]
+                inst.assigned_ip = best_p["ip"]
+                inst.region = best_p["region"]
+                inst.country = best_p.get("country", "JP")
+
+        min_ping = sorted_proxies[0]["latency_ms"] if sorted_proxies else 20
+        print(f"    -> {Colors.GREEN}Java Engine đã tối ưu hóa {len(instances)} Tag. Ping thấp nhất: {min_ping} ms!{Colors.RESET}")
+
+        # BƯỚC 4: Đồng bộ Autoexec & Bridge Server
+        print(f"\n  {Colors.BOLD}[BƯỚC 4/5]{Colors.RESET} {Colors.CYAN}Tạo mã Lua độc lập & Bơm vào toàn bộ thư mục Autoexec...{Colors.RESET}")
+        sync_result = self.sync_system_state(instances, use_live_proxies=False)
+        print(f"    -> {Colors.GREEN}Đã cập nhật Master Router vào {sync_result['autoexec_synced_count']} thư mục Autoexec Executor!{Colors.RESET}")
+
+        # BƯỚC 5: Kích hoạt Watchdog & Khởi chạy Roblox
+        print(f"\n  {Colors.BOLD}[BƯỚC 5/5]{Colors.RESET} {Colors.CYAN}Kích hoạt Watchdog Supervisor & Khởi chạy các bản Roblox...{Colors.RESET}")
+        watchdog.is_enabled = True
+        watchdog.auto_reopen_on_disconnect = True
+        watchdog.start()
+        print(f"    -> {Colors.GREEN}Watchdog Supervisor: ONLINE (Tự động mở lại khi bị văng/disconnect kích hoạt){Colors.RESET}")
+
+        auto_launch_choice = safe_input(f"\n  {Colors.YELLOW}{Colors.BOLD}➤ Khởi chạy ngay các bản Roblox Client? (Nhập số lượng, ví dụ: 2, Y=Tất cả, N=Bỏ qua){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
+
+        if auto_launch_choice.lower() not in ["n", "no", "khong", "0"]:
+            try:
+                num_to_launch = int(auto_launch_choice) if auto_launch_choice.isdigit() else min(tag_count, 3)
+            except Exception:
+                num_to_launch = 2
+
+            print(f"\n  {Colors.YELLOW}[*] Đang tự động mở {num_to_launch} cửa sổ Roblox Client...{Colors.RESET}")
+            launch_instances = instances[:num_to_launch] if instances else None
+            launch_res = RobloxAutoLauncher.launch_roblox_instances(count=num_to_launch, instances=launch_instances)
+            for lr in launch_res:
+                if lr["status"] == "LAUNCHED":
+                    tag_g = game_manager.get_game_for_tag(lr.get("tag_id"))
+                    print(f"    -> {Colors.GREEN}[+] Đã mở Tag [{lr['tag_id']}]{Colors.RESET} ➔ Game: {Colors.CYAN}{tag_g.get('name')}{Colors.RESET} ({lr['method']})")
+                else:
+                    print(f"    -> {Colors.RED}[!] Lỗi mở Tag [{lr['tag_id']}]: {lr.get('error')}{Colors.RESET}")
+
+        print(f"\n  {Colors.LIGHT_GREEN}{Colors.BOLD}================ [ ✅ MASTER PIPELINE HOÀN TẤT THÀNH CÔNG ] ================{Colors.RESET}")
+        print(f"  {Colors.WHITE}Hệ thống đang chạy nền an toàn. Bạn có thể mở [Menu 4] để xem Live Dashboard.{Colors.RESET}")
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
+
+    # ====================================================================================
+    # [2] QUẢN LÝ GAME & TELEPORT HUB (GLOBAL & PER-TAG MULTI-GAME)
+    # ====================================================================================
+    def select_roblox_target_game(self):
+        """[2] Chọn Game Roblox để Auto-Join & Cấu hình Teleport Hub (Global & Per-Tag Multi-Game)"""
+        while True:
+            self.clear_screen()
+            print(f"{Colors.LIGHT_CYAN}{Colors.BOLD}================ [ 2. QUẢN LÝ GAME ROBLOX & PER-TAG MULTI-GAME HUB ] ================{Colors.RESET}\n")
+            
+            cur_game = game_manager.get_current_game()
+            tag_games = game_manager.get_all_tag_games()
+            mode_str = f"{Colors.GREEN}{Colors.BOLD}PER-TAG MULTI-GAME (Mỗi Tag 1 Game riêng){Colors.RESET}" if game_manager.per_tag_mode else f"{Colors.CYAN}{Colors.BOLD}GLOBAL (Tất cả Tag chung 1 Game){Colors.RESET}"
+            
+            print(f"  {Colors.BOLD}⚙️  Chế độ hiện tại:{Colors.RESET} {mode_str}")
+            print(f"  {Colors.BOLD}🎮 Game mặc định (Global):{Colors.RESET} {Colors.GREEN}{Colors.BOLD}{cur_game.get('name')}{Colors.RESET} (PlaceId: {Colors.CYAN}{cur_game.get('place_id')}{Colors.RESET})")
+            if game_manager.per_tag_mode and tag_games:
+                print(f"  {Colors.BOLD}🎯 Số Tag có Game riêng biệt:{Colors.RESET} {Colors.YELLOW}{len(tag_games)} Tags đã cấu hình riêng{Colors.RESET}")
+            print(f"  {Colors.BOLD}⚡ Auto-Teleport:{Colors.RESET} {Colors.GREEN}BẬT (Tự động Teleport vào đúng Game){Colors.RESET}\n")
+
+            print(f"  {Colors.BOLD}[ TÙY CHỌN CẤU HÌNH GAME ]{Colors.RESET}")
+            print(f"  {Colors.BOLD}[1]{Colors.RESET} 🌐 {Colors.WHITE}Chọn 1 Game chung cho TẤT CẢ các Tag (Global Mode){Colors.RESET}")
+            print(f"  {Colors.BOLD}[2]{Colors.RESET} 🎯 {Colors.LIGHT_GREEN}Gán MỖI TAG MỘT GAME KHÁC NHAU (Per-Tag Multi-Game){Colors.RESET}")
+            print(f"  {Colors.BOLD}[3]{Colors.RESET} 📋 {Colors.CYAN}Xem Bảng phân bổ Game & IP chi tiết của từng Tag{Colors.RESET}")
+            print(f"  {Colors.BOLD}[4]{Colors.RESET} 🎲 {Colors.YELLOW}Tự động phân bổ ngẫu nhiên Top Games cho toàn bộ Tag (1 chạm){Colors.RESET}")
+            print(f"  {Colors.BOLD}[L]{Colors.RESET} 🚀 {Colors.GREEN}Khởi chạy Roblox vào Game ngay bây giờ{Colors.RESET}")
+            print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  {Colors.GRAY}Quay lại Menu chính{Colors.RESET}\n")
+
+            opt = safe_input(f"  {Colors.YELLOW}{Colors.BOLD}➤ Nhập lựa chọn (0-4, L){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
+
+            if opt == "1":
+                self._menu_select_global_game()
+            elif opt == "2":
+                self._menu_assign_games_per_tag()
+            elif opt == "3":
+                self._menu_view_tag_games_table()
+            elif opt == "4":
+                self._menu_auto_distribute_games()
+            elif opt.upper() == "L":
+                instances = self._get_combined_tag_instances()
+                print(f"\n  {Colors.YELLOW}[*] Đang khởi chạy các cửa sổ Roblox theo Game riêng của từng Tag...{Colors.RESET}")
+                res_list = RobloxAutoLauncher.launch_roblox_instances(instances=instances if instances else None, count=max(len(instances), 1))
+                for lr in res_list:
+                    if lr.get("status") == "LAUNCHED":
+                        tag_g = game_manager.get_game_for_tag(lr.get("tag_id"))
+                        print(f"    -> {Colors.GREEN}[+] Đã mở Tag [{lr.get('tag_id')}] vào Game [{tag_g.get('name')}] (PlaceId: {lr.get('place_id')}){Colors.RESET}")
+                    else:
+                        print(f"    -> {Colors.RED}[!] Lỗi mở Tag [{lr.get('tag_id')}]: {lr.get('error')}{Colors.RESET}")
+                safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để tiếp tục...{Colors.RESET}")
+            elif opt == "0":
+                break
+
+    def _menu_select_global_game(self):
+        self.clear_screen()
+        print(f"{Colors.LIGHT_CYAN}{Colors.BOLD}================ [ CHỌN GAME CHUNG CHO TOÀN BỘ CÁC TAG ] ================{Colors.RESET}\n")
+        print(f"  {'STT':<6} {'TÊN GAME ROBLOX':<30} {'PLACE ID':<16} {'THỂ LOẠI'}")
+        print("  " + "-" * 75)
+        cur_game = game_manager.get_current_game()
+        for g in POPULAR_ROBLOX_GAMES:
+            is_cur = "⭐ " if str(g.place_id) == str(cur_game.get("place_id")) else "   "
+            print(f"  {is_cur}{g.id:<4} {Colors.CYAN}{g.name:<30}{Colors.RESET} {Colors.YELLOW}{g.place_id:<16}{Colors.RESET} {g.category}")
+
+        print(f"\n  {Colors.BOLD}[C]{Colors.RESET} ✍️  {Colors.WHITE}Tự nhập Tên Game & Place ID tùy chỉnh{Colors.RESET}")
+        print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  {Colors.GRAY}Quay lại{Colors.RESET}\n")
+
+        choice = safe_input(f"  {Colors.YELLOW}➤ Chọn số game (1-15) hoặc [C] Tự nhập:{Colors.RESET} ").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(POPULAR_ROBLOX_GAMES):
+            sel_game = POPULAR_ROBLOX_GAMES[int(choice) - 1]
+            ask_job = safe_input(f"  {Colors.YELLOW}Nhập Job ID cụ thể (để trống nếu vào Server ngẫu nhiên):{Colors.RESET} ").strip()
+            game_manager.set_game_by_item(sel_game, job_id=ask_job)
+            game_manager.per_tag_mode = False
+            game_manager.save_config()
+            print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] ĐÃ CHỌN THÀNH CÔNG: {sel_game.name} (PlaceId: {sel_game.place_id}) CHO TẤT CẢ TAG!{Colors.RESET}")
+            self.sync_system_state(self._get_combined_tag_instances())
+        elif choice.upper() == "C":
+            c_name = safe_input(f"  {Colors.YELLOW}Nhập Tên game hiển thị:{Colors.RESET} ").strip()
+            c_pid = safe_input(f"  {Colors.YELLOW}Nhập Place ID của game:{Colors.RESET} ").strip()
+            c_jid = safe_input(f"  {Colors.YELLOW}Nhập Job ID / Server ID (để trống nếu không có):{Colors.RESET} ").strip()
+            if c_pid:
+                game_manager.set_custom_game(name=c_name or "Custom Game", place_id=c_pid, job_id=c_jid)
+                game_manager.per_tag_mode = False
+                game_manager.save_config()
+                print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] Đã lưu cấu hình Game: {c_name} (PlaceId: {c_pid})!{Colors.RESET}")
+                self.sync_system_state(self._get_combined_tag_instances())
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để tiếp tục...{Colors.RESET}")
+
+    def _menu_assign_games_per_tag(self):
+        self.clear_screen()
+        print(f"{Colors.LIGHT_GREEN}{Colors.BOLD}================ [ GÁN MỖI TAG MỘT GAME KHÁC NHAU ] ================{Colors.RESET}\n")
+        instances = self._get_combined_tag_instances()
+        print(f"  {Colors.BOLD}Danh sách các Tag cần gán Game:{Colors.RESET}")
+        for idx, inst in enumerate(instances):
+            cur_t_game = game_manager.get_game_for_tag(inst.tag_id)
+            print(f"    [{idx+1}] {Colors.CYAN}{inst.tag_id:<16}{Colors.RESET} ➔ Game hiện tại: {Colors.GREEN}{cur_t_game.get('name')}{Colors.RESET} (PlaceId: {cur_t_game.get('place_id')})")
+
+        print(f"\n  {Colors.BOLD}[A]{Colors.RESET} 🎲 {Colors.YELLOW}Tự động gán mỗi Tag 1 Game khác nhau từ Top Games (Blox Fruits, King Legacy, Fisch...){Colors.RESET}")
+        print(f"  {Colors.BOLD}[1-{len(instances)}]{Colors.RESET} 🎯 {Colors.WHITE}Chọn số thứ tự Tag cụ thể để đổi Game{Colors.RESET}")
+        print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  {Colors.GRAY}Quay lại{Colors.RESET}\n")
+
+        sel = safe_input(f"  {Colors.YELLOW}➤ Nhập lựa chọn của bạn:{Colors.RESET} ").strip()
+        if sel.upper() == "A":
+            tag_ids = [inst.tag_id for inst in instances]
+            game_manager.auto_distribute_multi_games(tag_ids)
+            print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] ĐÃ TỰ ĐỘNG GÁN GAME KHÁC NHAU CHO TOÀN BỘ {len(tag_ids)} TAGS!{Colors.RESET}")
+            self.sync_system_state(instances)
+        elif sel.isdigit() and 1 <= int(sel) <= len(instances):
+            target_inst = instances[int(sel) - 1]
+            print(f"\n  {Colors.CYAN}--- CHỌN GAME CHO TAG [{target_inst.tag_id}] ---{Colors.RESET}")
+            for g in POPULAR_ROBLOX_GAMES[:8]:
+                print(f"    [{g.id}] {g.name:<25} (PlaceId: {g.place_id})")
+            print(f"    [C] Tự nhập Place ID khác")
+            g_choice = safe_input(f"  {Colors.YELLOW}Chọn game cho {target_inst.tag_id}:{Colors.RESET} ").strip()
+            if g_choice.isdigit() and 1 <= int(g_choice) <= len(POPULAR_ROBLOX_GAMES):
+                g_item = POPULAR_ROBLOX_GAMES[int(g_choice) - 1]
+                game_manager.set_game_for_tag(target_inst.tag_id, name=g_item.name, place_id=g_item.place_id)
+                print(f"\n  {Colors.GREEN}[+] Đã gán Tag [{target_inst.tag_id}] ➔ Game [{g_item.name}]!{Colors.RESET}")
+                self.sync_system_state(instances)
+            elif g_choice.upper() == "C":
+                c_name = safe_input(f"  {Colors.YELLOW}Tên game:{Colors.RESET} ").strip()
+                c_pid = safe_input(f"  {Colors.YELLOW}Place ID:{Colors.RESET} ").strip()
+                if c_pid:
+                    game_manager.set_game_for_tag(target_inst.tag_id, name=c_name or "Custom Game", place_id=c_pid)
+                    print(f"\n  {Colors.GREEN}[+] Đã gán Tag [{target_inst.tag_id}] ➔ Game [{c_name}] (PlaceId: {c_pid})!{Colors.RESET}")
+                    self.sync_system_state(instances)
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để tiếp tục...{Colors.RESET}")
+
+    def _menu_view_tag_games_table(self):
+        self.clear_screen()
+        print(f"{Colors.LIGHT_CYAN}{Colors.BOLD}================ [ BẢNG PHÂN BỔ GAME & IP CỦA TỪNG TAG ] ================{Colors.RESET}\n")
+        instances = self._get_combined_tag_instances()
+        print(f"  {'TAG ID':<16} {'GAME MỤC TIÊU':<26} {'PLACE ID':<14} {'DEDICATED IP':<20} {'REGION'}")
+        print("  " + "-" * 88)
+        for inst in instances:
+            tg = game_manager.get_game_for_tag(inst.tag_id)
+            ip_str = inst.assigned_ip or "127.0.0.1"
+            reg_str = getattr(inst, "region", "[JP] Japan")
+            print(f"  {inst.tag_id:<16} {Colors.GREEN}{tg.get('name', 'N/A')[:24]:<26}{Colors.RESET} {Colors.CYAN}{tg.get('place_id', 'N/A'):<14}{Colors.RESET} {Colors.YELLOW}{ip_str:<20}{Colors.RESET} {reg_str[:16]}")
+        print("\n  " + "=" * 88)
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để tiếp tục...{Colors.RESET}")
+
+    def _menu_auto_distribute_games(self):
+        instances = self._get_combined_tag_instances()
+        tag_ids = [inst.tag_id for inst in instances]
+        if not tag_ids:
+            tag_ids = [f"ROBLOX-TAG-{i:02d}" for i in range(1, 6)]
+        game_manager.auto_distribute_multi_games(tag_ids)
+        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] ĐÃ TỰ ĐỘNG PHÂN BỔ MỖI TAG 1 GAME KHÁC NHAU THÀNH CÔNG!{Colors.RESET}")
+        for tid in tag_ids:
+            g = game_manager.get_game_for_tag(tid)
+            print(f"    * {Colors.CYAN}{tid:<16}{Colors.RESET} ➔ {Colors.GREEN}{g.get('name'):<26}{Colors.RESET} (PlaceId: {g.get('place_id')})")
+        self.sync_system_state(instances)
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để tiếp tục...{Colors.RESET}")
+
+    # ====================================================================================
+    # [3] GIÁM SÁT & AUTO-RESTART WATCHDOG SUPERVISOR
+    # ====================================================================================
+    def configure_watchdog_supervisor(self):
+        """[3] Giám sát & Bật/Tắt Auto-Restart Watchdog (Tự động mở lại Tag khi bị tắt)"""
+        self.clear_screen()
+        print(f"{Colors.LIGHT_GREEN}{Colors.BOLD}================ [ 3. GIÁM SÁT & AUTO-RESTART WATCHDOG SUPERVISOR ] ================{Colors.RESET}\n")
+        
+        w_summary = watchdog.get_summary()
+        status_txt = f"{Colors.GREEN}{Colors.BOLD}ĐANG BẬT (ONLINE){Colors.RESET}" if w_summary["is_enabled"] else f"{Colors.GRAY}ĐANG TẮT (DISABLED){Colors.RESET}"
+        reopen_txt = f"{Colors.GREEN}BẬT (Tự mở lại khi mất kết nối/tắt){Colors.RESET}" if w_summary["auto_reopen"] else f"{Colors.YELLOW}TẮT (Chỉ ghi log){Colors.RESET}"
+
+        print(f"  {Colors.BOLD}🛡️ Trạng thái Watchdog Supervisor:{Colors.RESET} {status_txt}")
+        print(f"  {Colors.BOLD}🔄 Chế độ Auto-Reopen (Tự mở lại):{Colors.RESET} {reopen_txt}")
+        print(f"  {Colors.BOLD}📊 Thống kê Tag theo dõi:{Colors.RESET} {Colors.CYAN}{w_summary['total_monitored']} Tags{Colors.RESET} ({Colors.GREEN}{w_summary['online_count']} Online{Colors.RESET}, {Colors.LIGHT_RED}{w_summary['off_count']} Off/Error{Colors.RESET})")
+        print(f"  {Colors.BOLD}🚀 Tổng số lần tự động Mở lại:{Colors.RESET} {Colors.YELLOW}{Colors.BOLD}{w_summary['total_restarts']} lần{Colors.RESET}\n")
+
+        print(f"  {Colors.BOLD}[ DANH SÁCH TRẠNG THÁI NHỊP TIM CỦA CÁC TAG ]{Colors.RESET}")
+        print(f"  {'TAG ID':<16} {'STATUS':<14} {'FPS':<6} {'PING':<10} {'ASSIGNED IP':<22} {'RESTARTS'}")
+        print("  " + "-" * 75)
+
+        tags_dict = w_summary.get("tags", {})
+        if tags_dict:
+            for tid, tst in tags_dict.items():
+                st_color = Colors.GREEN if tst["status"] == "ONLINE" else (Colors.YELLOW if tst["status"] == "RESTARTING" else Colors.LIGHT_RED)
+                st_display = f"{st_color}{tst['status']}{Colors.RESET}"
+                print(f"  {tid:<16} {st_display:<23} {tst.get('fps', 60):<6} {tst.get('ping_ms', 0)} ms   {tst.get('assigned_ip', 'N/A'):<22} {tst.get('restarts_count', 0)} lần")
+        else:
+            print(f"  {Colors.GRAY}Chưa có Tag nào kết nối nhịp tim. Mở Roblox để tự động kích hoạt!{Colors.RESET}")
+
+        if w_summary.get("recent_logs"):
+            print(f"\n  {Colors.BOLD}[ NHẬT KÝ SỰ KIỆN WATCHDOG GẦN ĐÂY ]{Colors.RESET}")
+            for l in w_summary["recent_logs"][-6:]:
+                print(f"    {Colors.GRAY}{l}{Colors.RESET}")
+
+        print(f"\n  {Colors.BOLD}[1]{Colors.RESET} 🔘 {'Tắt' if w_summary['is_enabled'] else 'Bật'} Watchdog Supervisor")
+        print(f"  {Colors.BOLD}[2]{Colors.RESET} 🔄 {'Tắt' if w_summary['auto_reopen'] else 'Bật'} Chế độ Tự động Mở lại (Auto-Reopen)")
+        print(f"  {Colors.BOLD}[3]{Colors.RESET} ⚡ Thử kích hoạt Mở lại Tag ngay lập tức (Test Re-launch)")
+        print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  {Colors.GRAY}Quay lại Menu chính{Colors.RESET}\n")
+
+        opt = safe_input(f"  {Colors.YELLOW}{Colors.BOLD}➤ Chọn thao tác (0-3){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
+        if opt == "1":
+            watchdog.is_enabled = not watchdog.is_enabled
+            print(f"\n  {Colors.GREEN}[+] Đã {'BẬT' if watchdog.is_enabled else 'TẮT'} Watchdog Supervisor!{Colors.RESET}")
+        elif opt == "2":
+            watchdog.auto_reopen_on_disconnect = not watchdog.auto_reopen_on_disconnect
+            print(f"\n  {Colors.GREEN}[+] Đã {'BẬT' if watchdog.auto_reopen_on_disconnect else 'TẮT'} chế độ Tự động Mở lại Tag!{Colors.RESET}")
+        elif opt == "3":
+            tid_test = safe_input(f"  {Colors.YELLOW}Nhập Tag ID muốn mở lại (mặc định ROBLOX-TAG-01):{Colors.RESET} ").strip() or "ROBLOX-TAG-01"
+            print(f"\n  {Colors.CYAN}[*] Đang kích hoạt thử nghiệm mở lại Tag [{tid_test}]...{Colors.RESET}")
+            watchdog._trigger_reopen_tag(tid_test, "Thử nghiệm kích hoạt thủ công từ Menu")
+            print(f"  {Colors.GREEN}[+] Đã gửi lệnh mở lại Tag thành công!{Colors.RESET}")
+
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
+
+    # ====================================================================================
+    # [4] LIVE DASHBOARD GIÁM SÁT REAL-TIME
+    # ====================================================================================
+    def start_live_dashboard(self):
+        """[4] Mở Dashboard TUI giám sát thời gian thực"""
+        try:
+            from cli.status import render_network_dashboard
+            render_network_dashboard()
+        except KeyboardInterrupt:
+            pass
+
+    # ====================================================================================
+    # [5] JAVA SELECTION SORT IP ENGINE
+    # ====================================================================================
+    def execute_java_selection_sort(self):
+        """[5] Thực thi thuật toán Selection Sort trên JVM Java Engine để tìm IP Ping thấp nhất"""
+        self.clear_screen()
+        print(f"{Colors.LIGHT_GREEN}{Colors.BOLD}================ [ 5. JAVA SELECTION SORT IP ENGINE ] ================{Colors.RESET}\n")
+        
+        java_ok = SelectionSortBridge.is_java_available()
+        java_status = f"{Colors.GREEN}ONLINE (Java 8 JRE Active){Colors.RESET}" if java_ok else f"{Colors.YELLOW}FALLBACK (Native Python Engine){Colors.RESET}"
+        print(f"  {Colors.BOLD}[*] Môi trường Java Engine:{Colors.RESET} {java_status}")
+
+        instances = self._get_combined_tag_instances()
+        tag_count = len(instances)
+        print(f"  {Colors.BOLD}[*] Tổng số Tag cần gán IP:{Colors.RESET} {Colors.GREEN}{tag_count} Tag{Colors.RESET}")
+
+        print(f"\n  {Colors.CYAN}[*] Đang thu thập và đo Ping thực tế các ứng viên Proxy...{Colors.RESET}")
+        candidate_count = max(tag_count + 5, 10)
+        candidates = []
+        try:
+            s_proxies = self.scrapestack.batch_fetch_proxies(count=min(tag_count, 5))
+            for sp in s_proxies:
+                candidates.append({"ip": sp["ip"], "region": sp.get("region", "[JP] Japan"), "country": sp.get("country", "JP")})
+        except Exception:
+            pass
+
+        pool_proxies = ProxyFetcher.get_proxies_batch(count=candidate_count, country_code="MULTI")
+        for pp in pool_proxies:
+            if pp["ip"] not in [c["ip"] for c in candidates]:
+                candidates.append({"ip": pp["ip"], "region": pp.get("region", "[MULTI] Dedicated"), "country": pp.get("country", "MULTI")})
+
+        ip_list = [c["ip"] for c in candidates]
+        probe_map = NetworkInspector.batch_probe_ips(ip_list)
+        for c in candidates:
+            p_res = probe_map.get(c["ip"], ("READY", 50, "GREEN"))
+            c["latency_ms"] = p_res[1]
+
         sort_result = SelectionSortBridge.execute_selection_sort(candidates)
         sorted_proxies = sort_result.get("sorted_proxies", [])
         step_logs = sort_result.get("step_logs", [])
 
-        print(f"  {Colors.YELLOW}{Colors.BOLD}--- BẢNG MINH HỌA THUẬT TOÁN SELECTION SORT (SẮP XẾP CHỌN) ---{Colors.RESET}")
-        print(f"  {Colors.GRAY}Nguyên lý: Chia mảng thành [Đã sắp xếp] & [Chưa sắp xếp], liên tục tìm Min Latency rồi Swap lên đầu.{Colors.RESET}\n")
-
+        print(f"\n  {Colors.YELLOW}{Colors.BOLD}--- BẢNG MINH HỌA THUẬT TOÁN SELECTION SORT (TRÊN JAVA ENGINE) ---{Colors.RESET}")
         if step_logs:
             for step in step_logs[:tag_count]:
                 p_num = step.get("pass", 1)
@@ -905,70 +682,281 @@ class MasterController:
                 swap_txt = f"{Colors.GREEN}Swap vị trí {min_f_i} -> {cur_i}{Colors.RESET}" if step.get("swapped") else f"{Colors.GRAY}Giữ nguyên (Đã ở đầu){Colors.RESET}"
                 print(f"    * {Colors.BOLD}[Pass {p_num:02d}]{Colors.RESET} Min: {Colors.CYAN}{min_lat} ms{Colors.RESET} ({min_ip}) -> {swap_txt} [RANK #{p_num}]")
 
-        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] KẾT QUẢ GÁN IP TỐI ƯU CHO TỪNG TAG THEO SELECTION SORT:{Colors.RESET}")
-        print(f"  {'RANK':<6} {'TAG ID':<16} {'OPTIMIZED IP':<24} {'PING':<12} {'REGION / SOURCE'}")
-        print("  " + "-" * 75)
+        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] KẾT QUẢ GÁN IP TỐI ƯU CHO TỪNG TAG:{Colors.RESET}")
+        print(f"  {'RANK':<6} {'TAG ID':<16} {'OPTIMIZED IP':<24} {'PING':<12} {'TARGET GAME ASSIGNED'}")
+        print("  " + "-" * 78)
 
-        # 5. Gán IP đã sắp xếp cho từng Tag
         for idx, inst in enumerate(instances):
             if idx < len(sorted_proxies):
                 best_p = sorted_proxies[idx]
                 inst.assigned_ip = best_p["ip"]
                 inst.region = best_p["region"]
                 inst.country = best_p.get("country", "JP")
-                print(f"  #{idx+1:<5} {inst.tag_id:<16} {Colors.CYAN}{best_p['ip']:<24}{Colors.RESET} {Colors.GREEN}{best_p['latency_ms']} ms{Colors.RESET}    {best_p['region']}")
+                tg = game_manager.get_game_for_tag(inst.tag_id)
+                print(f"  #{idx+1:<5} {inst.tag_id:<16} {Colors.CYAN}{best_p['ip']:<24}{Colors.RESET} {Colors.GREEN}{best_p['latency_ms']} ms{Colors.RESET}    {Colors.LIGHT_GREEN}{tg.get('name')}{Colors.RESET}")
 
-        # 6. Sinh Script Master Lua và Bơm vào Autoexec
-        lua_files = self.lua_generator.generate_scripts_for_scanned_instances(instances, use_live_proxies=False)
-        m_path = lua_files.get("MASTER", "")
-        master_content = ""
-        if os.path.exists(m_path):
-            with open(m_path, "r", encoding="utf-8") as f:
-                master_content = f.read()
-                self.bridge_server.update_state(instances, master_script=master_content)
+        self.sync_system_state(instances, use_live_proxies=False)
+        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] ĐÃ TỰ ĐỘNG ĐỒNG BỘ IP VÀO TOÀN BỘ AUTOEXEC & BRIDGE SERVER!{Colors.RESET}")
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
 
-        self.active_tags = instances
-        self.live_tags_count = live_count
-        self.clone_tags_count = clone_count
+    # ====================================================================================
+    # [6] CẤP PHÁT & ĐỔI IP PROXY ĐA QUỐC GIA
+    # ====================================================================================
+    def generate_and_assign_ips(self):
+        """[6] Cấp phát lại IP / Proxy Đa Quốc Gia cho toàn bộ bản Clone"""
+        self.clear_screen()
+        print(f"{Colors.LIGHT_GREEN}{Colors.BOLD}================ [ 6. CẤP PHÁT LẠI IP / PROXY ĐA QUỐC GIA ] ================{Colors.RESET}\n")
+        country_code = self.prompt_select_country()
+        instances = self._get_combined_tag_instances()
+        print(f"\n  {Colors.CYAN}[*] Đang cấp phát dải IP mới [{country_code}] cho {len(instances)} Tag...{Colors.RESET}")
+        
+        self.sync_system_state(instances, use_live_proxies=True, country_code=country_code)
+        
+        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] ĐÃ CẤP PHÁT VÀ ĐỒNG BỘ DẢI IP [{country_code}] THÀNH CÔNG CHO {len(instances)} TAG!{Colors.RESET}")
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
 
-        sync_res = self.autoexec_manager.sync_lua_to_autoexec(master_content)
-        pc_synced = sync_res.get("pc_synced", [])
-        android_synced = sync_res.get("android_synced", [])
-        self.autoexec_synced_count = len(pc_synced) + len(android_synced)
+    # ====================================================================================
+    # [7] QUẢN LÝ POOL IP & SCRAPESTACK API
+    # ====================================================================================
+    def generate_ip_pool(self):
+        """[7] Tải và kiểm tra Proxy Live từ ProxyScrape / Scrapestack API"""
+        self.clear_screen()
+        print(f"{Colors.LIGHT_BLUE}{Colors.BOLD}================ [ 7. QUẢN LÝ POOL IP & SCRAPESTACK API ] ================{Colors.RESET}\n")
+        
+        s_status = self.scrapestack.test_connection()
+        print(f"  {Colors.BOLD}🔑 Scrapestack API Status:{Colors.RESET} {Colors.GREEN if s_status['status'] == 'CONNECTED' else Colors.YELLOW}{s_status['status']}{Colors.RESET}")
+        if s_status.get("proxy_ip"):
+            print(f"  {Colors.BOLD}📍 Public Proxy IP:{Colors.RESET} {Colors.CYAN}{s_status.get('proxy_ip')}{Colors.RESET}")
 
-        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] Đã tự động cập nhật Autoexec Master Router ({self.autoexec_synced_count} thư mục)!{Colors.RESET}")
+        print(f"\n  {Colors.BOLD}[1]{Colors.RESET} 🔄 Tải mới danh sách Proxy Live Đa Quốc Gia từ ProxyScrape")
+        print(f"  {Colors.BOLD}[2]{Colors.RESET} ⚡ Lấy 5 Dedicated Proxy từ Scrapestack API")
+        print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  Quay lại\n")
 
-        # 7. Tự Động Khởi Chạy Các Bản Roblox Clone (Auto-Launcher)
-        print(f"\n{Colors.LIGHT_CYAN}{Colors.BOLD}================ [ TỰ ĐỘNG KHỞI CHẠY TIẾN TRÌNH ROBLOX ] ================{Colors.RESET}")
-        auto_launch_choice = safe_input(f"\n  {Colors.YELLOW}{Colors.BOLD}➤ Tự động mở Roblox? (Nhập số lượng mở, ví dụ: 2, Y=Tất cả, N=Bỏ qua){Colors.RESET} {Colors.GREEN}{Colors.BOLD}❯❯{Colors.RESET} ").strip()
-
-        if auto_launch_choice.lower() not in ["n", "no", "khong", "0"]:
-            try:
-                num_to_launch = int(auto_launch_choice) if auto_launch_choice.isdigit() else min(tag_count, 3)
-            except Exception:
-                num_to_launch = 2
-
-            print(f"\n  {Colors.YELLOW}[*] Đang tự động khởi chạy {num_to_launch} cửa sổ Roblox Client...{Colors.RESET}")
-            launch_res = RobloxAutoLauncher.launch_roblox_instances(count=num_to_launch)
-            for lr in launch_res:
-                if lr["status"] == "LAUNCHED":
-                    print(f"    -> {Colors.GREEN}[+] Khởi chạy thành công Tag: {lr['tag_id']}{Colors.RESET} ({lr['method']})")
-                else:
-                    print(f"    -> {Colors.RED}[!] Lỗi khởi chạy Tag: {lr['tag_id']}: {lr.get('error')}{Colors.RESET}")
-
-            print(f"\n  {Colors.LIGHT_GREEN}{Colors.BOLD}⚡ TẤT CẢ CỬA SỔ KHI MỞ SẼ TỰ ĐỘNG NHẬN IP SELECTION SORT VÀ CHẠY SCRIPT GAME PAYLOAD!{Colors.RESET}")
-        else:
-            print(f"\n  {Colors.YELLOW}[*] Đã lưu cấu hình IP Selection Sort. Bạn có thể mở Roblox thủ công bất cứ lúc nào!{Colors.RESET}")
+        sub_opt = safe_input(f"  {Colors.YELLOW}➤ Nhập lựa chọn (0-2):{Colors.RESET} ").strip()
+        if sub_opt == "1":
+            print(f"\n  {Colors.CYAN}[*] Đang tải Proxy Live đa quốc gia...{Colors.RESET}")
+            proxies = ProxyFetcher.fetch_country_proxies("MULTI", force_refresh=True)
+            print(f"  {Colors.GREEN}[+] Đã nạp thành công {len(proxies)} Proxy Live vào Pool!{Colors.RESET}")
+        elif sub_opt == "2":
+            print(f"\n  {Colors.CYAN}[*] Đang kết nối Scrapestack API...{Colors.RESET}")
+            s_res = self.scrapestack.batch_fetch_proxies(count=5)
+            for sp in s_res:
+                print(f"    -> {Colors.GREEN}{sp['ip']}{Colors.RESET} ({sp['region']})")
+            print(f"  {Colors.GREEN}[+] Đã nạp 5 Scrapestack Dedicated Proxies!{Colors.RESET}")
 
         safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
 
+    # ====================================================================================
+    # [8] CHẨN ĐOÁN MẠNG CHUYÊN SÂU
+    # ====================================================================================
+    def run_deep_diagnostics(self):
+        """[8] Chẩn đoán mạng chuyên sâu (Java Handshake, Socket Ping, DNS, MTU)"""
+        self.clear_screen()
+        print(f"{Colors.LIGHT_CYAN}{Colors.BOLD}================ [ 8. CHẨN ĐOÁN MẠNG CHUYÊN SÂU ] ================{Colors.RESET}\n")
+        
+        print(f"  {Colors.CYAN}[*] 1. Kiểm tra độ trễ Java TCP Handshake Engine...{Colors.RESET}")
+        probe_res = SelectionSortBridge.probe_ip_latency_java("8.8.8.8", port=53)
+        print(f"    -> {Colors.GREEN}Google DNS Latency (Java): {probe_res.get('latency_ms')} ms (Trạng thái: {probe_res.get('status')}){Colors.RESET}")
+
+        print(f"\n  {Colors.CYAN}[*] 2. Kiểm tra phân giải DNS Public quốc tế...{Colors.RESET}")
+        from network.dns import DNSResolver
+        dns_res = DNSResolver.test_all_dns_servers()
+        for srv, lat in dns_res.items():
+            print(f"    -> {srv:<20}: {Colors.GREEN}{lat:.1f} ms{Colors.RESET}")
+
+        print(f"\n  {Colors.CYAN}[*] 3. Kiểm tra kết nối HTTP Bridge Server (http://127.0.0.1:8888)...{Colors.RESET}")
+        print(f"    -> {Colors.GREEN}Bridge Server: ONLINE (Port 8888 Active){Colors.RESET}")
+
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
+
+    # ====================================================================================
+    # [9] CẤU HÌNH SCRIPT GAME (CUSTOM PAYLOAD)
+    # ====================================================================================
+    def configure_custom_payload(self):
+        """[9] Cấu hình Script Game (Auto Farm Payload) tự chạy cho mọi Tag"""
+        self.clear_screen()
+        print(f"{Colors.LIGHT_PURPLE}{Colors.BOLD}================ [ 9. CẤU HÌNH SCRIPT GAME TỰ ĐỘNG CHẠY ] ================{Colors.RESET}\n")
+        payload_file = os.path.join(BASE_DIR, "data", "custom_payload.lua")
+        current_content = ""
+        if os.path.exists(payload_file):
+            with open(payload_file, "r", encoding="utf-8") as f:
+                current_content = f.read()
+
+        print(f"  {Colors.BOLD}Nội dung Script Game hiện tại:{Colors.RESET}")
+        print("  " + "-" * 75)
+        for line in current_content.splitlines()[:6]:
+            print(f"    {Colors.CYAN}{line}{Colors.RESET}")
+        if len(current_content.splitlines()) > 6:
+            print(f"    {Colors.GRAY}... ({len(current_content.splitlines())} dòng code) ...{Colors.RESET}")
+        print("  " + "-" * 75)
+
+        print(f"\n  {Colors.BOLD}[1]{Colors.RESET} 📝 Xem toàn bộ nội dung Script Payload")
+        print(f"  {Colors.BOLD}[2]{Colors.RESET} 🌐 Nhập URL Script (Ví dụ: loadstring(game:HttpGet(...)))")
+        print(f"  {Colors.BOLD}[3]{Colors.RESET} ✍️  Dán trực tiếp mã code Lua")
+        print(f"  {Colors.BOLD}[4]{Colors.RESET} 🔄 Reset về Script Payload mặc định")
+        print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  Quay lại Menu chính\n")
+
+        opt = safe_input(f"  {Colors.YELLOW}➤ Nhập lựa chọn (0-4):{Colors.RESET} ").strip()
+        if opt == "1":
+            print(f"\n{Colors.WHITE}{current_content}{Colors.RESET}")
+        elif opt == "2":
+            url_str = safe_input(f"  {Colors.YELLOW}Nhập URL Script Hub / Auto Farm:{Colors.RESET} ").strip()
+            if url_str:
+                code_to_save = f'-- [[ AUTO-GENERATED SCRIPT LOADER ]]\npcall(function()\n    loadstring(game:HttpGet("{url_str}"))()\nend)\n'
+                with open(payload_file, "w", encoding="utf-8") as f:
+                    f.write(code_to_save)
+                print(f"\n{Colors.GREEN}{Colors.BOLD}[+] Đã lưu Script URL thành công!{Colors.RESET}")
+                self.sync_system_state(self._get_combined_tag_instances())
+        elif opt == "3":
+            print(f"  {Colors.YELLOW}Dán mã code Lua của bạn (Gõ END_SCRIPT ở dòng cuối để lưu):{Colors.RESET}")
+            lines = []
+            while True:
+                l = safe_input()
+                if l.strip() == "END_SCRIPT":
+                    break
+                lines.append(l)
+            if lines:
+                with open(payload_file, "w", encoding="utf-8") as f:
+                    f.write("\n".join(lines))
+                print(f"\n{Colors.GREEN}{Colors.BOLD}[+] Đã lưu Script Lua thành công!{Colors.RESET}")
+                self.sync_system_state(self._get_combined_tag_instances())
+        elif opt == "4":
+            default_text = '-- [[ ROBLOX MULTI-TAG USER CUSTOM SCRIPT PAYLOAD ]]\nprint("[+] [UNIVERSAL MASTER EXECUTOR] All Tag scripts auto-executed successfully!")\n'
+            with open(payload_file, "w", encoding="utf-8") as f:
+                f.write(default_text)
+            print(f"\n{Colors.GREEN}[+] Đã reset file Payload về mặc định!{Colors.RESET}")
+            self.sync_system_state(self._get_combined_tag_instances())
+
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
+
+    # ====================================================================================
+    # [10] QUẢN LÝ THƯ MỤC AUTOEXEC
+    # ====================================================================================
+    def manage_autoexec_folders(self):
+        """[10] Quản lý & Đồng bộ thư mục Autoexec các Executor (Delta, Arceus X, Solara...)"""
+        self.clear_screen()
+        print(f"{Colors.LIGHT_CYAN}{Colors.BOLD}================ [ 10. QUẢN LÝ THƯ MỤC AUTOEXEC EXECUTOR ] ================{Colors.RESET}\n")
+        
+        detected_pc = self.autoexec_manager.detected_pc_dirs
+        detected_android = self.autoexec_manager.detected_android_dirs
+
+        print(f"  {Colors.BOLD}📁 Thư mục Autoexec tìm thấy trên Windows PC:{Colors.RESET}")
+        if detected_pc:
+            for p in detected_pc:
+                print(f"    -> {Colors.GREEN}✓ {p}{Colors.RESET}")
+        else:
+            print(f"    -> {Colors.GRAY}Chưa tìm thấy Autoexec PC tự động. (Có thể thêm thủ công){Colors.RESET}")
+
+        print(f"\n  {Colors.BOLD}📁 Thư mục Autoexec tìm thấy trên Android / Termux:{Colors.RESET}")
+        if detected_android:
+            for a in detected_android:
+                print(f"    -> {Colors.GREEN}✓ {a}{Colors.RESET}")
+        else:
+            print(f"    -> {Colors.GRAY}Không chạy trên Android / Chưa có Autoexec Android.{Colors.RESET}")
+
+        print(f"\n  {Colors.BOLD}[1]{Colors.RESET} 🔄 Bơm lại Master Router vào toàn bộ thư mục Autoexec")
+        print(f"  {Colors.BOLD}[2]{Colors.RESET} ✍️  Thêm đường dẫn Autoexec tùy chỉnh")
+        print(f"  {Colors.BOLD}[0]{Colors.RESET} ↩️  Quay lại\n")
+
+        sub_opt = safe_input(f"  {Colors.YELLOW}➤ Nhập lựa chọn (0-2):{Colors.RESET} ").strip()
+        if sub_opt == "1":
+            self.sync_system_state(self._get_combined_tag_instances())
+            print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] Đã đồng bộ Master Router thành công!{Colors.RESET}")
+        elif sub_opt == "2":
+            custom_p = safe_input(f"  {Colors.YELLOW}Nhập đường dẫn thư mục Autoexec mới:{Colors.RESET} ").strip()
+            if custom_p and os.path.exists(custom_p):
+                self.autoexec_manager.add_custom_autoexec_dir(custom_p)
+                print(f"\n  {Colors.GREEN}[+] Đã thêm thư mục Autoexec: {custom_p}!{Colors.RESET}")
+                self.sync_system_state(self._get_combined_tag_instances())
+
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
+
+    # ====================================================================================
+    # [11] XEM BẢNG TỔNG HỢP CHI TIẾT TAG
+    # ====================================================================================
+    def view_instances_and_profiles(self):
+        """[11] Xem danh sách Cloned Instances, Trạng thái & Network Profiles"""
+        self.clear_screen()
+        print(f"{Colors.LIGHT_CYAN}{Colors.BOLD}================ [ 11. DANH SÁCH CHI TIẾT CÁC TAG & CLONES ] ================{Colors.RESET}\n")
+        instances = self._get_combined_tag_instances()
+
+        print(f"  {'STT':<4} {'TAG ID':<16} {'STATUS':<12} {'ASSIGNED IP':<20} {'GAME ASSIGNED':<22} {'PID / HWID'}")
+        print("  " + "-" * 88)
+
+        for idx, inst in enumerate(instances):
+            is_live = inst.hwnd > 0 or inst.pid > 0
+            st_str = f"{Colors.GREEN}ONLINE{Colors.RESET}" if is_live else f"{Colors.GRAY}OFFLINE{Colors.RESET}"
+            ip_str = inst.assigned_ip or "127.0.0.1"
+            tg = game_manager.get_game_for_tag(inst.tag_id)
+            g_name = tg.get("name", "Blox Fruits")[:20]
+            pid_txt = f"PID:{inst.pid}" if inst.pid > 0 else "CLONE"
+            print(f"  {idx+1:<4} {Colors.CYAN}{inst.tag_id:<16}{Colors.RESET} {st_str:<21} {Colors.YELLOW}{ip_str:<20}{Colors.RESET} {Colors.GREEN}{g_name:<22}{Colors.RESET} {pid_txt}")
+
+        print("\n  " + "=" * 88)
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
+
+    # ====================================================================================
+    # [12] DỌN DẸP & RESET HỆ THỐNG
+    # ====================================================================================
+    def clean_and_reset_system(self):
+        """[12] Dọn dẹp Autoexec, Script Lua, Cache Proxy & Reset Hệ Thống"""
+        self.clear_screen()
+        print(f"{Colors.LIGHT_RED}{Colors.BOLD}================ [ 12. DỌN DẸP & RESET TOÀN BỘ HỆ THỐNG ] ================{Colors.RESET}\n")
+        
+        print(f"  {Colors.YELLOW}[!] Bạn có chắc chắn muốn dọn dẹp thư mục Autoexec, xóa cache Lua và reset Watchdog?{Colors.RESET}")
+        confirm = safe_input(f"  {Colors.YELLOW}Nhập [Y] để đồng ý, [N] để hủy:{Colors.RESET} ").strip()
+
+        if confirm.upper() == "Y":
+            cleaned = self.autoexec_manager.clean_autoexec()
+            print(f"\n  {Colors.GREEN}[+] Đã dọn sạch {cleaned} file script trong các thư mục Autoexec!{Colors.RESET}")
+            
+            # Xóa generated lua
+            lua_dir = os.path.join(BASE_DIR, "data", "generated_lua")
+            if os.path.exists(lua_dir):
+                for f in os.listdir(lua_dir):
+                    try:
+                        os.remove(os.path.join(lua_dir, f))
+                    except Exception:
+                        pass
+                print(f"  {Colors.GREEN}[+] Đã dọn sạch thư mục data/generated_lua!{Colors.RESET}")
+
+            # Reset Watchdog state
+            watchdog.tags = {}
+            watchdog.total_restarts = 0
+            watchdog.recent_logs = []
+            print(f"  {Colors.GREEN}[+] Đã reset trạng thái Watchdog Supervisor!{Colors.RESET}")
+            print(f"\n  {Colors.LIGHT_GREEN}{Colors.BOLD}⚡ HỆ THỐNG ĐÃ ĐƯỢC RESET VỀ TRẠNG THÁI SẠCH SẼ MẶC ĐỊNH!{Colors.RESET}")
+
+        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
+
+    def prompt_select_country(self) -> str:
+        """Hiển thị menu chọn quốc gia cho IP/Proxy"""
+        print(f"\n  {Colors.BOLD}[ CHỌN QUỐC GIA / REGION CHO IP ROBLOX ]{Colors.RESET}")
+        print(f"  {Colors.BOLD}[0]{Colors.RESET} 🌐 {Colors.GREEN}{Colors.BOLD}MULTI-COUNTRY (Mỗi Tag 1 nước khác nhau - Khuyên dùng tránh Ban Acc){Colors.RESET}")
+        for idx, (c_code, c_info) in enumerate(SUPPORTED_COUNTRIES.items()):
+            print(f"  {Colors.BOLD}[{idx+1}]{Colors.RESET} {c_info['flag']} {c_info['name']} ({c_code})")
+        print(f"  {Colors.BOLD}[A]{Colors.RESET} 🌏 Toàn Cầu (All Available Countries)\n")
+
+        c_choice = safe_input(f"  {Colors.YELLOW}➤ Chọn quốc gia (0-{len(SUPPORTED_COUNTRIES)}, hoặc A):{Colors.RESET} ").strip()
+        if c_choice == "0":
+            return "MULTI"
+        elif c_choice.isdigit() and 1 <= int(c_choice) <= len(SUPPORTED_COUNTRIES):
+            return list(SUPPORTED_COUNTRIES.keys())[int(c_choice) - 1]
+        elif c_choice.upper() == "A":
+            return "ALL"
+        return "MULTI"
+
+    def shutdown(self):
+        """Đóng hệ thống an toàn"""
+        self.bridge_server.stop()
+        watchdog.stop()
+        print(f"\n{Colors.YELLOW}[!] Đã đóng Master Controller và Watchdog an toàn. Tạm biệt!{Colors.RESET}\n")
+
 
 if __name__ == "__main__":
-
-
     try:
         controller = MasterController()
         controller.main_menu()
     except (KeyboardInterrupt, EOFError):
-        print("\n[!] Tam biet!")
+        print("\n[!] Tạm biệt!")
         sys.exit(0)

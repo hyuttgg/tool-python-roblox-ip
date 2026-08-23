@@ -218,6 +218,9 @@ class RobloxCloneScanner:
         except Exception:
             pass
 
+    def scan_all_profiles(self) -> List[RobloxCloneProfile]:
+        return self.scan_all_clones()
+
     def add_custom_clone_slot(self, name: str, count: int = 1) -> List[RobloxCloneProfile]:
         """Thêm các slot nhân bản mới theo yêu cầu"""
         clones = self._load_saved_clones() or self.cached_clones
@@ -234,3 +237,8 @@ class RobloxCloneScanner:
         self._save_clones(clones)
         self.cached_clones = clones
         return clones
+
+
+# Backward compatibility aliases
+ClonedProfileScanner = RobloxCloneScanner
+ClonedInstanceProfile = RobloxCloneProfile

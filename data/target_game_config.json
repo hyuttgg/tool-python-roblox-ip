@@ -1,0 +1,33 @@
+{
+  "global_game": {
+    "name": "Blox Fruits",
+    "place_id": "2753915549",
+    "job_id": "",
+    "private_server_link": "",
+    "auto_teleport_enabled": true
+  },
+  "tag_games": {
+    "ROBLOX-TAG-01": {
+      "name": "Blox Fruits",
+      "place_id": "2753915549",
+      "job_id": "",
+      "private_server_link": "",
+      "auto_teleport_enabled": true
+    },
+    "ROBLOX-TAG-02": {
+      "name": "King Legacy",
+      "place_id": "4520749081",
+      "job_id": "",
+      "private_server_link": "",
+      "auto_teleport_enabled": true
+    },
+    "ROBLOX-TAG-03": {
+      "name": "Fisch (Fishing Sim)",
+      "place_id": "16732694052",
+      "job_id": "",
+      "private_server_link": "",
+      "auto_teleport_enabled": true
+    }
+  },
+  "per_tag_mode": true
+}
