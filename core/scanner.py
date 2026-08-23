@@ -296,3 +296,8 @@ class RobloxWindowScanner:
 
         logger.info(f"Scan complete: Found {len(instances)} active Roblox instances.")
         return instances
+
+    def scan_roblox_instances(self) -> List[RobloxWindowInstance]:
+        """Tương thích alias quét tiến trình Roblox"""
+        return self.scan_active_roblox_windows()
+
