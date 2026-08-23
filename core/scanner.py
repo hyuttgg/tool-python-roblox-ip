@@ -298,6 +298,17 @@ class RobloxWindowScanner:
         return instances
 
     def scan_roblox_instances(self) -> List[RobloxWindowInstance]:
-        """Tương thích alias quét tiến trình Roblox"""
+        """Tương thích alias quét tiến trình Roblox trên Windows, Android & UGPhone"""
         return self.scan_active_roblox_windows()
+
+    def scan_instances(self) -> List[RobloxWindowInstance]:
+        return self.scan_active_roblox_windows()
+
+    def scan_all_instances(self) -> List[RobloxWindowInstance]:
+        return self.scan_active_roblox_windows()
+
+
+# Compatibility Aliases for Android / UGPhone / Linux
+RobloxInstanceScanner = RobloxWindowScanner
+RobloxAndroidScanner = RobloxWindowScanner
 
