@@ -64,10 +64,10 @@ class LiveRealtimeMonitor:
 
     @classmethod
     def get_hardware_metrics(cls) -> Dict:
-        """Thu thập thông số phần cứng máy tính 100% thực tế qua C++/C-ABI Kernel Machine Code"""
+        """Thu thập thông số phần cứng máy tính 100% thực tế qua Hợp ngữ ASM + C + Rust + C++"""
         from core.native_hardware_bridge import NativeHardwareProbe
 
-        cpu_pct, cpu_eng = NativeHardwareProbe.get_cpu_usage_precise()
+        cpu_pct, cpu_eng, tsc_val = NativeHardwareProbe.get_cpu_usage_precise()
         ram_info = NativeHardwareProbe.get_ram_info_precise()
         disk_path = "C:\\" if os.name == "nt" else "/"
         disk_info = NativeHardwareProbe.get_disk_info_precise(disk_path)
@@ -89,6 +89,7 @@ class LiveRealtimeMonitor:
             "cpu_count": cpu_count,
             "cpu_freq_mhz": cpu_freq_mhz,
             "cpu_engine": cpu_eng,
+            "tsc_val": tsc_val,
             "ram_used_gb": ram_info["used_gb"],
             "ram_total_gb": ram_info["total_gb"],
             "ram_free_gb": ram_info["free_gb"],
@@ -266,27 +267,28 @@ class LiveRealtimeMonitor:
 
         print(mid_border)
 
-        # 2. PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC (C++ & C-ABI KERNEL PROBES)
-        cat_hw = f"  {Colors.C_RED}{Colors.BOLD}► [ PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC (C++ & C-ABI KERNEL PROBES) ]{Colors.RESET}"
-        print(pad_line(cat_hw, len("  ► [ PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC (C++ & C-ABI KERNEL PROBES) ]")))
+        # 2. PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC (ASM + C + RUST + C++ MACHINE PROBES)
+        cat_hw = f"  {Colors.C_RED}{Colors.BOLD}► [ PHẦN CỨNG THỜI GIAN THỰC (HỢP NGỮ ASM + C + RUST + C++ PROBES) ]{Colors.RESET}"
+        print(pad_line(cat_hw, len("  ► [ PHẦN CỨNG THỜI GIAN THỰC (HỢP NGỮ ASM + C + RUST + C++ PROBES) ]")))
 
         # CPU Line
         cpu_bar = cls.build_bar(hw["cpu_pct"], width=14)
         cpu_freq_str = f" @ {hw['cpu_freq_mhz']} MHz" if hw['cpu_freq_mhz'] > 0 else ""
-        cpu_col = f"    🖥️  {Colors.BOLD}CPU TỔNG:{Colors.RESET}  {cpu_bar}  {Colors.GRAY}({hw['cpu_count']} Cores{cpu_freq_str} | {hw['cpu_engine'][:28]}){Colors.RESET}"
-        cpu_vis = f"    🖥️  CPU TỔNG:  [██████████░░░░░]  {hw['cpu_pct']:>5.1f}%  ({hw['cpu_count']} Cores{cpu_freq_str} | {hw['cpu_engine'][:28]})"
+        tsc_str = f"{hw.get('tsc_val', 0):,}"
+        cpu_col = f"    🖥️  {Colors.BOLD}CPU TỔNG:{Colors.RESET}  {cpu_bar}  {Colors.GRAY}({hw['cpu_count']} Cores{cpu_freq_str} | ASM RDTSC: {tsc_str} | {hw['cpu_engine'][:24]}){Colors.RESET}"
+        cpu_vis = f"    🖥️  CPU TỔNG:  [██████████░░░░░]  {hw['cpu_pct']:>5.1f}%  ({hw['cpu_count']} Cores{cpu_freq_str} | ASM RDTSC: {tsc_str} | {hw['cpu_engine'][:24]})"
         print(pad_line(cpu_col, len(cpu_vis)))
 
         # RAM Line
         ram_bar = cls.build_bar(hw["ram_pct"], width=14)
-        ram_col = f"    🧠  {Colors.BOLD}RAM MÁY :{Colors.RESET}  {ram_bar}  {Colors.CYAN}{hw['ram_used_gb']:.2f} GB{Colors.RESET} / {Colors.WHITE}{hw['ram_total_gb']:.2f} GB{Colors.RESET} {Colors.GRAY}(Trống: {hw['ram_free_gb']:.2f} GB){Colors.RESET}"
-        ram_vis = f"    🧠  RAM MÁY :  [██████████░░░░░]  {hw['ram_pct']:>5.1f}%  {hw['ram_used_gb']:.2f} GB / {hw['ram_total_gb']:.2f} GB (Trống: {hw['ram_free_gb']:.2f} GB)"
+        ram_col = f"    🧠  {Colors.BOLD}RAM MÁY :{Colors.RESET}  {ram_bar}  {Colors.CYAN}{hw['ram_used_gb']:.2f} GB{Colors.RESET} / {Colors.WHITE}{hw['ram_total_gb']:.2f} GB{Colors.RESET} {Colors.GRAY}(Trống: {hw['ram_free_gb']:.2f} GB | 64-bit Exact){Colors.RESET}"
+        ram_vis = f"    🧠  RAM MÁY :  [██████████░░░░░]  {hw['ram_pct']:>5.1f}%  {hw['ram_used_gb']:.2f} GB / {hw['ram_total_gb']:.2f} GB (Trống: {hw['ram_free_gb']:.2f} GB | 64-bit Exact)"
         print(pad_line(ram_col, len(ram_vis)))
 
         # Disk Line
         disk_bar = cls.build_bar(hw["disk_pct"], width=14)
-        disk_col = f"    💾  {Colors.BOLD}Ổ CỨNG ({hw['disk_path']}):{Colors.RESET} {disk_bar}  {Colors.CYAN}{hw['disk_used_gb']:.1f} GB{Colors.RESET} / {Colors.WHITE}{hw['disk_total_gb']:.1f} GB{Colors.RESET} {Colors.GRAY}(Trống: {hw['disk_free_gb']:.1f} GB){Colors.RESET}"
-        disk_vis = f"    💾  Ổ CỨNG ({hw['disk_path']}): [██████████░░░░░]  {hw['disk_pct']:>5.1f}%  {hw['disk_used_gb']:.1f} GB / {hw['disk_total_gb']:.1f} GB (Trống: {hw['disk_free_gb']:.1f} GB)"
+        disk_col = f"    💾  {Colors.BOLD}Ổ CỨNG ({hw['disk_path']}):{Colors.RESET} {disk_bar}  {Colors.CYAN}{hw['disk_used_gb']:.1f} GB{Colors.RESET} / {Colors.WHITE}{hw['disk_total_gb']:.1f} GB{Colors.RESET} {Colors.GRAY}(Trống: {hw['disk_free_gb']:.1f} GB | Sector Exact){Colors.RESET}"
+        disk_vis = f"    💾  Ổ CỨNG ({hw['disk_path']}): [██████████░░░░░]  {hw['disk_pct']:>5.1f}%  {hw['disk_used_gb']:.1f} GB / {hw['disk_total_gb']:.1f} GB (Trống: {hw['disk_free_gb']:.1f} GB | Sector Exact)"
         print(pad_line(disk_col, len(disk_vis)))
 
         # Roblox Process Aggregation Line

@@ -17,13 +17,21 @@ from core.native_hardware_bridge import NativeHardwareProbe
 class TestNativeHardwareProbe(unittest.TestCase):
 
     def test_cpu_probe_precision(self):
-        """Kiểm tra đo lường CPU qua C++/C-ABI với độ chính xác cao"""
-        cpu_pct, cpu_eng = NativeHardwareProbe.get_cpu_usage_precise()
+        """Kiểm tra đo lường CPU qua ASM/C/Rust/C++ với độ chính xác cao"""
+        cpu_pct, cpu_eng, tsc_val = NativeHardwareProbe.get_cpu_usage_precise()
         self.assertIsInstance(cpu_pct, float)
         self.assertGreaterEqual(cpu_pct, 0.0)
         self.assertLessEqual(cpu_pct, 100.0)
         self.assertIsInstance(cpu_eng, str)
         self.assertTrue(len(cpu_eng) > 0)
+        self.assertIsInstance(tsc_val, int)
+        self.assertGreater(tsc_val, 0)
+
+    def test_hardware_tsc_counter(self):
+        """Kiểm tra thanh ghi Assembly RDTSC / ARM64 CNTVCT_EL0"""
+        tsc1 = NativeHardwareProbe.read_hardware_tsc_cycles()
+        self.assertIsInstance(tsc1, int)
+        self.assertGreater(tsc1, 0)
 
     def test_ram_probe_precision(self):
         """Kiểm tra đo lường RAM qua 64-bit byte introspection"""

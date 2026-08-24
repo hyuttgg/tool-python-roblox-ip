@@ -1,0 +1,12 @@
+[package]
+name = "roblox_hw_engine"
+version = "1.0.0"
+edition = "2021"
+authors = ["Roblox Multi-Tag Controller Team"]
+description = "Ultra High-Precision Native Hardware Introspection Engine (Assembly, C, Rust, C++)"
+
+[lib]
+name = "rust_hw_engine"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
