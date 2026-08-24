@@ -1,0 +1,45 @@
+# ==============================================================================
+# MIHOMO / CLASH.META CONFIGURATION FOR ROBLOX (DEEP NETWORK INTERCEPTION)
+# ==============================================================================
+port: 7890
+socks-port: 7891
+mixed-port: 7892
+allow-lan: false
+mode: rule
+log-level: info
+find-process-mode: strict
+
+# 1. Card Mạng Ảo TUN (Wintun / gVisor Stack)
+tun:
+  enable: true
+  stack: mixed
+  device: wintun-roblox
+  auto-route: true
+  auto-detect-interface: true
+  dns-hijack:
+    - tcp://any:53
+    - udp://any:53
+
+# 2. Hệ Thống Phân Giải DNS Fake-IP (Chống Leak 100%)
+dns:
+  enable: true
+  listen: 0.0.0.0:1053
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  nameserver:
+    - 'https://1.1.1.1/dns-query'
+    - 'https://8.8.8.8/dns-query'
+
+# 3. Danh Sách Proxies Upstream
+proxies:
+  - name: 'ROBLOX-PROXY-OUT'
+    type: socks5
+    server: 127.0.0.1
+    port: 10808
+
+# 4. Quy Tắc Định Tuyến Phân Luồng (Per-Process & Per-Package)
+rules:
+  - PROCESS-NAME,RobloxPlayerBeta.exe,ROBLOX-PROXY-OUT
+  - PROCESS-NAME,Bloxstrap.exe,ROBLOX-PROXY-OUT
+  - PACKAGE-NAME,com.roblox.client,ROBLOX-PROXY-OUT
+  - MATCH,DIRECT

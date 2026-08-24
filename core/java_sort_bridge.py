@@ -203,7 +203,35 @@ class RobloxAutoLauncher:
 
         url = f"roblox://experiences/start?placeId={place_id}"
 
-        # 1. XỬ LÝ TRÊN ANDROID / UGPHONE / TERMUX
+        # 1. XỬ LÝ KHI TAG THUỘC THIẾT BỊ ANDROID / UGPHONE / GIẢ LẬP (Qua ADB từ Windows hoặc Termux)
+        if "ANDROID-" in tag_id or "UGPHONE-" in tag_id:
+            try:
+                from devices.ugphone_bridge import UGPhoneBridge
+                bridge = UGPhoneBridge()
+                devices = bridge.refresh_devices()
+                target_dev = None
+                for d in devices:
+                    if d.replace(':', '_').replace('.', '_') in tag_id or d in tag_id:
+                        target_dev = d
+                        break
+                if not target_dev and devices:
+                    target_dev = devices[0]
+
+                if target_dev:
+                    ok, msg = bridge.launch_roblox_app(target_dev, place_id=place_id)
+                    if ok:
+                        return {
+                            "tag_id": tag_id,
+                            "status": "LAUNCHED",
+                            "method": f"ADB Intent [{target_dev}]",
+                            "pid": 0,
+                            "place_id": place_id,
+                            "path": url
+                        }
+            except Exception as e:
+                logger.debug(f"ADB launch error: {e}")
+
+        # 2. XỬ LÝ TRỰC TIẾP TRÊN MÔI TRƯỜNG LINUX / ANDROID NATIVE / TERMUX
         if os.name != "nt" or os.path.exists("/system/bin/am") or shutil.which("am") is not None:
             user_flag = []
             if clone_user is not None:
@@ -250,55 +278,77 @@ class RobloxAutoLauncher:
             except Exception:
                 pass
 
-        # 2. XỬ LÝ TRÊN WINDOWS PC (Khởi chạy trực tiếp vào đúng Game Place ID)
+        # 2. XỬ LÝ TRÊN WINDOWS PC (Khởi chạy trực tiếp vào đúng Game Place ID & Bắt PID)
         if os.name == "nt":
+            existing_pids = set()
             try:
-                # 1. Thử qua giao thức chuẩn Windows Roblox Protocol URL (Chính xác 100% mở đúng Game)
-                os.startfile(url)
-                return {
-                    "tag_id": tag_id,
-                    "status": "LAUNCHED",
-                    "method": "Roblox Protocol URI (Direct Game Join)",
-                    "pid": 0,
-                    "place_id": place_id,
-                    "path": url
-                }
+                import psutil
+                for p in psutil.process_iter(['pid', 'name']):
+                    p_name = (p.info.get('name') or "").lower()
+                    if "roblox" in p_name:
+                        existing_pids.add(p.info['pid'])
             except Exception:
                 pass
 
-            # 2. Thử qua executable trực tiếp (Không dùng flag --app vì --app sẽ mở trang Home thay vì vào game)
-            exe_path = cls.find_roblox_executable()
+            launched = False
+            launch_method = "Roblox Protocol URI (Direct Game Join)"
+            launch_path = url
+
             try:
+                os.startfile(url)
+                launched = True
+            except Exception:
+                exe_path = cls.find_roblox_executable()
                 if exe_path and os.path.exists(exe_path):
-                    proc = subprocess.Popen(
-                        [exe_path, url],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL
-                    )
-                    return {
-                        "tag_id": tag_id,
-                        "status": "LAUNCHED",
-                        "method": "Roblox Executable Direct",
-                        "pid": proc.pid,
-                        "place_id": place_id,
-                        "path": exe_path
-                    }
-                else:
-                    os.system(f'start "" "{url}"')
-                    return {
-                        "tag_id": tag_id,
-                        "status": "LAUNCHED",
-                        "method": "Shell Start Protocol",
-                        "pid": 0,
-                        "place_id": place_id,
-                        "path": url
-                    }
-            except Exception as e:
-                pass
+                    try:
+                        proc = subprocess.Popen(
+                            [exe_path, url],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL
+                        )
+                        launched = True
+                        launch_method = "Roblox Executable Direct"
+                        launch_path = exe_path
+                    except Exception:
+                        pass
+                if not launched:
+                    try:
+                        os.system(f'start "" "{url}"')
+                        launched = True
+                        launch_method = "Shell Start Protocol"
+                    except Exception:
+                        pass
+
+            if launched:
+                # Quét PID mới xuất hiện sau khi launch
+                new_pid = 0
+                time.sleep(2.0)
+                try:
+                    import psutil
+                    for p in psutil.process_iter(['pid', 'name']):
+                        p_name = (p.info.get('name') or "").lower()
+                        if "roblox" in p_name and "crash" not in p_name:
+                            curr_pid = p.info['pid']
+                            if curr_pid not in existing_pids:
+                                new_pid = curr_pid
+                                break
+                            elif new_pid == 0:
+                                new_pid = curr_pid
+                except Exception:
+                    pass
+
+                return {
+                    "tag_id": tag_id,
+                    "status": "LAUNCHED",
+                    "method": launch_method,
+                    "pid": new_pid,
+                    "place_id": place_id,
+                    "path": launch_path
+                }
             return {
                 "tag_id": tag_id,
                 "status": "FAILED",
-                "error": str(e)
+                "error": "Không thể khởi chạy Roblox URL protocol hoặc executable."
             }
 
     @classmethod

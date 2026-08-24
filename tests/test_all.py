@@ -25,6 +25,16 @@ class TestNetworkManager(unittest.TestCase):
         self.assertIn("profile-jp-tokyo", profiles)
         self.assertTrue(pm.validate_profile(profiles["profile-jp-tokyo"]))
 
+    def test_dns_resolver(self):
+        ip, latency = DNSResolver.resolve_domain("www.roblox.com")
+        self.assertIsNotNone(ip)
+        self.assertGreater(latency, 0)
+
+        dns_all = DNSResolver.test_all_dns_servers()
+        self.assertIsInstance(dns_all, dict)
+        self.assertIn("Google DNS (8.8.8.8)", dns_all)
+        self.assertIn("Cloudflare (1.1.1.1)", dns_all)
+
     def test_database_instances(self):
         instances = InstanceRepository.get_all_instances()
         self.assertGreaterEqual(len(instances), 5)
@@ -54,6 +64,32 @@ class TestNetworkManager(unittest.TestCase):
             self.assertTrue(content.startswith("--[[ \n"))
             self.assertIn("loadstring or load", content)
             self.assertGreater(len(content), 300)
+
+    def test_deep_interceptor_windows_and_android(self):
+        from network.deep_interceptor import WindowsDeepInterceptor, AndroidDeepInterceptor, DNSInterceptEngine
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            cfg = WindowsDeepInterceptor.generate_singbox_config(
+                out_filepath=tmp_path,
+                proxy_host="127.0.0.1",
+                proxy_port=10808,
+                target_processes=["RobloxPlayerBeta.exe"]
+            )
+            self.assertTrue(os.path.exists(cfg))
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+        iptables_script = AndroidDeepInterceptor.generate_iptables_script(roblox_uid=10100, proxy_port=10808)
+        self.assertIn("ROBLOX_TCP", iptables_script)
+        self.assertIn("10100", iptables_script)
+
+        dns_check = DNSInterceptEngine.check_dns_leak("1.1.1.1")
+        self.assertIn("leak_status", dns_check)
 
 if __name__ == "__main__":
     unittest.main()

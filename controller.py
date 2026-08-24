@@ -835,7 +835,68 @@ class MasterController:
         print(f"\n  {Colors.CYAN}[*] 3. Kiểm tra kết nối HTTP Bridge Server (http://127.0.0.1:8888)...{Colors.RESET}")
         print(f"    -> {Colors.GREEN}Bridge Server: ONLINE (Port 8888 Active){Colors.RESET}")
 
-        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
+        print(f"\n  {Colors.CYAN}[*] 4. Module Can Thiệp Sâu (Sing-Box / Mihomo Wintun TUN & Android TPROXY Stealth)...{Colors.RESET}")
+        from network.deep_interceptor import WindowsDeepInterceptor, MihomoDeepInterceptor, AndroidDeepInterceptor, MagiskServiceBootEngine, DNSInterceptEngine
+        singbox_installed = "CÓ (Sẵn sàng)" if WindowsDeepInterceptor.is_singbox_installed() else "Chưa cài (Có thể tự sinh config JSON/YAML)"
+        print(f"    -> Windows Engine Core  : {Colors.YELLOW}{singbox_installed}{Colors.RESET}")
+        
+        bridge = UGPhoneBridge()
+        devices = bridge.refresh_devices()
+        dev_status = f"{len(devices)} thiết bị ({', '.join(devices)})" if devices else "Chưa phát hiện (ADB)"
+        print(f"    -> Android / Giả Lập ADB: {Colors.LIGHT_BLUE}{dev_status}{Colors.RESET}")
+
+        leak = DNSInterceptEngine.check_dns_leak()
+        print(f"    -> DNS Leak Prevention  : {Colors.GREEN}{leak.get('leak_status')} (IP: {leak.get('resolved_ip')}, {leak.get('latency_ms')} ms){Colors.RESET}")
+
+        print(f"\n  {Colors.BOLD}Tùy chọn can thiệp sâu (Kiến trúc AsteriskMETA & Sing-Box):{Colors.RESET}")
+        print(f"    {Colors.YELLOW}[S]{Colors.RESET} Sinh file cấu hình Sing-Box Wintun TUN JSON (Per-Process Roblox + Fake-IP)")
+        print(f"    {Colors.LIGHT_PURPLE}[M]{Colors.RESET} Sinh file cấu hình Mihomo (Clash Meta) YAML (Per-Process Roblox + Fake-IP)")
+        print(f"    {Colors.GREEN}[A]{Colors.RESET} Bơm IPTables TPROXY Stealth (No-VPN) cho Android / Giả Lập kết nối ADB")
+        print(f"    {Colors.CYAN}[B]{Colors.RESET} Cài đặt Magisk / KernelSU service.d tự khởi động TPROXY khi Boot Android")
+        print(f"    {Colors.RED}[R]{Colors.RESET} Khôi phục mạng gốc Android (Gỡ bỏ IPTables & Boot service)")
+        print(f"    {Colors.GRAY}[Enter]{Colors.RESET} Quay lại Menu...")
+
+        act = safe_input(f"\n  {Colors.YELLOW}➤ Nhập thao tác (S/M/A/B/R hoặc Enter):{Colors.RESET} ").strip().upper()
+        if act == "S":
+            out_file = os.path.join(BASE_DIR, "data", "singbox_roblox_config.json")
+            WindowsDeepInterceptor.generate_singbox_config(out_file, proxy_port=10808)
+            print(f"\n  {Colors.GREEN}✔ Đã sinh file cấu hình Sing-Box TUN tại: {out_file}{Colors.RESET}")
+            print(f"  {Colors.GRAY}Gợi ý chạy: sing-box run -c \"{out_file}\"{Colors.RESET}")
+            safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để tiếp tục...{Colors.RESET}")
+        elif act == "M":
+            out_file = os.path.join(BASE_DIR, "data", "mihomo_roblox_config.yaml")
+            MihomoDeepInterceptor.generate_mihomo_yaml(out_file, proxy_port=10808)
+            print(f"\n  {Colors.GREEN}✔ Đã sinh file cấu hình Mihomo (Clash Meta) YAML tại: {out_file}{Colors.RESET}")
+            print(f"  {Colors.GRAY}Gợi ý chạy: mihomo -f \"{out_file}\"{Colors.RESET}")
+            safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để tiếp tục...{Colors.RESET}")
+        elif act == "A":
+            if not devices:
+                print(f"\n  {Colors.RED}❌ Không tìm thấy thiết bị Android/Giả lập kết nối qua ADB!{Colors.RESET}")
+            else:
+                for dev in devices:
+                    ok, msg = AndroidDeepInterceptor.apply_tproxy_to_android_device(bridge.adb_bin, dev)
+                    color = Colors.GREEN if ok else Colors.RED
+                    print(f"    {color}[{dev}] {msg}{Colors.RESET}")
+            safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để tiếp tục...{Colors.RESET}")
+        elif act == "B":
+            if not devices:
+                print(f"\n  {Colors.RED}❌ Không tìm thấy thiết bị Android/Giả lập kết nối qua ADB!{Colors.RESET}")
+            else:
+                for dev in devices:
+                    ok, msg = MagiskServiceBootEngine.install_to_device(bridge.adb_bin, dev)
+                    color = Colors.GREEN if ok else Colors.RED
+                    print(f"    {color}[{dev}] {msg}{Colors.RESET}")
+            safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để tiếp tục...{Colors.RESET}")
+        elif act == "R":
+            if not devices:
+                print(f"\n  {Colors.RED}❌ Không tìm thấy thiết bị Android/Giả lập kết nối qua ADB!{Colors.RESET}")
+            else:
+                for dev in devices:
+                    ok1, msg1 = AndroidDeepInterceptor.revert_tproxy_on_android_device(bridge.adb_bin, dev)
+                    ok2, msg2 = MagiskServiceBootEngine.remove_from_device(bridge.adb_bin, dev)
+                    color = Colors.GREEN if ok1 else Colors.RED
+                    print(f"    {color}[{dev}] {msg1} | {msg2}{Colors.RESET}")
+            safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để tiếp tục...{Colors.RESET}")
 
     # ====================================================================================
     # [9] CẤU HÌNH SCRIPT GAME (CUSTOM PAYLOAD)

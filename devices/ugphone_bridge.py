@@ -105,6 +105,29 @@ class UGPhoneBridge:
             logger.error(f"Error clearing proxy on {device_id}: {e}")
             return False
 
+    def apply_deep_iptables_tproxy(self, device_id: str, proxy_host: str = "127.0.0.1", proxy_port: int = 10808, dns_server: str = "1.1.1.1") -> Tuple[bool, str]:
+        """Kích hoạt can thiệp mạng sâu TPROXY / IPTables Per-UID (Stealth No-VPN Icon)"""
+        if not self.adb_bin or device_id not in self.connected_devices:
+            return False, "Thiết bị không kết nối hoặc không tìm thấy ADB."
+        from network.deep_interceptor import AndroidDeepInterceptor
+        return AndroidDeepInterceptor.apply_tproxy_to_android_device(
+            adb_bin=self.adb_bin,
+            device_id=device_id,
+            proxy_host=proxy_host,
+            proxy_port=proxy_port,
+            dns_server=dns_server
+        )
+
+    def clear_deep_iptables_tproxy(self, device_id: str) -> Tuple[bool, str]:
+        """Gỡ bỏ can thiệp sâu IPTables trên thiết bị Android"""
+        if not self.adb_bin or device_id not in self.connected_devices:
+            return False, "Thiết bị không kết nối hoặc không tìm thấy ADB."
+        from network.deep_interceptor import AndroidDeepInterceptor
+        return AndroidDeepInterceptor.revert_tproxy_on_android_device(
+            adb_bin=self.adb_bin,
+            device_id=device_id
+        )
+
     def get_roblox_status(self, device_id: str) -> Dict[str, str]:
         """Kiểm tra trạng thái cài đặt và tiến trình của Roblox trên UGPhone"""
         if not self.adb_bin or device_id not in self.connected_devices:
@@ -151,6 +174,39 @@ class UGPhoneBridge:
             except Exception:
                 pass
         return success
+
+    def launch_roblox_app(self, device_id: str, place_id: str = "2753915549") -> Tuple[bool, str]:
+        """Khởi chạy ứng dụng Roblox Client và vào đúng Game Place ID trên Android / UGPhone qua ADB"""
+        if not self.adb_bin or device_id not in self.connected_devices:
+            return False, f"Thiết bị [{device_id}] không kết nối hoặc không tìm thấy ADB."
+
+        url = f"roblox://experiences/start?placeId={place_id}"
+        intents = [
+            f"am start -a android.intent.action.VIEW -d '{url}'",
+            f"am start -n com.roblox.client/com.roblox.client.ActivityProtocolLaunch -d '{url}'",
+            "am start -n com.roblox.client/com.roblox.client.RobloxMainActivity",
+            "monkey -p com.roblox.client -c android.intent.category.LAUNCHER 1"
+        ]
+
+        for intent_cmd in intents:
+            try:
+                res = subprocess.run([self.adb_bin, "-s", device_id, "shell", intent_cmd], capture_output=True, text=True, timeout=4)
+                if res.returncode == 0 or "Starting:" in res.stdout or "Events injected: 1" in res.stdout:
+                    logger.info(f"Launched Roblox on Android [{device_id}] via {intent_cmd}")
+                    return True, f"Khởi chạy thành công trên [{device_id}] (PlaceId: {place_id})"
+            except Exception:
+                continue
+
+        try:
+            su_cmd = f"su -c 'am start -a android.intent.action.VIEW -d \"{url}\"'"
+            res = subprocess.run([self.adb_bin, "-s", device_id, "shell", su_cmd], capture_output=True, text=True, timeout=4)
+            if res.returncode == 0:
+                return True, f"Khởi chạy Root thành công trên [{device_id}]"
+        except Exception:
+            pass
+
+        return False, "Không thể khởi chạy Roblox qua ADB Intents."
+
 
 
 class JavaNetworkBridge:

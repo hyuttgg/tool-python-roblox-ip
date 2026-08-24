@@ -28,9 +28,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 WATCHDOG_CONFIG_FILE = os.path.join(DATA_DIR, "watchdog_state.json")
 
-HEARTBEAT_TIMEOUT_SEC = 60.0  # Tăng lên 60s để cho phép tải map và chuyển server (Server Hop) thoải mái
-RESTART_COOLDOWN_SEC = 10.0   # Thời gian chờ giữa các lần tự động mở lại tránh spam
-
+HEARTBEAT_TIMEOUT_SEC = 10.0  # Tự động kích hoạt mở lại sau 10s mất nhịp tim (Crash/Đơ game)
+RESTART_COOLDOWN_SEC = 5.0    # Cooldown 5s giữa các lần mở lại tránh spam
 
 @dataclass
 class TagWatchState:
@@ -55,7 +54,7 @@ class TagWatchState:
 
 
 class RobloxWatchdogSupervisor:
-    """Bộ điều phối và giám sát tự động mở lại Roblox Tags an toàn, không ngắt client khi Server Hop"""
+    """Bộ điều phối và giám sát tự động mở lại Roblox Tags an toàn, không ngắt client khi Server Hop (RAM Architecture)"""
 
     def __init__(self):
         os.makedirs(DATA_DIR, exist_ok=True)
@@ -135,28 +134,21 @@ class RobloxWatchdogSupervisor:
                 self.log_event(f"🔄 Tag [{tag_id}] Đang chuyển Server (Teleporting/Server Hop)... Tạm hoãn Watchdog trong 60s.")
                 return
 
-            # Lọc bỏ các cảnh báo không gây crash/disconnect (chỉ bắt lỗi thật sự: 277, 268, 267, 279, 524, 529, 773, kick, disconnect)
-            fatal_patterns = ["277", "268", "267", "279", "524", "529", "773", "lost connection", "disconnected", "kicked", "error code"]
-            is_fatal = any(pat in str(error_msg).lower() for pat in fatal_patterns)
-            if not is_fatal:
-                logger.debug(f"Tag [{tag_id}] Bỏ qua thông báo không phải crash/disconnect: {error_msg}")
-                return
-
             st.status = status_type
             st.last_error_message = error_msg
 
-        self.log_event(f"⚠️ Tag [{tag_id}] PHÁT HIỆN MẤT KẾT NỐI: {error_msg} (Trạng thái: {status_type})")
+        self.log_event(f"⚠️ Tag [{tag_id}] PHÁT HIỆN MẤT KẾT NỐI / CRASH: {error_msg} (Trạng thái: {status_type})")
 
         # Kích hoạt mở lại ngay lập tức nếu chế độ tự mở lại đang bật
         if self.is_enabled and self.auto_reopen_on_disconnect:
-            threading.Thread(target=self._trigger_reopen_tag, args=(tag_id, f"Lua Event: {error_msg}"), daemon=True).start()
+            threading.Thread(target=self._trigger_reopen_tag, args=(tag_id, f"Client Event: {error_msg}"), daemon=True).start()
 
     def _trigger_reopen_tag(self, tag_id: str, reason: str):
-        """Tiến hành mở lại Tag Roblox sau khi bị tắt hoặc gặp sự cố (Bảo vệ an toàn quá trình Server Hop)"""
+        """Tiến hành mở lại Tag Roblox sau khi bị tắt hoặc gặp sự cố (RAM & Auto-Rejoin Engine)"""
         with self._lock:
-            st = self.tags.get(tag_id)
-            if not st:
-                return
+            if tag_id not in self.tags:
+                self.tags[tag_id] = TagWatchState(tag_id=tag_id)
+            st = self.tags[tag_id]
             if st.status == "TELEPORTING":
                 logger.debug(f"Tag [{tag_id}] đang chuyển server (Teleporting), không mở lại.")
                 return
@@ -169,9 +161,9 @@ class RobloxWatchdogSupervisor:
             st.restarts_count += 1
             self.total_restarts += 1
 
-        self.log_event(f"🚀 [AUTO-WATCHDOG] Chuẩn bị tự động MỞ LẠI Tag [{tag_id}]! (Lý do: {reason})")
+        self.log_event(f"🚀 [AUTO-WATCHDOG] TỰ ĐỘNG MỞ LẠI TAG [{tag_id}]! (Lý do: {reason})")
 
-        # 1. Kiểm tra nếu tiến trình cũ vẫn còn chạy, chỉ đóng khi thật sự bị treo/crash
+        # 1. Dọn dẹp tiến trình treo hoặc hộp thoại crash cũ
         if st.process_pid > 0:
             try:
                 import psutil
@@ -188,7 +180,7 @@ class RobloxWatchdogSupervisor:
                 except Exception:
                     pass
 
-        time.sleep(2.0)
+        time.sleep(1.5)
 
         # 2. Khởi chạy lại Roblox với Place ID đã cấu hình riêng cho Tag này
         try:
@@ -203,7 +195,7 @@ class RobloxWatchdogSupervisor:
                 if launch_res.get("status") == "LAUNCHED":
                     st.process_pid = launch_res.get("pid", 0)
                     st.status = "ONLINE"
-                    st.last_heartbeat_time = time.time()
+                    st.last_heartbeat_time = time.time() + 15.0  # Grace period 15s để game load map
                     self.log_event(f"✅ [AUTO-WATCHDOG] MỞ LẠI THÀNH CÔNG Tag [{tag_id}] vào Game [{target_game.get('name')}] (PlaceId: {place_id})!")
                 else:
                     st.status = "ERROR"
@@ -213,28 +205,140 @@ class RobloxWatchdogSupervisor:
             with self._lock:
                 st.status = "ERROR"
 
+    def _detect_hung_or_crashed_windows(self) -> List[Tuple[str, str]]:
+        """Phát hiện các cửa sổ Roblox bị treo (Not Responding) hoặc hộp thoại Crash trên Windows"""
+        if os.name != "nt":
+            return []
+        
+        hung_tags = []
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            
+            # Quét danh sách cửa sổ
+            from core.scanner import RobloxWindowScanner
+            scanner = RobloxWindowScanner()
+            scanned = scanner.scan_active_roblox_windows()
+            
+            with self._lock:
+                for inst in scanned:
+                    hwnd = getattr(inst, "hwnd", 0)
+                    pid = getattr(inst, "pid", 0)
+                    title = getattr(inst, "title", "")
+                    tag_id = getattr(inst, "tag_id", "")
+                    
+                    # 1. Kiểm tra Not Responding qua Win32 IsHungAppWindow
+                    if hwnd and user32.IsHungAppWindow(hwnd):
+                        hung_tags.append((tag_id, f"Cửa sổ Roblox bị treo (Not Responding - HWND: {hwnd})"))
+                        continue
+                    
+                    # 2. Kiểm tra các hộp thoại Crash/Error popup của Roblox
+                    crash_keywords = ["crash", "unexpected error", "error code", "roblox has crashed", "disconnected"]
+                    if any(kw in title.lower() for kw in crash_keywords):
+                        hung_tags.append((tag_id, f"Phát hiện hộp thoại Crash popup: '{title}' (PID: {pid})"))
+
+        except Exception as e:
+            logger.debug(f"Error checking hung windows: {e}")
+        return hung_tags
+
+    def _detect_android_crashes(self) -> List[Tuple[str, str]]:
+        """Phát hiện app Roblox bị crash / văng trên Android / UGPhone qua ADB"""
+        crashed_tags = []
+        try:
+            from devices.ugphone_bridge import UGPhoneBridge
+            bridge = UGPhoneBridge()
+            devices = bridge.refresh_devices()
+            if devices:
+                for dev in devices:
+                    st_info = bridge.get_roblox_status(dev)
+                    if st_info.get("installed") == "Yes" and st_info.get("running") == "No":
+                        tag_name = f"ANDROID-{dev.replace(':', '_')}"
+                        crashed_tags.append((tag_name, f"Roblox Client bị tắt/crash trên Android [{dev}]"))
+        except Exception:
+            pass
+        return crashed_tags
+
     def _supervisor_loop(self):
-        """Vòng lặp chạy ngầm kiểm tra nhịp tim và trạng thái thực tế của các Tag"""
-        logger.info("Watchdog Supervisor daemon loop started.")
+        """Vòng lặp chạy ngầm kiểm tra nhịp tim, PID liveness, cửa sổ treo và crash để tự động Rejoin"""
+        logger.info("Watchdog Supervisor daemon loop started (RAM & Auto-Rejoin Engine active).")
         while self._running:
             try:
                 if self.is_enabled:
                     now = time.time()
                     tags_to_restart = []
+
+                    # 0. Tự động phát hiện và đăng ký các cửa sổ / tiến trình Roblox đang chạy nếu chưa có trong self.tags
+                    if os.name == "nt":
+                        try:
+                            from core.scanner import RobloxWindowScanner
+                            scanned = RobloxWindowScanner().scan_active_roblox_windows()
+                            with self._lock:
+                                for inst in scanned:
+                                    tid = getattr(inst, "tag_id", "") or f"ROBLOX-TAG-{inst.pid}"
+                                    if tid not in self.tags:
+                                        self.tags[tid] = TagWatchState(
+                                            tag_id=tid,
+                                            assigned_ip=getattr(inst, "assigned_ip", "") or "127.0.0.1",
+                                            process_pid=inst.pid,
+                                            status="ONLINE",
+                                            last_heartbeat_time=time.time()
+                                        )
+                        except Exception:
+                            pass
+
+                    # 0.2 Tự động đăng ký các thiết bị Android/UGPhone kết nối qua ADB
+                    try:
+                        from devices.ugphone_bridge import UGPhoneBridge
+                        bridge = UGPhoneBridge()
+                        devices = bridge.refresh_devices()
+                        with self._lock:
+                            for dev in devices:
+                                tid = f"ANDROID-{dev.replace(':', '_')}"
+                                if tid not in self.tags:
+                                    self.tags[tid] = TagWatchState(
+                                        tag_id=tid,
+                                        assigned_ip=dev,
+                                        status="ONLINE",
+                                        last_heartbeat_time=time.time()
+                                    )
+                    except Exception:
+                        pass
                     
                     with self._lock:
                         for tag_id, st in list(self.tags.items()):
-                            if not st.is_monitored:
+                            if not st.is_monitored or st.status == "TELEPORTING":
                                 continue
                             
-                            # Nếu Tag đang được đánh dấu là ONLINE nhưng đã quá lâu không có Heartbeat
+                            # 1. Kiểm tra PID Liveness: Nếu tiến trình đã chết (Crash / Closed)
+                            if st.process_pid > 0:
+                                try:
+                                    import psutil
+                                    if not psutil.pid_exists(st.process_pid):
+                                        st.status = "OFFLINE"
+                                        st.process_pid = 0
+                                        tags_to_restart.append((tag_id, "Tiến trình Roblox đã bị tắt / Crash đột ngột"))
+                                        continue
+                                except Exception:
+                                    pass
+
+                            # 2. Kiểm tra Heartbeat Timeout (Mất kết nối quá 10s)
                             if st.status == "ONLINE" and st.last_heartbeat_time > 0:
                                 elapsed = now - st.last_heartbeat_time
                                 if elapsed > HEARTBEAT_TIMEOUT_SEC:
                                     st.status = "OFFLINE"
                                     tags_to_restart.append((tag_id, f"Mất kết nối nhịp tim (Heartbeat Timeout > {int(elapsed)}s)"))
 
-                    # Tiến hành mở lại các Tag bị mất kết nối
+                    # 3. Kiểm tra Cửa sổ bị treo hoặc Crash popup trên Windows
+                    hung_list = self._detect_hung_or_crashed_windows()
+                    for tid, h_reason in hung_list:
+                        tags_to_restart.append((tid, h_reason))
+
+                    # 4. Kiểm tra App văng trên Android / UGPhone
+                    android_crashes = self._detect_android_crashes()
+                    for tid, a_reason in android_crashes:
+                        tags_to_restart.append((tid, a_reason))
+
+                    # Tiến hành mở lại và rejoin game tự động
                     for tid, r_reason in tags_to_restart:
                         if self.auto_reopen_on_disconnect:
                             self._trigger_reopen_tag(tid, r_reason)
@@ -242,7 +346,7 @@ class RobloxWatchdogSupervisor:
             except Exception as e:
                 logger.error(f"Error in watchdog supervisor loop: {e}")
 
-            time.sleep(3)
+            time.sleep(2)
 
     def start(self):
         if self._running:

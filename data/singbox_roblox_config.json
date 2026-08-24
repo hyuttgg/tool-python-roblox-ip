@@ -1,0 +1,93 @@
+{
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "fakeip-dns",
+        "address": "fakeip"
+      },
+      {
+        "tag": "remote-dns",
+        "address": "https://1.1.1.1/dns-query",
+        "detour": "proxy-out"
+      },
+      {
+        "tag": "local-dns",
+        "address": "8.8.8.8",
+        "detour": "direct-out"
+      }
+    ],
+    "rules": [
+      {
+        "query_type": [
+          "A",
+          "AAAA"
+        ],
+        "server": "fakeip-dns"
+      },
+      {
+        "outbound": [
+          "any"
+        ],
+        "server": "local-dns"
+      }
+    ],
+    "strategy": "prefer_ipv4",
+    "independent_cache": true,
+    "fakeip": {
+      "enabled": true,
+      "inet4_range": "198.18.0.0/15"
+    }
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "wintun-roblox",
+      "inet4_address": "172.19.0.1/30",
+      "auto_route": true,
+      "strict_route": false,
+      "stack": "gvisor",
+      "sniff": true,
+      "sniff_override_destination": false
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "socks",
+      "tag": "proxy-out",
+      "server": "127.0.0.1",
+      "server_port": 10808
+    },
+    {
+      "type": "direct",
+      "tag": "direct-out"
+    },
+    {
+      "type": "dns",
+      "tag": "dns-out"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "protocol": "dns",
+        "outbound": "dns-out"
+      },
+      {
+        "process_name": [
+          "RobloxPlayerBeta.exe",
+          "RobloxCrashHandler.exe",
+          "Bloxstrap.exe",
+          "EuroTrucks2.exe"
+        ],
+        "outbound": "proxy-out"
+      }
+    ],
+    "auto_detect_interface": true,
+    "final": "direct-out"
+  }
+}

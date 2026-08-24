@@ -112,11 +112,28 @@ python main.py
 │   ├── lua_generator.py       # Sinh script Lua độc lập, Heartbeat & Error Hook
 │   └── scanner.py             # Quét cửa sổ và tiến trình Roblox thực tế
 ├── network/
+│   ├── deep_interceptor.py    # Module can thiệp sâu DNS/IP (Sing-Box Wintun TUN & Android IPTables TPROXY)
 │   ├── bridge_server.py       # Local HTTP Bridge Server (Heartbeat, Tag Status, Target Game)
 │   ├── proxy_fetcher.py       # Tải Live Proxy đa quốc gia
 │   ├── scrapestack_client.py  # Kết nối Scrapestack Proxy API
 │   ├── connectivity.py        # Kiểm tra Public IP & kết nối
 │   └── dns.py                 # Phân giải DNS & đo thời gian query
 └── tests/
-    └── test_all_upgrades.py   # Test suite tự động kiểm thử toàn bộ hệ thống
+    ├── test_deep_interceptor.py # Test suite kiểm thử can thiệp mạng sâu (Windows & Android)
+    └── test_all.py            # Test suite tự động kiểm thử toàn bộ hệ thống
 ```
+
+---
+
+## 🛡️ CAN THIỆP MẠNG SÂU (DEEP NETWORK & DNS INTERCEPTION)
+
+1. **Windows PC (Wintun & Sing-Box TUN Engine)**:
+   - Tự động sinh file cấu hình chuẩn `sing-box` TUN mode (`data/singbox_roblox_config.json`).
+   - Định tuyến Per-Process: Chỉ chuyển hướng luồng mạng của `RobloxPlayerBeta.exe`, `Bloxstrap.exe` qua Proxy/DNS riêng biệt, các app khác đi Direct.
+   - Hỗ trợ cơ chế **DNS Fake-IP** (`198.18.0.0/15`) và **DoH / DoT** chống rò rỉ DNS 100%.
+
+2. **Android / Giả lập / Cloud Phone (Stealth TPROXY & IPTables Engine)**:
+   - Tự động nhận diện UID của app `com.roblox.client` qua Android ADB.
+   - Bơm các quy tắc `iptables` / `nftables` TPROXY chuyển hướng toàn bộ TCP và DNS Port 53 sang Proxy mà **hoàn toàn không hiện icon VPN** trên thanh thông báo.
+   - Hỗ trợ khôi phục mạng gốc an toàn 1-chạm khi ngắt kết nối.
+
