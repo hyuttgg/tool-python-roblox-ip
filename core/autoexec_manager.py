@@ -164,6 +164,18 @@ class AutoexecManager:
         logger.info(f"Discovered {len(valid_list)} Autoexec folders.")
         return valid_list
 
+    @property
+    def detected_pc_dirs(self) -> List[str]:
+        """Danh sách các thư mục Autoexec PC đã phát hiện"""
+        all_f = self.scan_all_autoexec_folders()
+        return [p for p in all_f if not (p.startswith("/sdcard") or p.startswith("/storage"))]
+
+    @property
+    def detected_android_dirs(self) -> List[str]:
+        """Danh sách các thư mục Autoexec Android đã phát hiện"""
+        all_f = self.scan_all_autoexec_folders()
+        return [p for p in all_f if p.startswith("/sdcard") or p.startswith("/storage")]
+
     def add_custom_autoexec_path(self, path: str) -> bool:
         """Thêm thủ công 1 đường dẫn thư mục Autoexec nếu muốn"""
         if os.path.exists(path) and os.path.isdir(path):
@@ -172,6 +184,10 @@ class AutoexecManager:
                 self._save_config()
             return True
         return False
+
+    def add_custom_autoexec_dir(self, path: str) -> bool:
+        """Alias thêm thủ công thư mục Autoexec"""
+        return self.add_custom_autoexec_path(path)
 
     def sync_lua_to_autoexec(self, lua_script_content: str) -> Dict[str, List[str]]:
         """
@@ -272,4 +288,9 @@ class AutoexecManager:
                 results["errors"].append(f"ADB Clean: {e}")
 
         return results
+
+    def clean_autoexec(self) -> int:
+        """Xóa toàn bộ các script đã bơm vào Autoexec trên PC và Android, trả về tổng số file đã xóa"""
+        res = self.clean_all_autoexec_scripts()
+        return len(res.get("pc_cleaned", [])) + len(res.get("android_cleaned", []))
 

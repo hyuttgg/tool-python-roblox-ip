@@ -1,8 +1,8 @@
 {
   "global_game": {
-    "name": "Blox Fruits",
-    "place_id": "2753915549",
-    "job_id": "",
+    "name": "King Legacy",
+    "place_id": "4520749081",
+    "job_id": "4520749081",
     "private_server_link": "",
     "auto_teleport_enabled": true
   },
@@ -29,5 +29,5 @@
       "auto_teleport_enabled": true
     }
   },
-  "per_tag_mode": true
+  "per_tag_mode": false
 }

@@ -31,7 +31,7 @@ log_step 1 3 "Detecting Package Manager & Installing System Packages..."
 if command -v pkg >/dev/null 2>&1; then
     log_info "Termux environment detected (pkg)"
     pkg update -y -o Dpkg::Options::="--force-confold" || true
-    pkg install -y git python python-pip sqlite iproute2 dnsutils curl wget openssl tsu || true
+    pkg install -y git python python-pip sqlite iproute2 dnsutils curl wget openssl tsu openjdk-17 || true
 elif command -v apt-get >/dev/null 2>&1; then
     log_info "Debian/Ubuntu environment detected (apt-get)"
     sudo apt-get update -y || apt-get update -y || true

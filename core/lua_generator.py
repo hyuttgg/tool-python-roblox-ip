@@ -792,13 +792,32 @@ class LuaScriptGenerator:
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 
         count = max(len(instances), 1)
+        from network.proxy_fetcher import SUPPORTED_COUNTRIES
+
         if use_live_proxies:
             try:
                 assigned_pool = ProxyFetcher.get_proxies_batch(count=count, country_code=country_code)
             except Exception:
-                assigned_pool = [{"ip": ip, "region": "JP (Tokyo)", "country": "JP"} for ip in RandomIPGenerator.generate_batch(count=count)]
+                c_info = SUPPORTED_COUNTRIES.get(country_code, {"name": country_code, "tag": f"[{country_code}]"})
+                reg_name = f"{c_info['tag']} {c_info.get('name', country_code)}" if country_code not in ["ALL", "MULTI"] else "[MULTI] Multi-Country"
+                assigned_pool = [{"ip": ip, "region": reg_name, "country": country_code} for ip in RandomIPGenerator.generate_batch(count=count)]
         else:
-            assigned_pool = [{"ip": ip, "region": "JP (Tokyo)", "country": "JP"} for ip in RandomIPGenerator.generate_batch(count=count)]
+            assigned_pool = []
+            for inst in instances:
+                if inst.assigned_ip and inst.assigned_ip not in ["127.0.0.1", ""] and inst.region:
+                    assigned_pool.append({
+                        "ip": inst.assigned_ip,
+                        "region": inst.region,
+                        "country": getattr(inst, "country", country_code)
+                    })
+                else:
+                    p_batch = ProxyFetcher.get_proxies_batch(count=1, country_code=country_code)
+                    if p_batch:
+                        assigned_pool.append(p_batch[0])
+                    else:
+                        c_info = SUPPORTED_COUNTRIES.get(country_code, {"name": country_code, "tag": f"[{country_code}]"})
+                        reg_name = f"{c_info['tag']} {c_info.get('name', country_code)}" if country_code not in ["ALL", "MULTI"] else "[MULTI] Multi-Country"
+                        assigned_pool.append({"ip": RandomIPGenerator.generate_single_ip(), "region": reg_name, "country": country_code})
 
         mapping_list = []
         from core.game_selector import game_manager
@@ -809,6 +828,7 @@ class LuaScriptGenerator:
             region = pool_data["region"]
             inst.assigned_ip = assigned_ip
             inst.region = region
+            inst.country = pool_data.get("country", country_code)
 
             profile = self._generate_unique_tag_profile(idx)
             
@@ -857,7 +877,7 @@ class LuaScriptGenerator:
                 "tag_id": inst.tag_id,
                 "assigned_ip": assigned_ip,
                 "region": region,
-                "country": pool_data.get("country", "JP"),
+                "country": pool_data.get("country", country_code),
                 "pid": inst.pid,
                 "username": inst.account_username or "",
                 "hwid": profile["hwid"],

@@ -30,17 +30,17 @@ THIRD_PARTY_FREE_PROVIDERS = [
 ]
 
 SUPPORTED_COUNTRIES = {
-    "ALL": {"name": "Toan cau (Tron ngau nhien cac nuoc)", "code": "all", "tag": "[GLOBAL]"},
-    "VN":  {"name": "Viet Nam (Ping thap, muot ma)", "code": "VN", "tag": "[VN]"},
-    "JP":  {"name": "Nhat Ban (Tokyo - On dinh nhat Roblox)", "code": "JP", "tag": "[JP]"},
-    "SG":  {"name": "Singapore (May chu SEA)", "code": "SG", "tag": "[SG]"},
-    "US":  {"name": "Hoa Ky (USA - Server chinh Roblox)", "code": "US", "tag": "[US]"},
-    "KR":  {"name": "Han Quoc (Seoul - Toc do cao)", "code": "KR", "tag": "[KR]"},
-    "DE":  {"name": "Duc (Europe)", "code": "DE", "tag": "[DE]"},
-    "GB":  {"name": "Anh Quoc (UK)", "code": "GB", "tag": "[GB]"},
-    "FR":  {"name": "Phap (France)", "code": "FR", "tag": "[FR]"},
-    "TW":  {"name": "Dai Loan (Taipei)", "code": "TW", "tag": "[TW]"},
-    "HK":  {"name": "Hong Kong (Central)", "code": "HK", "tag": "[HK]"}
+    "ALL": {"name": "Toan cau (Tron ngau nhien cac nuoc)", "code": "all", "tag": "[GLOBAL]", "flag": "🌏"},
+    "VN":  {"name": "Viet Nam (Ping thap, muot ma)", "code": "VN", "tag": "[VN]", "flag": "🇻🇳"},
+    "JP":  {"name": "Nhat Ban (Tokyo - On dinh nhat Roblox)", "code": "JP", "tag": "[JP]", "flag": "🇯🇵"},
+    "SG":  {"name": "Singapore (May chu SEA)", "code": "SG", "tag": "[SG]", "flag": "🇸🇬"},
+    "US":  {"name": "Hoa Ky (USA - Server chinh Roblox)", "code": "US", "tag": "[US]", "flag": "🇺🇸"},
+    "KR":  {"name": "Han Quoc (Seoul - Toc do cao)", "code": "KR", "tag": "[KR]", "flag": "🇰🇷"},
+    "DE":  {"name": "Duc (Europe)", "code": "DE", "tag": "[DE]", "flag": "🇩🇪"},
+    "GB":  {"name": "Anh Quoc (UK)", "code": "GB", "tag": "[GB]", "flag": "🇬🇧"},
+    "FR":  {"name": "Phap (France)", "code": "FR", "tag": "[FR]", "flag": "🇫🇷"},
+    "TW":  {"name": "Dai Loan (Taipei)", "code": "TW", "tag": "[TW]", "flag": "🇹🇼"},
+    "HK":  {"name": "Hong Kong (Central)", "code": "HK", "tag": "[HK]", "flag": "🇭🇰"}
 }
 
 # Fallback pool dự phòng với dải IP phong phú
@@ -52,6 +52,9 @@ COUNTRY_FALLBACKS: Dict[str, List[str]] = {
     "KR": ["183.110.216.159:8090", "183.110.216.159:8091", "211.234.118.42:80", "112.216.54.226:12121", "221.148.189.155:80"],
     "DE": ["85.214.107.177:80", "80.241.214.192:3129", "159.69.199.182:80", "193.23.222.22:1087", "88.198.24.108:8080"],
     "GB": ["212.58.132.5:8888", "82.69.119.68:49200", "51.89.255.67:80", "148.251.238.174:80", "185.193.65.10:8080"],
+    "HK": ["43.154.241.139:80", "47.243.125.105:80", "47.242.89.181:8080", "150.109.116.113:80", "119.28.152.208:80"],
+    "TW": ["61.216.156.222:60808", "118.163.13.200:8080", "211.20.19.162:80", "114.34.176.68:8080", "125.227.179.160:80"],
+    "FR": ["51.159.115.233:3128", "141.94.106.91:8080", "51.210.215.111:80", "137.74.65.101:80", "51.158.154.173:8888"],
     "ALL": ["144.31.75.29:1081", "67.203.23.79:8081", "178.212.144.7:80", "159.65.230.46:8888", "152.53.209.196:8889", "103.65.237.92:5678", "15.235.21.254:8080"]
 }
 
@@ -226,19 +229,27 @@ class ProxyFetcher:
             # Chế độ theo quốc gia chỉ định với IP duy nhất
             c_proxies = cls.fetch_country_proxies(c_upper, force_refresh=force_refresh)
             random.shuffle(c_proxies)
-            c_info = SUPPORTED_COUNTRIES.get(c_upper, {"name": c_upper, "tag": f"[{c_upper}]"})
+            c_info = SUPPORTED_COUNTRIES.get(c_upper, {"name": c_upper, "tag": f"[{c_upper}]", "flag": "🌐"})
+            reg_label = f"{c_info.get('tag', f'[{c_upper}]')} {c_info.get('name', c_upper)}"
+
+            subnet_map = {
+                "HK": "43.154", "TW": "118.163", "VN": "113.160", "JP": "133.18",
+                "SG": "128.199", "US": "104.207", "KR": "183.110", "DE": "159.69",
+                "GB": "185.193", "FR": "51.159"
+            }
 
             for i in range(count):
                 available = [ip for ip in c_proxies if ip not in used_ips]
                 if available:
                     chosen_ip = random.choice(available)
                 else:
-                    chosen_ip = f"103.{random.randint(10,250)}.{random.randint(1,250)}.{random.randint(1,250)}:80"
+                    sub = subnet_map.get(c_upper, f"103.{random.randint(10,250)}")
+                    chosen_ip = f"{sub}.{random.randint(1,250)}.{random.randint(1,250)}:80"
 
                 used_ips.add(chosen_ip)
                 results.append({
                     "ip": chosen_ip,
-                    "region": f"{c_info['tag']} {c_upper}",
+                    "region": reg_label,
                     "country": c_upper
                 })
 

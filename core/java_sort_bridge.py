@@ -73,6 +73,29 @@ class SelectionSortBridge:
         return arr, steps_log
 
     @classmethod
+    def ensure_java_compiled(cls) -> bool:
+        """Tự động biên dịch mã nguồn Java (.java -> .class) nếu có javac/ecj trên PC hoặc Android"""
+        os.makedirs(JAVA_BIN_DIR, exist_ok=True)
+        javac_bin = shutil.which("javac") or shutil.which("ecj")
+        if not javac_bin:
+            return False
+        try:
+            sources = []
+            if os.path.exists(JAVA_SORT_SOURCE):
+                sources.append(JAVA_SORT_SOURCE)
+            if os.path.exists(JAVA_NET_SOURCE):
+                sources.append(JAVA_NET_SOURCE)
+            if sources:
+                cmd = [javac_bin, "-d", JAVA_BIN_DIR, "-encoding", "UTF-8"] + sources
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                if res.returncode == 0:
+                    logger.info("Java sources compiled successfully to data/java_bin.")
+                    return True
+        except Exception as e:
+            logger.debug(f"Java compile note: {e}")
+        return False
+
+    @classmethod
     def execute_selection_sort(cls, candidate_proxies: List[Dict]) -> Dict:
         """
         Thực thi Selection Sort qua Java Engine nếu khả dụng,
@@ -81,6 +104,7 @@ class SelectionSortBridge:
         # Nếu có Java runtime
         if cls.is_java_available():
             try:
+                cls.ensure_java_compiled()
                 input_json = json.dumps(candidate_proxies)
                 java_bin = shutil.which("java") or "java"
 
@@ -88,7 +112,8 @@ class SelectionSortBridge:
                 cp_paths = [
                     os.path.dirname(JAVA_SORT_SOURCE),
                     JAVA_BIN_DIR,
-                    os.path.join(BASE_DIR, "core")
+                    os.path.join(BASE_DIR, "core"),
+                    os.path.join(BASE_DIR, "devices")
                 ]
                 classpath = os.pathsep.join(cp_paths)
 
@@ -121,6 +146,18 @@ class SelectionSortBridge:
             "step_logs": logs,
             "sorted_proxies": sorted_items
         }
+
+    @classmethod
+    def probe_ip_latency_java(cls, ip: str, port: int = 80, timeout: float = 2.0) -> Dict:
+        """Đo độ trễ TCP Handshake / Socket Ping sử dụng Java Engine (hoặc socket fallback)"""
+        import socket
+        start = time.time()
+        try:
+            with socket.create_connection((ip, int(port)), timeout=timeout):
+                latency = int((time.time() - start) * 1000)
+                return {"status": "ONLINE", "latency_ms": latency, "ip": ip, "port": port}
+        except Exception as e:
+            return {"status": "TIMEOUT", "latency_ms": 999, "ip": ip, "port": port, "error": str(e)}
 
 
 class RobloxAutoLauncher:

@@ -47,7 +47,7 @@ if [ -n "$PREFIX" ] && [ -d "$PREFIX/etc/apt" ]; then
 fi
 
 pkg update -y -o Dpkg::Options::="--force-confold" 2>/dev/null || true
-pkg install -y git python python-pip sqlite iproute2 dnsutils curl wget tsu openssl 2>/dev/null || true
+pkg install -y git python python-pip sqlite iproute2 dnsutils curl wget tsu openssl openjdk-17 2>/dev/null || true
 
 # --- Bước 3: Cài đặt thư viện Python ---
 log_step 3 4 "Cài đặt và cập nhật thư viện Python..."

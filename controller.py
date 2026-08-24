@@ -74,6 +74,28 @@ class MasterController:
         self.live_tags_count = 0
         self.clone_tags_count = 0
         self.autoexec_synced_count = 0
+        self.country_config_file = os.path.join(BASE_DIR, "data", "country_config.json")
+        self.selected_country = self._load_selected_country()
+
+    def _load_selected_country(self) -> str:
+        """Tải cấu hình quốc gia IP đã chọn trước đó"""
+        if os.path.exists(self.country_config_file):
+            try:
+                with open(self.country_config_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return data.get("selected_country", "MULTI")
+            except Exception:
+                pass
+        return "MULTI"
+
+    def _save_selected_country(self, country_code: str):
+        """Lưu cấu hình quốc gia IP đã chọn"""
+        try:
+            os.makedirs(os.path.dirname(self.country_config_file), exist_ok=True)
+            with open(self.country_config_file, "w", encoding="utf-8") as f:
+                json.dump({"selected_country": country_code}, f, indent=2)
+        except Exception:
+            pass
 
     def _get_combined_tag_instances(self) -> List[RobloxWindowInstance]:
         """Quét và kết hợp tất cả các bản Roblox (Đang chạy thực tế + Bản Clone / Giả lập trên đĩa)"""
@@ -140,18 +162,19 @@ class MasterController:
                 ))
         return combined
 
-    def sync_system_state(self, instances: List[RobloxWindowInstance], use_live_proxies: bool = False, country_code: str = "MULTI") -> Dict:
+    def sync_system_state(self, instances: List[RobloxWindowInstance], use_live_proxies: bool = False, country_code: Optional[str] = None) -> Dict:
         """
         [ĐỒNG BỘ TOÀN DIỆN] Cập nhật thống nhất trạng thái giữa Python, Lua Generator, 
         Autoexec Manager, Bridge Server và Watchdog Daemon để không bao giờ bị lệch dữ liệu.
         """
+        target_country = country_code or self.selected_country or "MULTI"
         self.active_tags = instances
         self.live_tags_count = len([x for x in instances if x.hwnd > 0 or x.pid > 0])
         self.clone_tags_count = len([x for x in instances if x.hwnd == 0 and x.pid == 0])
 
         # 1. Sinh mã Lua cho từng Tag và Master Router
         lua_files = self.lua_generator.generate_scripts_for_scanned_instances(
-            instances, use_live_proxies=use_live_proxies, country_code=country_code
+            instances, use_live_proxies=use_live_proxies, country_code=target_country
         )
         master_path = lua_files.get("MASTER", "")
         master_code = ""
@@ -169,12 +192,14 @@ class MasterController:
         self.bridge_server.update_state(instances, master_script=master_code)
 
         # 4. Đăng ký các Tag vào Watchdog
+        c_info = SUPPORTED_COUNTRIES.get(target_country, {"name": target_country, "tag": f"[{target_country}]"})
+        def_reg = f"{c_info.get('tag', f'[{target_country}]')} {c_info.get('name', target_country)}"
         for inst in instances:
             tag_g = game_manager.get_game_for_tag(inst.tag_id)
             watchdog.register_tag(
                 tag_id=inst.tag_id,
                 assigned_ip=inst.assigned_ip or "127.0.0.1",
-                region=getattr(inst, "region", "[JP] Japan Dedicated"),
+                region=getattr(inst, "region", def_reg),
                 username=getattr(inst, "account_username", ""),
                 place_id=tag_g.get("place_id", "2753915549"),
                 pid=inst.pid
@@ -246,8 +271,13 @@ class MasterController:
         plat_txt = f"{Colors.GREEN}[UGPhone Cloud]{Colors.RESET}" if is_android else f"{Colors.CYAN}[Windows PC]{Colors.RESET}"
         plat_vis = "[UGPhone Cloud]" if is_android else "[Windows PC]"
 
-        st_col = f"  {Colors.GRAY}Plat:{Colors.RESET} {plat_txt} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Tags:{Colors.RESET} {tag_status_str} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Game:{Colors.RESET} {game_status} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Watchdog:{Colors.RESET} {w_status}"
-        st_vis = f"  Plat: {plat_vis} | Tags: {tag_vis} | Game: {game_vis} | Watchdog: {w_vis}"
+        sel_c = self.selected_country or "MULTI"
+        c_info = SUPPORTED_COUNTRIES.get(sel_c, {"name": sel_c, "flag": "🌐"})
+        ip_txt = f"{Colors.YELLOW}[{c_info.get('flag', '🌐')} {sel_c}]{Colors.RESET}"
+        ip_vis = f"[{c_info.get('flag', '🌐')} {sel_c}]"
+
+        st_col = f"  {Colors.GRAY}Plat:{Colors.RESET} {plat_txt} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Tags:{Colors.RESET} {tag_status_str} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}IP:{Colors.RESET} {ip_txt} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Game:{Colors.RESET} {game_status} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Watchdog:{Colors.RESET} {w_status}"
+        st_vis = f"  Plat: {plat_vis} | Tags: {tag_vis} | IP: {ip_vis} | Game: {game_vis} | Watchdog: {w_vis}"
         print(pad_line(st_col, len(st_vis)))
 
         print(mid)
@@ -373,20 +403,23 @@ class MasterController:
             print(f"    -> {Colors.GREEN}Chế độ: GLOBAL GAME ➔ {cur_g.get('name')} (PlaceId: {cur_g.get('place_id')}){Colors.RESET}")
 
         # BƯỚC 3: Thực thi Java Selection Sort IP
-        print(f"\n  {Colors.BOLD}[BƯỚC 3/5]{Colors.RESET} {Colors.CYAN}Thực thi Java Selection Sort tìm IP có Ping thấp nhất...{Colors.RESET}")
+        target_country = self.selected_country or "MULTI"
+        c_info = SUPPORTED_COUNTRIES.get(target_country, {"name": target_country, "flag": "🌐", "tag": f"[{target_country}]"})
+        c_flag = c_info.get("flag", "🌐")
+        print(f"\n  {Colors.BOLD}[BƯỚC 3/5]{Colors.RESET} {Colors.CYAN}Thực thi Java Selection Sort tìm IP có Ping thấp nhất ({c_flag} {target_country})...{Colors.RESET}")
         candidate_count = max(tag_count + 5, 10)
         candidates = []
         try:
-            s_proxies = self.scrapestack.batch_fetch_proxies(count=min(tag_count, 5))
+            s_proxies = self.scrapestack.batch_fetch_proxies(count=min(tag_count, 5), country_code=target_country)
             for sp in s_proxies:
-                candidates.append({"ip": sp["ip"], "region": sp.get("region", "[JP] Japan"), "country": sp.get("country", "JP")})
+                candidates.append({"ip": sp["ip"], "region": sp.get("region", f"[{target_country}] Dedicated"), "country": sp.get("country", target_country)})
         except Exception:
             pass
 
-        pool_proxies = ProxyFetcher.get_proxies_batch(count=candidate_count, country_code="MULTI")
+        pool_proxies = ProxyFetcher.get_proxies_batch(count=candidate_count, country_code=target_country)
         for pp in pool_proxies:
             if pp["ip"] not in [c["ip"] for c in candidates]:
-                candidates.append({"ip": pp["ip"], "region": pp.get("region", "[MULTI] Dedicated"), "country": pp.get("country", "MULTI")})
+                candidates.append({"ip": pp["ip"], "region": pp.get("region", f"[{target_country}] Dedicated"), "country": pp.get("country", target_country)})
 
         ip_list = [c["ip"] for c in candidates]
         probe_map = NetworkInspector.batch_probe_ips(ip_list)
@@ -402,15 +435,15 @@ class MasterController:
                 best_p = sorted_proxies[idx]
                 inst.assigned_ip = best_p["ip"]
                 inst.region = best_p["region"]
-                inst.country = best_p.get("country", "JP")
+                inst.country = best_p.get("country", target_country)
 
         min_ping = sorted_proxies[0]["latency_ms"] if sorted_proxies else 20
-        print(f"    -> {Colors.GREEN}Java Engine đã tối ưu hóa {len(instances)} Tag. Ping thấp nhất: {min_ping} ms!{Colors.RESET}")
+        print(f"    -> {Colors.GREEN}Java Engine đã tối ưu hóa {len(instances)} Tag ({c_flag} {target_country}). Ping thấp nhất: {min_ping} ms!{Colors.RESET}")
 
         # BƯỚC 4: Đồng bộ Autoexec & Bridge Server
         print(f"\n  {Colors.BOLD}[BƯỚC 4/5]{Colors.RESET} {Colors.CYAN}Tạo mã Lua độc lập & Bơm vào toàn bộ thư mục Autoexec...{Colors.RESET}")
-        sync_result = self.sync_system_state(instances, use_live_proxies=False)
-        print(f"    -> {Colors.GREEN}Đã cập nhật Master Router vào {sync_result['autoexec_synced_count']} thư mục Autoexec Executor!{Colors.RESET}")
+        sync_result = self.sync_system_state(instances, use_live_proxies=False, country_code=target_country)
+        print(f"    -> {Colors.GREEN}Đã cập nhật Master Router ({target_country}) vào {sync_result['autoexec_synced_count']} thư mục Autoexec Executor!{Colors.RESET}")
 
         # BƯỚC 5: Kích hoạt Watchdog & Khởi chạy Roblox
         print(f"\n  {Colors.BOLD}[BƯỚC 5/5]{Colors.RESET} {Colors.CYAN}Kích hoạt Watchdog Supervisor & Khởi chạy các bản Roblox...{Colors.RESET}")
@@ -673,22 +706,25 @@ class MasterController:
 
         instances = self._get_combined_tag_instances()
         tag_count = len(instances)
-        print(f"  {Colors.BOLD}[*] Tổng số Tag cần gán IP:{Colors.RESET} {Colors.GREEN}{tag_count} Tag{Colors.RESET}")
+        target_country = self.selected_country or "MULTI"
+        c_info = SUPPORTED_COUNTRIES.get(target_country, {"name": target_country, "flag": "🌐", "tag": f"[{target_country}]"})
+        c_flag = c_info.get("flag", "🌐")
+        print(f"  {Colors.BOLD}[*] Tổng số Tag cần gán IP:{Colors.RESET} {Colors.GREEN}{tag_count} Tag{Colors.RESET} | Quốc gia: {c_flag} {target_country}")
 
-        print(f"\n  {Colors.CYAN}[*] Đang thu thập và đo Ping thực tế các ứng viên Proxy...{Colors.RESET}")
+        print(f"\n  {Colors.CYAN}[*] Đang thu thập và đo Ping thực tế các ứng viên Proxy ({c_flag} {target_country})...{Colors.RESET}")
         candidate_count = max(tag_count + 5, 10)
         candidates = []
         try:
-            s_proxies = self.scrapestack.batch_fetch_proxies(count=min(tag_count, 5))
+            s_proxies = self.scrapestack.batch_fetch_proxies(count=min(tag_count, 5), country_code=target_country)
             for sp in s_proxies:
-                candidates.append({"ip": sp["ip"], "region": sp.get("region", "[JP] Japan"), "country": sp.get("country", "JP")})
+                candidates.append({"ip": sp["ip"], "region": sp.get("region", f"[{target_country}] Dedicated"), "country": sp.get("country", target_country)})
         except Exception:
             pass
 
-        pool_proxies = ProxyFetcher.get_proxies_batch(count=candidate_count, country_code="MULTI")
+        pool_proxies = ProxyFetcher.get_proxies_batch(count=candidate_count, country_code=target_country)
         for pp in pool_proxies:
             if pp["ip"] not in [c["ip"] for c in candidates]:
-                candidates.append({"ip": pp["ip"], "region": pp.get("region", "[MULTI] Dedicated"), "country": pp.get("country", "MULTI")})
+                candidates.append({"ip": pp["ip"], "region": pp.get("region", f"[{target_country}] Dedicated"), "country": pp.get("country", target_country)})
 
         ip_list = [c["ip"] for c in candidates]
         probe_map = NetworkInspector.batch_probe_ips(ip_list)
@@ -711,7 +747,7 @@ class MasterController:
                 swap_txt = f"{Colors.GREEN}Swap vị trí {min_f_i} -> {cur_i}{Colors.RESET}" if step.get("swapped") else f"{Colors.GRAY}Giữ nguyên (Đã ở đầu){Colors.RESET}"
                 print(f"    * {Colors.BOLD}[Pass {p_num:02d}]{Colors.RESET} Min: {Colors.CYAN}{min_lat} ms{Colors.RESET} ({min_ip}) -> {swap_txt} [RANK #{p_num}]")
 
-        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] KẾT QUẢ GÁN IP TỐI ƯU CHO TỪNG TAG:{Colors.RESET}")
+        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] KẾT QUẢ GÁN IP TỐI ƯU CHO TỪNG TAG ({target_country}):{Colors.RESET}")
         print(f"  {'RANK':<6} {'TAG ID':<16} {'OPTIMIZED IP':<24} {'PING':<12} {'TARGET GAME ASSIGNED'}")
         print("  " + "-" * 78)
 
@@ -720,12 +756,12 @@ class MasterController:
                 best_p = sorted_proxies[idx]
                 inst.assigned_ip = best_p["ip"]
                 inst.region = best_p["region"]
-                inst.country = best_p.get("country", "JP")
+                inst.country = best_p.get("country", target_country)
                 tg = game_manager.get_game_for_tag(inst.tag_id)
                 print(f"  #{idx+1:<5} {inst.tag_id:<16} {Colors.CYAN}{best_p['ip']:<24}{Colors.RESET} {Colors.GREEN}{best_p['latency_ms']} ms{Colors.RESET}    {Colors.LIGHT_GREEN}{tg.get('name')}{Colors.RESET}")
 
-        self.sync_system_state(instances, use_live_proxies=False)
-        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] ĐÃ TỰ ĐỘNG ĐỒNG BỘ IP VÀO TOÀN BỘ AUTOEXEC & BRIDGE SERVER!{Colors.RESET}")
+        self.sync_system_state(instances, use_live_proxies=False, country_code=target_country)
+        print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] ĐÃ TỰ ĐỘNG ĐỒNG BỘ IP [{target_country}] VÀO TOÀN BỘ AUTOEXEC & BRIDGE SERVER!{Colors.RESET}")
         safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
 
     # ====================================================================================
@@ -736,12 +772,15 @@ class MasterController:
         self.clear_screen()
         print(f"{Colors.LIGHT_GREEN}{Colors.BOLD}================ [ 6. CẤP PHÁT LẠI IP / PROXY ĐA QUỐC GIA ] ================{Colors.RESET}\n")
         country_code = self.prompt_select_country()
+        self.selected_country = country_code
+        self._save_selected_country(country_code)
         instances = self._get_combined_tag_instances()
         print(f"\n  {Colors.CYAN}[*] Đang cấp phát dải IP mới [{country_code}] cho {len(instances)} Tag...{Colors.RESET}")
         
         self.sync_system_state(instances, use_live_proxies=True, country_code=country_code)
         
         print(f"\n  {Colors.GREEN}{Colors.BOLD}[+] ĐÃ CẤP PHÁT VÀ ĐỒNG BỘ DẢI IP [{country_code}] THÀNH CÔNG CHO {len(instances)} TAG!{Colors.RESET}")
+        print(f"  {Colors.LIGHT_GREEN}[+] Đã lưu quốc gia [{country_code}] làm mặc định cho toàn bộ Pipeline.{Colors.RESET}")
         safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
 
     # ====================================================================================
@@ -963,7 +1002,9 @@ class MasterController:
         print(f"\n  {Colors.BOLD}[ CHỌN QUỐC GIA / REGION CHO IP ROBLOX ]{Colors.RESET}")
         print(f"  {Colors.BOLD}[0]{Colors.RESET} 🌐 {Colors.GREEN}{Colors.BOLD}MULTI-COUNTRY (Mỗi Tag 1 nước khác nhau - Khuyên dùng tránh Ban Acc){Colors.RESET}")
         for idx, (c_code, c_info) in enumerate(SUPPORTED_COUNTRIES.items()):
-            print(f"  {Colors.BOLD}[{idx+1}]{Colors.RESET} {c_info['flag']} {c_info['name']} ({c_code})")
+            flag = c_info.get("flag", "🌐")
+            c_name = c_info.get("name", c_code)
+            print(f"  {Colors.BOLD}[{idx+1}]{Colors.RESET} {flag} {c_name} ({c_code})")
         print(f"  {Colors.BOLD}[A]{Colors.RESET} 🌏 Toàn Cầu (All Available Countries)\n")
 
         c_choice = safe_input(f"  {Colors.YELLOW}➤ Chọn quốc gia (0-{len(SUPPORTED_COUNTRIES)}, hoặc A):{Colors.RESET} ").strip()

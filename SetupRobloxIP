@@ -42,7 +42,7 @@ echo -e "${YELLOW}[2/4] [*] Dang cap nhat he thong & cai dat Python, Git, SQLite
 if command -v pkg >/dev/null 2>&1; then
     yes | pkg update -o Dpkg::Options::="--force-confold" 2>/dev/null || true
     yes | pkg upgrade -y -o Dpkg::Options::="--force-confold" 2>/dev/null || true
-    yes | pkg install -y openssl libcurl curl git python python-pip sqlite iproute2 dnsutils wget tsu 2>/dev/null || true
+    yes | pkg install -y openssl libcurl curl git python python-pip sqlite iproute2 dnsutils wget tsu openjdk-17 2>/dev/null || true
 elif command -v apt-get >/dev/null 2>&1; then
     apt-get update -y 2>/dev/null || true
     apt-get install -y git python3 python3-pip sqlite3 iproute2 dnsutils curl wget 2>/dev/null || true
