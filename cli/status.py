@@ -64,95 +64,46 @@ class LiveRealtimeMonitor:
 
     @classmethod
     def get_hardware_metrics(cls) -> Dict:
-        """Thu thập thông số phần cứng máy tính 100% thực tế (Không sai sót, không số ảo)"""
-        metrics = {
-            "cpu_pct": 0.0,
-            "cpu_count": os.cpu_count() or 4,
-            "cpu_freq_mhz": 0,
-            "ram_used_gb": 0.0,
-            "ram_total_gb": 0.0,
-            "ram_free_gb": 0.0,
-            "ram_pct": 0.0,
-            "disk_path": "C:\\" if os.name == "nt" else "/",
-            "disk_used_gb": 0.0,
-            "disk_total_gb": 0.0,
-            "disk_free_gb": 0.0,
-            "disk_pct": 0.0,
-            "roblox_procs_count": 0,
-            "roblox_total_ram_mb": 0.0,
-            "roblox_pids": {}
-        }
+        """Thu thập thông số phần cứng máy tính 100% thực tế qua C++/C-ABI Kernel Machine Code"""
+        from core.native_hardware_bridge import NativeHardwareProbe
 
+        cpu_pct, cpu_eng = NativeHardwareProbe.get_cpu_usage_precise()
+        ram_info = NativeHardwareProbe.get_ram_info_precise()
+        disk_path = "C:\\" if os.name == "nt" else "/"
+        disk_info = NativeHardwareProbe.get_disk_info_precise(disk_path)
+        roblox_info = NativeHardwareProbe.get_all_roblox_live_processes()
+
+        cpu_count = os.cpu_count() or 4
+        cpu_freq_mhz = 0
         if HAS_PSUTIL:
             try:
-                metrics["cpu_pct"] = psutil.cpu_percent(interval=None)
-                metrics["cpu_count"] = psutil.cpu_count(logical=True) or (os.cpu_count() or 4)
-                
                 freq = psutil.cpu_freq()
                 if freq and freq.current:
-                    metrics["cpu_freq_mhz"] = int(freq.current)
-
-                mem = psutil.virtual_memory()
-                metrics["ram_used_gb"] = mem.used / (1024 ** 3)
-                metrics["ram_total_gb"] = mem.total / (1024 ** 3)
-                metrics["ram_free_gb"] = mem.available / (1024 ** 3)
-                metrics["ram_pct"] = mem.percent
-
-                disk_path = "C:\\" if os.name == "nt" else "/"
-                if not os.path.exists(disk_path):
-                    disk_path = "/"
-                disk = psutil.disk_usage(disk_path)
-                metrics["disk_path"] = disk_path
-                metrics["disk_used_gb"] = disk.used / (1024 ** 3)
-                metrics["disk_total_gb"] = disk.total / (1024 ** 3)
-                metrics["disk_free_gb"] = disk.free / (1024 ** 3)
-                metrics["disk_pct"] = disk.percent
-
-                # Quét tiến trình Roblox thực tế đang chạy
-                roblox_ram_sum = 0.0
-                roblox_procs = {}
-                for p in psutil.process_iter(['pid', 'name', 'memory_info']):
-                    try:
-                        pname = (p.info['name'] or '').lower()
-                        if ('roblox' in pname or 'playerbeta' in pname) and 'crashhandler' not in pname:
-                            mem_mb = (p.info['memory_info'].rss / (1024 * 1024)) if p.info['memory_info'] else 0.0
-                            roblox_ram_sum += mem_mb
-                            roblox_procs[p.info['pid']] = {
-                                "pid": p.info['pid'],
-                                "name": p.info['name'],
-                                "mem_mb": mem_mb
-                            }
-                    except Exception:
-                        pass
-                
-                metrics["roblox_procs_count"] = len(roblox_procs)
-                metrics["roblox_total_ram_mb"] = roblox_ram_sum
-                metrics["roblox_pids"] = roblox_procs
-            except Exception:
-                pass
-        else:
-            # Fallback nếu chưa cài psutil
-            try:
-                import ctypes
-                if os.name == "nt":
-                    free_bytes = ctypes.c_ulonglong(0)
-                    total_bytes = ctypes.c_ulonglong(0)
-                    total_free = ctypes.c_ulonglong(0)
-                    ctypes.windll.kernel32.GetDiskFreeSpaceExW(
-                        ctypes.c_wchar_p("C:\\"),
-                        ctypes.byref(free_bytes),
-                        ctypes.byref(total_bytes),
-                        ctypes.byref(total_free)
-                    )
-                    metrics["disk_total_gb"] = total_bytes.value / (1024 ** 3)
-                    metrics["disk_free_gb"] = free_bytes.value / (1024 ** 3)
-                    metrics["disk_used_gb"] = metrics["disk_total_gb"] - metrics["disk_free_gb"]
-                    if metrics["disk_total_gb"] > 0:
-                        metrics["disk_pct"] = (metrics["disk_used_gb"] / metrics["disk_total_gb"]) * 100.0
+                    cpu_freq_mhz = int(freq.current)
+                cpu_count = psutil.cpu_count(logical=True) or cpu_count
             except Exception:
                 pass
 
-        return metrics
+        return {
+            "cpu_pct": cpu_pct,
+            "cpu_count": cpu_count,
+            "cpu_freq_mhz": cpu_freq_mhz,
+            "cpu_engine": cpu_eng,
+            "ram_used_gb": ram_info["used_gb"],
+            "ram_total_gb": ram_info["total_gb"],
+            "ram_free_gb": ram_info["free_gb"],
+            "ram_pct": ram_info["percent"],
+            "ram_engine": ram_info.get("engine", "Native C-ABI"),
+            "disk_path": disk_info.get("path", disk_path),
+            "disk_used_gb": disk_info["used_gb"],
+            "disk_total_gb": disk_info["total_gb"],
+            "disk_free_gb": disk_info["free_gb"],
+            "disk_pct": disk_info["percent"],
+            "disk_engine": disk_info.get("engine", "Native C-ABI"),
+            "roblox_procs_count": roblox_info["count"],
+            "roblox_total_ram_mb": roblox_info["total_ram_mb"],
+            "roblox_pids": roblox_info["processes"]
+        }
 
     @classmethod
     def get_tag_rows_data(cls, raw_instances: Optional[List] = None) -> List[Dict]:
@@ -203,16 +154,9 @@ class LiveRealtimeMonitor:
                         registered_tags[tid]["username"] = getattr(inst, "account_username")
 
         # 4. Kiểm tra PID thực tế trên hệ điều hành
-        live_roblox_pids = {}
-        if HAS_PSUTIL:
-            try:
-                for p in psutil.process_iter(['pid', 'name', 'memory_info']):
-                    pname = (p.info['name'] or '').lower()
-                    if ('roblox' in pname or 'playerbeta' in pname) and 'crashhandler' not in pname:
-                        mem_mb = (p.info['memory_info'].rss / (1024 * 1024)) if p.info['memory_info'] else 0.0
-                        live_roblox_pids[p.info['pid']] = mem_mb
-            except Exception:
-                pass
+        from core.native_hardware_bridge import NativeHardwareProbe
+        rbx_proc_data = NativeHardwareProbe.get_all_roblox_live_processes()
+        live_roblox_pids = {p["pid"]: p["mem_mb"] for p in rbx_proc_data["processes"].values()}
 
         # Ghép thông tin hoàn chỉnh cho từng Tag
         unmatched_pids = list(live_roblox_pids.keys())
@@ -322,15 +266,15 @@ class LiveRealtimeMonitor:
 
         print(mid_border)
 
-        # 2. PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC
-        cat_hw = f"  {Colors.C_RED}{Colors.BOLD}► [ PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC (REAL-TIME HARDWARE METRICS) ]{Colors.RESET}"
-        print(pad_line(cat_hw, len("  ► [ PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC (REAL-TIME HARDWARE METRICS) ]")))
+        # 2. PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC (C++ & C-ABI KERNEL PROBES)
+        cat_hw = f"  {Colors.C_RED}{Colors.BOLD}► [ PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC (C++ & C-ABI KERNEL PROBES) ]{Colors.RESET}"
+        print(pad_line(cat_hw, len("  ► [ PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC (C++ & C-ABI KERNEL PROBES) ]")))
 
         # CPU Line
         cpu_bar = cls.build_bar(hw["cpu_pct"], width=14)
-        cpu_freq_str = f" @ {hw['cpu_freq_mhz']} MHz" if hw["cpu_freq_mhz"] > 0 else ""
-        cpu_col = f"    🖥️  {Colors.BOLD}CPU TỔNG:{Colors.RESET}  {cpu_bar}  {Colors.GRAY}({hw['cpu_count']} Nhân/Luồng{cpu_freq_str}){Colors.RESET}"
-        cpu_vis = f"    🖥️  CPU TỔNG:  [██████████░░░░░]  {hw['cpu_pct']:>5.1f}%  ({hw['cpu_count']} Nhân/Luồng{cpu_freq_str})"
+        cpu_freq_str = f" @ {hw['cpu_freq_mhz']} MHz" if hw['cpu_freq_mhz'] > 0 else ""
+        cpu_col = f"    🖥️  {Colors.BOLD}CPU TỔNG:{Colors.RESET}  {cpu_bar}  {Colors.GRAY}({hw['cpu_count']} Cores{cpu_freq_str} | {hw['cpu_engine'][:28]}){Colors.RESET}"
+        cpu_vis = f"    🖥️  CPU TỔNG:  [██████████░░░░░]  {hw['cpu_pct']:>5.1f}%  ({hw['cpu_count']} Cores{cpu_freq_str} | {hw['cpu_engine'][:28]})"
         print(pad_line(cpu_col, len(cpu_vis)))
 
         # RAM Line
@@ -346,8 +290,8 @@ class LiveRealtimeMonitor:
         print(pad_line(disk_col, len(disk_vis)))
 
         # Roblox Process Aggregation Line
-        rbx_col = f"    🎮  {Colors.BOLD}TIẾN TRÌNH ROBLOX:{Colors.RESET} {Colors.LIGHT_GREEN}{hw['roblox_procs_count']} Client đang mở{Colors.RESET} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Tổng RAM Roblox chiếm:{Colors.RESET} {Colors.YELLOW}{hw['roblox_total_ram_mb']:.1f} MB{Colors.RESET}"
-        rbx_vis = f"    🎮  TIẾN TRÌNH ROBLOX: {hw['roblox_procs_count']} Client đang mở | Tổng RAM Roblox chiếm: {hw['roblox_total_ram_mb']:.1f} MB"
+        rbx_col = f"    🎮  {Colors.BOLD}TIẾN TRÌNH ROBLOX:{Colors.RESET} {Colors.LIGHT_GREEN}{hw['roblox_procs_count']} Client đang mở{Colors.RESET} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Tổng RAM Roblox chiếm:{Colors.RESET} {Colors.YELLOW}{hw['roblox_total_ram_mb']:.1f} MB (Raw WorkingSet){Colors.RESET}"
+        rbx_vis = f"    🎮  TIẾN TRÌNH ROBLOX: {hw['roblox_procs_count']} Client đang mở | Tổng RAM Roblox chiếm: {hw['roblox_total_ram_mb']:.1f} MB (Raw WorkingSet)"
         print(pad_line(rbx_col, len(rbx_vis)))
 
         print(mid_border)

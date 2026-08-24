@@ -47,16 +47,22 @@ if [ -n "$PREFIX" ] && [ -d "$PREFIX/etc/apt" ]; then
 fi
 
 pkg update -y -o Dpkg::Options::="--force-confold" 2>/dev/null || true
-pkg install -y git python python-pip sqlite iproute2 dnsutils curl wget tsu openssl openjdk-17 2>/dev/null || true
+pkg install -y git python python-pip sqlite iproute2 dnsutils curl wget tsu openssl openjdk-17 clang make 2>/dev/null || true
 
-# --- Bước 3: Cài đặt thư viện Python ---
-log_step 3 4 "Cài đặt và cập nhật thư viện Python..."
+# --- Bước 3: Cài đặt thư viện Python & Biên dịch Native C++ Hardware Engine ---
+log_step 3 4 "Cài đặt thư viện Python & Biên dịch Native C++ Probe..."
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 if [ -f "${PROJECT_ROOT}/requirements.txt" ]; then
     python -m pip install -r "${PROJECT_ROOT}/requirements.txt" 2>/dev/null || \
     pip install -r "${PROJECT_ROOT}/requirements.txt" 2>/dev/null || true
 else
     pip install requests psutil prettytable rich pytz 2>/dev/null || true
+fi
+
+# Biên dịch Native C++ Shared Library cho Android
+mkdir -p "${PROJECT_ROOT}/data/native_bin"
+if command -v clang++ >/dev/null 2>&1 && [ -f "${PROJECT_ROOT}/core/native_hardware_probe.cpp" ]; then
+    clang++ -O3 -shared -fPIC -o "${PROJECT_ROOT}/data/native_bin/libhardware_probe.so" "${PROJECT_ROOT}/core/native_hardware_probe.cpp" 2>/dev/null || true
 fi
 
 # --- Bước 4: Cấp quyền thực thi & Tạo lệnh gọi nhanh roblox-ip ---

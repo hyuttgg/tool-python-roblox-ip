@@ -63,8 +63,17 @@ else
     pip install requests psutil prettytable rich pytz || true
 fi
 
-# 3. File Permissions & Shortcuts
-log_step 3 3 "Configuring execution permissions..."
+# 3. Native C++ Hardware Probe Compilation
+log_step 3 3 "Compiling Native C++ Hardware Probe Engine..."
+mkdir -p "${PROJECT_ROOT}/data/native_bin"
+if command -v clang++ >/dev/null 2>&1 && [ -f "${PROJECT_ROOT}/core/native_hardware_probe.cpp" ]; then
+    clang++ -O3 -shared -fPIC -o "${PROJECT_ROOT}/data/native_bin/libhardware_probe.so" "${PROJECT_ROOT}/core/native_hardware_probe.cpp" 2>/dev/null || true
+elif command -v g++ >/dev/null 2>&1 && [ -f "${PROJECT_ROOT}/core/native_hardware_probe.cpp" ]; then
+    g++ -O3 -shared -fPIC -o "${PROJECT_ROOT}/data/native_bin/libhardware_probe.so" "${PROJECT_ROOT}/core/native_hardware_probe.cpp" 2>/dev/null || true
+fi
+
+# 4. File Permissions & Shortcuts
+log_info "Configuring execution permissions..."
 chmod +x "${PROJECT_ROOT}"/*.py 2>/dev/null || true
 chmod +x "${PROJECT_ROOT}"/*.sh 2>/dev/null || true
 chmod +x "${PROJECT_ROOT}"/shell/*.sh 2>/dev/null || true
