@@ -156,7 +156,7 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
             self._respond_json(resp, 200)
             return
 
-        # 2. API: Nhận Báo lỗi / Mất kết nối / Bị Kick từ Lua Client để Watchdog tự mở lại
+        # 2. API: Nhận Báo lỗi / Mất kết nối / Bị Kick hoặc Trạng thái Chuyển Server từ Lua Client
         if path in ["/api/tag_status", "/api/error", "/api/disconnect", "/api/report"]:
             tag_id = payload.get("tag_id") or payload.get("tag") or self.headers.get("X-Roblox-Tag") or "ROBLOX-TAG-01"
             err_msg = payload.get("error_message") or payload.get("error") or payload.get("reason") or "Roblox Disconnected / Crash Detected"
@@ -166,11 +166,13 @@ class RobloxBridgeHandler(BaseHTTPRequestHandler):
 
             if tag_id in SHARED_STATE["tags"]:
                 SHARED_STATE["tags"][tag_id]["status"] = status_type
+                if status_type == "TELEPORTING":
+                    SHARED_STATE["tags"][tag_id]["last_heartbeat"] = time.time() + 60.0
 
             resp = {
                 "status": "recorded",
                 "tag_id": tag_id,
-                "action": "watchdog_restart_triggered",
+                "action": "teleport_grace_active" if status_type == "TELEPORTING" else "watchdog_recorded",
                 "timestamp": time.time()
             }
             self._respond_json(resp, 200)

@@ -263,9 +263,12 @@ task.spawn(function()
 end)
 
 -- ====================================================================================
--- 4. LUA ERROR & DISCONNECT HOOK (BẮT SỰ KIỆN LỖI ĐỂ PYTHON WATCHDOG TỰ MỞ LẠI TAG)
+-- 4. LUA ERROR & DISCONNECT HOOK (BẢO VỆ CHUYỂN SERVER, CHỈ BÁO LỖI FATAL DISCONNECT)
 -- ====================================================================================
+local isTeleporting = false
+
 local function report_disconnection(reason_text)
+    if isTeleporting then return end
     print(string.format("[%s] [!] BÁO CÁO NGẮT KẾT NỐI: %s -> Gửi tín hiệu để Python mở lại...", TAG_CONFIG.TagId, tostring(reason_text)))
     pcall(function()
         safe_request({{
@@ -285,29 +288,58 @@ end
 
 pcall(function()
     GuiService.ErrorMessageChanged:Connect(function(errMsg)
-        if errMsg and #errMsg > 0 then
-            report_disconnection("GuiService Error: " .. tostring(errMsg))
+        if errMsg and #errMsg > 0 and not isTeleporting then
+            local low = string.lower(tostring(errMsg))
+            if string.find(low, "277") or string.find(low, "268") or string.find(low, "267") or 
+               string.find(low, "279") or string.find(low, "524") or string.find(low, "529") or 
+               string.find(low, "773") or string.find(low, "lost connection") or 
+               string.find(low, "disconnected") or string.find(low, "kicked") then
+                report_disconnection("Roblox Fatal Error: " .. tostring(errMsg))
+            end
         end
     end)
 end)
 
 pcall(function()
+    if LocalPlayer then
+        LocalPlayer.OnTeleport:Connect(function(state)
+            if state == Enum.TeleportState.Started or state == Enum.TeleportState.InProgress then
+                isTeleporting = true
+                pcall(function()
+                    safe_request({{
+                        Url = TAG_CONFIG.HttpBridgeUrl .. "/api/tag_status",
+                        Method = "POST",
+                        Headers = {{["Content-Type"] = "application/json"}},
+                        Body = HttpService:JSONEncode({{
+                            tag_id = TAG_CONFIG.TagId,
+                            status = "TELEPORTING",
+                            error_message = "Server Hop / Teleport in progress"
+                        }})
+                    }})
+                end)
+            end
+        end)
+    end
+end)
+
+pcall(function()
     TeleportService.TeleportInitFailed:Connect(function(player, result, err)
-        report_disconnection(string.format("Teleport Failed: %s (%s)", tostring(result), tostring(err)))
+        isTeleporting = false
+        print(string.format("[%s] [*] TeleportInitFailed: %s (%s)", TAG_CONFIG.TagId, tostring(result), tostring(err)))
     end)
 end)
 
 -- ====================================================================================
--- 5. PER-TAG AUTO TELEPORT TO ASSIGNED GAME
+-- 5. PER-TAG AUTO TELEPORT TO ASSIGNED GAME (KHÔNG GÂY LẶP KHI ĐANG TRONG GAME)
 -- ====================================================================================
 task.spawn(function()
-    task.wait(2.0)
+    task.wait(3.0)
     pcall(function()
         local targetPid = TAG_CONFIG.TargetPlaceId
-        if targetPid and #targetPid > 2 and tostring(game.PlaceId) ~= targetPid then
-            print(string.format("[%s] [🎮 PER-TAG TELEPORT] Đang chuyển server vào Game: %s (PlaceId: %s)...", TAG_CONFIG.TagId, TAG_CONFIG.TargetGameName or "Roblox Game", targetPid))
+        if targetPid and #targetPid > 2 and tostring(game.PlaceId) ~= targetPid and not isTeleporting then
             local pidNum = tonumber(targetPid)
-            if pidNum then
+            if pidNum and pidNum > 0 and game.PlaceId == 0 then
+                print(string.format("[%s] [🎮 PER-TAG TELEPORT] Đang chuyển server vào Game: %s (PlaceId: %s)...", TAG_CONFIG.TagId, TAG_CONFIG.TargetGameName or "Roblox Game", targetPid))
                 TeleportService:Teleport(pidNum, LocalPlayer)
             end
         end
@@ -338,6 +370,11 @@ end
 task.spawn(function()
     while task.wait(3) do
         if game.JobId ~= "" and game.JobId ~= currentJobId then
+            currentJobId = game.JobId
+            on_server_hop_detected(currentJobId)
+        end
+    end
+end)
             currentJobId = game.JobId
             on_server_hop_detected(currentJobId)
         end
@@ -597,9 +634,12 @@ if currentConfig then
     end)
 
     -- ================================================================================
-    -- BƯỚC 6: LUA ERROR & DISCONNECT HOOK (PHÁT HIỆN KICK / 277 ĐỂ PYTHON TỰ MỞ LẠI)
+    -- BƯỚC 6: LUA ERROR & DISCONNECT HOOK (BẢO VỆ CHUYỂN SERVER, CHỈ BÁO LỖI FATAL DISCONNECT)
     -- ================================================================================
+    local isTeleporting = false
+
     local function report_error_to_python(reason_text)
+        if isTeleporting then return end
         print(string.format("[%s] [!] BÁO CÁO MẤT KẾT NỐI: %s -> Gửi tín hiệu để Python mở lại...", currentConfig.tag_id, tostring(reason_text)))
         pcall(function()
             safe_request({{
@@ -619,46 +659,39 @@ if currentConfig then
 
     pcall(function()
         GuiService.ErrorMessageChanged:Connect(function(errMsg)
-            if errMsg and #errMsg > 0 then
-                report_error_to_python("Roblox Error: " .. tostring(errMsg))
+            if errMsg and #errMsg > 0 and not isTeleporting then
+                local low = string.lower(tostring(errMsg))
+                if string.find(low, "277") or string.find(low, "268") or string.find(low, "267") or 
+                   string.find(low, "279") or string.find(low, "524") or string.find(low, "529") or 
+                   string.find(low, "773") or string.find(low, "lost connection") or 
+                   string.find(low, "disconnected") or string.find(low, "kicked") then
+                    report_error_to_python("Roblox Fatal Error: " .. tostring(errMsg))
+                end
             end
         end)
     end)
 
     pcall(function()
         TeleportService.TeleportInitFailed:Connect(function(player, result, err)
-            report_error_to_python(string.format("Teleport Failed: %s (%s)", tostring(result), tostring(err)))
+            isTeleporting = false
+            print(string.format("[%s] [*] TeleportInitFailed: %s (%s)", currentConfig.tag_id, tostring(result), tostring(err)))
         end)
     end)
 
     -- ================================================================================
-    -- BƯỚC 7: TỰ ĐỘNG TELEPORT VÀO ĐÚNG GAME RIÊNG CỦA TỪNG TAG NẾU CHƯA ĐÚNG PLACE ID
+    -- BƯỚC 7: TỰ ĐỘNG TELEPORT VÀO ĐÚNG GAME RIÊNG CỦA TỪNG TAG (KHÔNG LẶP KHI SERVER HOP)
     -- ================================================================================
     local function check_and_auto_teleport_game()
-        task.wait(2.0)
+        task.wait(3.0)
         pcall(function()
             local targetPid = currentConfig.target_place_id or (targetGameConfig and targetGameConfig.place_id)
             local targetName = currentConfig.target_game_name or (targetGameConfig and targetGameConfig.name) or "Target Game"
             
-            if not targetPid then
-                local res = safe_request({{Url = HTTP_BRIDGE_URL .. "/api/target_game?tag=" .. tostring(currentConfig.tag_id), Method = "GET"}})
-                if res and res.Body then
-                    local tData = HttpService:JSONDecode(res.Body)
-                    if tData and tData.place_id then
-                        targetPid = tostring(tData.place_id)
-                        targetName = tData.name or targetName
-                    end
-                end
-            end
-
-            if targetPid and #targetPid > 2 then
-                local currentPid = tostring(game.PlaceId)
-                if currentPid ~= targetPid then
-                    print(string.format("[%s] [🎮 PER-TAG AUTO-TELEPORT] Tag này được chỉ định game riêng: %s (PlaceId: %s)...", currentConfig.tag_id, targetName, targetPid))
-                    local pidNum = tonumber(targetPid)
-                    if pidNum then
-                        TeleportService:Teleport(pidNum, LocalPlayer)
-                    end
+            if targetPid and #targetPid > 2 and tostring(game.PlaceId) ~= targetPid and not isTeleporting then
+                local pidNum = tonumber(targetPid)
+                if pidNum and pidNum > 0 and game.PlaceId == 0 then
+                    print(string.format("[%s] [🎮 PER-TAG AUTO-TELEPORT] Đang chuyển server vào Game: %s (PlaceId: %s)...", currentConfig.tag_id, targetName, targetPid))
+                    TeleportService:Teleport(pidNum, LocalPlayer)
                 end
             end
         end)
@@ -720,7 +753,20 @@ if currentConfig then
         if LocalPlayer then
             LocalPlayer.OnTeleport:Connect(function(state)
                 if state == Enum.TeleportState.Started or state == Enum.TeleportState.InProgress then
+                    isTeleporting = true
                     handle_server_hop("Teleporting")
+                    pcall(function()
+                        safe_request({{
+                            Url = HTTP_BRIDGE_URL .. "/api/tag_status",
+                            Method = "POST",
+                            Headers = {{["Content-Type"] = "application/json"}},
+                            Body = HttpService:JSONEncode({{
+                                tag_id = currentConfig.tag_id,
+                                status = "TELEPORTING",
+                                error_message = "Server Hop in progress"
+                            }})
+                        }})
+                    end)
                 end
             end)
         end

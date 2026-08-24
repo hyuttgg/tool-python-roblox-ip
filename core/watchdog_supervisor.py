@@ -28,8 +28,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 WATCHDOG_CONFIG_FILE = os.path.join(DATA_DIR, "watchdog_state.json")
 
-HEARTBEAT_TIMEOUT_SEC = 15.0  # Quá 15 giây không có nhịp tim -> Coi là bị tắt / mất kết nối
-RESTART_COOLDOWN_SEC = 5.0    # Thời gian chờ giữa các lần tự động mở lại tránh spam
+HEARTBEAT_TIMEOUT_SEC = 60.0  # Tăng lên 60s để cho phép tải map và chuyển server (Server Hop) thoải mái
+RESTART_COOLDOWN_SEC = 10.0   # Thời gian chờ giữa các lần tự động mở lại tránh spam
 
 
 @dataclass
@@ -39,7 +39,7 @@ class TagWatchState:
     assigned_ip: str = ""
     region: str = ""
     target_place_id: str = ""
-    status: str = "OFFLINE"       # ONLINE, DISCONNECTED, ERROR, RESTARTING, OFFLINE
+    status: str = "OFFLINE"       # ONLINE, DISCONNECTED, ERROR, RESTARTING, TELEPORTING, OFFLINE
     last_heartbeat_time: float = 0.0
     last_error_message: str = ""
     fps: int = 60
@@ -55,7 +55,7 @@ class TagWatchState:
 
 
 class RobloxWatchdogSupervisor:
-    """Bộ điều phối và giám sát tự động mở lại Roblox Tags"""
+    """Bộ điều phối và giám sát tự động mở lại Roblox Tags an toàn, không ngắt client khi Server Hop"""
 
     def __init__(self):
         os.makedirs(DATA_DIR, exist_ok=True)
@@ -97,7 +97,8 @@ class RobloxWatchdogSupervisor:
                 if place_id: st.target_place_id = place_id
                 if pid > 0:
                     st.process_pid = pid
-                    st.status = "ONLINE"
+                    if st.status != "TELEPORTING":
+                        st.status = "ONLINE"
 
     def record_heartbeat(self, tag_id: str, data: Dict):
         """Ghi nhận nhịp tim thời gian thực được gửi từ Lua Client"""
@@ -119,26 +120,45 @@ class RobloxWatchdogSupervisor:
                 st.assigned_ip = data.get("assigned_ip")
 
     def record_error_or_disconnect(self, tag_id: str, error_msg: str, status_type: str = "DISCONNECTED"):
-        """Ghi nhận khi Lua Client phát hiện lỗi mất mạng hoặc bị Kick"""
+        """Ghi nhận khi Lua Client phát hiện lỗi mất mạng hoặc chuyển server (Server Hop)"""
         now = time.time()
         with self._lock:
             if tag_id not in self.tags:
                 self.tags[tag_id] = TagWatchState(tag_id=tag_id)
             st = self.tags[tag_id]
+            
+            # Nếu Tag đang trong tiến trình Teleport / Server Hop -> Cho phép thời gian gia hạn (Grace Period) 60 giây
+            if status_type in ["TELEPORTING", "SERVER_HOP", "HOPPING"]:
+                st.status = "TELEPORTING"
+                st.last_heartbeat_time = now + 60.0
+                st.last_error_message = error_msg
+                self.log_event(f"🔄 Tag [{tag_id}] Đang chuyển Server (Teleporting/Server Hop)... Tạm hoãn Watchdog trong 60s.")
+                return
+
+            # Lọc bỏ các cảnh báo không gây crash/disconnect (chỉ bắt lỗi thật sự: 277, 268, 267, 279, 524, 529, 773, kick, disconnect)
+            fatal_patterns = ["277", "268", "267", "279", "524", "529", "773", "lost connection", "disconnected", "kicked", "error code"]
+            is_fatal = any(pat in str(error_msg).lower() for pat in fatal_patterns)
+            if not is_fatal:
+                logger.debug(f"Tag [{tag_id}] Bỏ qua thông báo không phải crash/disconnect: {error_msg}")
+                return
+
             st.status = status_type
             st.last_error_message = error_msg
 
-        self.log_event(f"⚠️ Tag [{tag_id}] BÁO LỖI: {error_msg} (Trạng thái: {status_type})")
+        self.log_event(f"⚠️ Tag [{tag_id}] PHÁT HIỆN MẤT KẾT NỐI: {error_msg} (Trạng thái: {status_type})")
 
         # Kích hoạt mở lại ngay lập tức nếu chế độ tự mở lại đang bật
         if self.is_enabled and self.auto_reopen_on_disconnect:
             threading.Thread(target=self._trigger_reopen_tag, args=(tag_id, f"Lua Event: {error_msg}"), daemon=True).start()
 
     def _trigger_reopen_tag(self, tag_id: str, reason: str):
-        """Tiến hành mở lại Tag Roblox sau khi bị tắt hoặc gặp sự cố"""
+        """Tiến hành mở lại Tag Roblox sau khi bị tắt hoặc gặp sự cố (Bảo vệ an toàn quá trình Server Hop)"""
         with self._lock:
             st = self.tags.get(tag_id)
             if not st:
+                return
+            if st.status == "TELEPORTING":
+                logger.debug(f"Tag [{tag_id}] đang chuyển server (Teleporting), không mở lại.")
                 return
             now = time.time()
             if now - st.last_restart_time < RESTART_COOLDOWN_SEC:
@@ -149,19 +169,26 @@ class RobloxWatchdogSupervisor:
             st.restarts_count += 1
             self.total_restarts += 1
 
-        self.log_event(f"🚀 [AUTO-WATCHDOG] Đang tự động MỞ LẠI Tag [{tag_id}]! (Lý do: {reason})")
+        self.log_event(f"🚀 [AUTO-WATCHDOG] Chuẩn bị tự động MỞ LẠI Tag [{tag_id}]! (Lý do: {reason})")
 
-        # 1. Tắt tiến trình treo cũ (nếu có PID)
+        # 1. Kiểm tra nếu tiến trình cũ vẫn còn chạy, chỉ đóng khi thật sự bị treo/crash
         if st.process_pid > 0:
             try:
-                if os.name == "nt":
-                    subprocess.run(["taskkill", "/F", "/PID", str(st.process_pid)], capture_output=True, timeout=2)
-                else:
-                    subprocess.run(["kill", "-9", str(st.process_pid)], capture_output=True, timeout=2)
+                import psutil
+                if psutil.pid_exists(st.process_pid):
+                    p = psutil.Process(st.process_pid)
+                    if p.is_running():
+                        p.terminate()
             except Exception:
-                pass
+                try:
+                    if os.name == "nt":
+                        subprocess.run(["taskkill", "/F", "/PID", str(st.process_pid)], capture_output=True, timeout=2)
+                    else:
+                        subprocess.run(["kill", "-9", str(st.process_pid)], capture_output=True, timeout=2)
+                except Exception:
+                    pass
 
-        time.sleep(1.5)
+        time.sleep(2.0)
 
         # 2. Khởi chạy lại Roblox với Place ID đã cấu hình riêng cho Tag này
         try:
@@ -176,6 +203,7 @@ class RobloxWatchdogSupervisor:
                 if launch_res.get("status") == "LAUNCHED":
                     st.process_pid = launch_res.get("pid", 0)
                     st.status = "ONLINE"
+                    st.last_heartbeat_time = time.time()
                     self.log_event(f"✅ [AUTO-WATCHDOG] MỞ LẠI THÀNH CÔNG Tag [{tag_id}] vào Game [{target_game.get('name')}] (PlaceId: {place_id})!")
                 else:
                     st.status = "ERROR"
