@@ -471,8 +471,10 @@ class MasterController:
                     print(f"    -> {Colors.RED}[!] Lỗi mở Tag [{lr['tag_id']}]: {lr.get('error')}{Colors.RESET}")
 
         print(f"\n  {Colors.LIGHT_GREEN}{Colors.BOLD}================ [ ✅ MASTER PIPELINE HOÀN TẤT THÀNH CÔNG ] ================{Colors.RESET}")
-        print(f"  {Colors.WHITE}Hệ thống đang chạy nền an toàn. Bạn có thể mở [Menu 4] để xem Live Dashboard.{Colors.RESET}")
-        safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
+        print(f"  {Colors.CYAN}{Colors.BOLD}⚡ ĐANG TỰ ĐỘNG CHUYỂN VÀO CHẾ ĐỘ GIÁM SÁT REAL-TIME TOÀN DIỆN...{Colors.RESET}")
+        time.sleep(1.5)
+        from cli.status import LiveRealtimeMonitor
+        LiveRealtimeMonitor.start_monitoring_loop(instances=instances, refresh_interval=1.5)
 
     # ====================================================================================
     # [2] QUẢN LÝ GAME & TELEPORT HUB (GLOBAL & PER-TAG MULTI-GAME)
@@ -682,15 +684,13 @@ class MasterController:
         safe_input(f"\n  {Colors.GRAY}⏎ Nhấn Enter để quay lại Menu...{Colors.RESET}")
 
     # ====================================================================================
-    # [4] LIVE DASHBOARD GIÁM SÁT REAL-TIME
+    # [4] LIVE DASHBOARD GIÁM SÁT REAL-TIME (KHÓA MÀN HÌNH - THOÁT BẰNG CTRL+C)
     # ====================================================================================
     def start_live_dashboard(self):
-        """[4] Mở Dashboard TUI giám sát thời gian thực"""
-        try:
-            from cli.status import render_network_dashboard
-            render_network_dashboard()
-        except KeyboardInterrupt:
-            pass
+        """[4] Mở Dashboard TUI giám sát thời gian thực (Hardware + Roblox + Watchdog)"""
+        instances = self._get_combined_tag_instances()
+        from cli.status import LiveRealtimeMonitor
+        LiveRealtimeMonitor.start_monitoring_loop(instances=instances, refresh_interval=1.5)
 
     # ====================================================================================
     # [5] JAVA SELECTION SORT IP ENGINE
