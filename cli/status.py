@@ -2,14 +2,13 @@
 """
 Real-time System Hardware & Roblox Multi-Instance Live Dashboard Monitor
 Hiển thị chính xác 100% thời gian thực:
-  1. Phần cứng máy tính (CPU %, RAM used/total/free, Ổ cứng Disk C:/free, Tổng RAM Roblox).
-  2. Số lượng client Roblox đang chạy thực tế (Live PID, Window HWND, Memory Usage).
-  3. Tên tài khoản (Username) đang chơi của từng Tag.
-  4. Tên Game đang chơi (Blox Fruits, King Legacy, Fisch...) & Place ID.
-  5. Dedicated IP Proxy & Vùng quốc gia đang gán.
-  6. FPS, Ping thời gian thực từ Heartbeat.
-  7. Trạng thái Watchdog Supervisor & Luồng sự kiện Live Stream.
-  8. Khóa màn hình một chiều - Chỉ có thể thoát bằng phím tắt [Ctrl + C].
+  1. Phần cứng máy tính (ASM RDTSC/ARM64, C, Rust, C++ Kernel Probes).
+  2. Số lượng client Roblox đang chạy thực tế (Toolhelp32Snapshot / Psutil / POSIX).
+  3. Tên tài khoản (Username) & Tên Game (King Legacy, Blox Fruits, Pet Simulator 99...).
+  4. Dedicated IP Proxy & Vùng quốc gia đang gán.
+  5. FPS, Ping, RAM từng client thời gian thực.
+  6. Watchdog Supervisor & Luồng sự kiện Live Stream.
+  7. Khóa màn hình một chiều - Thoát bằng phím tắt [Ctrl + C].
 """
 
 import os
@@ -21,6 +20,7 @@ from cli.colors import Colors
 from core.game_selector import game_manager
 from core.watchdog_supervisor import watchdog
 from network.bridge_server import SHARED_STATE
+from core.native_hardware_bridge import NativeHardwareProbe
 
 # Đảm bảo UTF-8 stream trên Windows và Termux
 if hasattr(sys.stdout, "reconfigure"):
@@ -44,15 +44,13 @@ class LiveRealtimeMonitor:
         os.system("cls" if os.name == "nt" else "clear")
 
     @staticmethod
-    def build_bar(percent: float, width: int = 15, color_override: Optional[str] = None) -> str:
-        """Tạo thanh tiến trình phần trăm dạng ASCII/Unicode trực quan"""
+    def build_bar(percent: float, width: int = 12) -> str:
+        """Tạo thanh tiến trình phần trăm dạng ASCII/Unicode trực quan chuẩn độ rộng"""
         clamped = max(0.0, min(100.0, float(percent)))
         filled_len = int(round(width * clamped / 100.0))
         empty_len = width - filled_len
         
-        if color_override:
-            col = color_override
-        elif clamped < 60:
+        if clamped < 60:
             col = Colors.GREEN
         elif clamped < 85:
             col = Colors.YELLOW
@@ -65,8 +63,6 @@ class LiveRealtimeMonitor:
     @classmethod
     def get_hardware_metrics(cls) -> Dict:
         """Thu thập thông số phần cứng máy tính 100% thực tế qua Hợp ngữ ASM + C + Rust + C++"""
-        from core.native_hardware_bridge import NativeHardwareProbe
-
         cpu_pct, cpu_eng, tsc_val = NativeHardwareProbe.get_cpu_usage_precise()
         ram_info = NativeHardwareProbe.get_ram_info_precise()
         disk_path = "C:\\" if os.name == "nt" else "/"
@@ -90,20 +86,20 @@ class LiveRealtimeMonitor:
             "cpu_freq_mhz": cpu_freq_mhz,
             "cpu_engine": cpu_eng,
             "tsc_val": tsc_val,
-            "ram_used_gb": ram_info["used_gb"],
-            "ram_total_gb": ram_info["total_gb"],
-            "ram_free_gb": ram_info["free_gb"],
-            "ram_pct": ram_info["percent"],
+            "ram_used_gb": ram_info.get("used_gb", 0.0),
+            "ram_total_gb": ram_info.get("total_gb", 0.0),
+            "ram_free_gb": ram_info.get("free_gb", 0.0),
+            "ram_pct": ram_info.get("percent", 0.0),
             "ram_engine": ram_info.get("engine", "Native C-ABI"),
             "disk_path": disk_info.get("path", disk_path),
-            "disk_used_gb": disk_info["used_gb"],
-            "disk_total_gb": disk_info["total_gb"],
-            "disk_free_gb": disk_info["free_gb"],
-            "disk_pct": disk_info["percent"],
+            "disk_used_gb": disk_info.get("used_gb", 0.0),
+            "disk_total_gb": disk_info.get("total_gb", 0.0),
+            "disk_free_gb": disk_info.get("free_gb", 0.0),
+            "disk_pct": disk_info.get("percent", 0.0),
             "disk_engine": disk_info.get("engine", "Native C-ABI"),
-            "roblox_procs_count": roblox_info["count"],
-            "roblox_total_ram_mb": roblox_info["total_ram_mb"],
-            "roblox_pids": roblox_info["processes"]
+            "roblox_procs_count": roblox_info.get("count", 0),
+            "roblox_total_ram_mb": roblox_info.get("total_ram_mb", 0.0),
+            "roblox_pids": roblox_info.get("processes", {})
         }
 
     @classmethod
@@ -154,8 +150,7 @@ class LiveRealtimeMonitor:
                     if getattr(inst, "account_username", None) and not registered_tags[tid].get("username"):
                         registered_tags[tid]["username"] = getattr(inst, "account_username")
 
-        # 4. Kiểm tra PID thực tế trên hệ điều hành
-        from core.native_hardware_bridge import NativeHardwareProbe
+        # 4. Quét toàn bộ tiến trình Roblox đang chạy trực tiếp trên hệ thống
         rbx_proc_data = NativeHardwareProbe.get_all_roblox_live_processes()
         live_roblox_pids = {p["pid"]: p["mem_mb"] for p in rbx_proc_data["processes"].values()}
 
@@ -167,7 +162,7 @@ class LiveRealtimeMonitor:
             tinfo = registered_tags[tid]
             pid = tinfo.get("pid", 0)
             
-            # Gán PID thực tế nếu chưa có hoặc khớp
+            # Gán PID thực tế
             if pid in live_roblox_pids:
                 if pid in unmatched_pids:
                     unmatched_pids.remove(pid)
@@ -181,22 +176,21 @@ class LiveRealtimeMonitor:
                 is_proc_alive = False
                 real_ram_mb = 0.0
 
-            # Trạng thái
+            # Kiểm tra trạng thái Heartbeat gần nhất
+            last_hb = tinfo.get("last_heartbeat", 0)
+            is_hb_fresh = (time.time() - last_hb) < 60.0 if last_hb > 0 else False
+
             status_raw = tinfo.get("status", "OFFLINE")
-            if is_proc_alive:
+            if is_proc_alive or is_hb_fresh:
                 if status_raw == "TELEPORTING":
-                    status_badge = f"{Colors.YELLOW}🔄 TELEPORTING{Colors.RESET}"
-                    status_vis = "🔄 TELEPORTING"
+                    status_badge = f"{Colors.YELLOW}🔄 TELEPORT{Colors.RESET}"
                 else:
-                    status_badge = f"{Colors.GREEN}🟢 ONLINE{Colors.RESET}"
-                    status_vis = "🟢 ONLINE"
+                    status_badge = f"{Colors.GREEN}🟢 LIVE{Colors.RESET}"
             else:
                 if status_raw == "RESTARTING":
                     status_badge = f"{Colors.CYAN}🚀 STARTING{Colors.RESET}"
-                    status_vis = "🚀 STARTING"
                 else:
                     status_badge = f"{Colors.GRAY}⚪ OFFLINE{Colors.RESET}"
-                    status_vis = "⚪ OFFLINE"
 
             # Tên Game
             tag_g = game_manager.get_game_for_tag(tid)
@@ -207,15 +201,15 @@ class LiveRealtimeMonitor:
             # Username
             uname = tinfo.get("username", "").strip()
             if not uname or uname.lower() in ["unknown", "player", "player1"]:
-                uname = f"Account #{idx+1}" if is_proc_alive else "Chưa vào game"
+                uname = f"Clone_User_{idx+1}" if (is_proc_alive or is_hb_fresh) else f"Clone_User_{idx+1}"
 
             # Ping & FPS
-            fps_val = tinfo.get("fps", 60) if is_proc_alive else 0
-            ping_val = tinfo.get("ping_ms", 0) if is_proc_alive else 0
-            ping_fps_str = f"{ping_val}ms / {fps_val}FPS" if is_proc_alive else "--"
+            fps_val = tinfo.get("fps", 60) if (is_proc_alive or is_hb_fresh) else 0
+            ping_val = tinfo.get("ping_ms", 0) if (is_proc_alive or is_hb_fresh) else 0
+            ping_fps_str = f"{ping_val}ms/{fps_val}FPS" if (is_proc_alive or is_hb_fresh) else "--"
 
             # RAM Display
-            ram_str = f"{real_ram_mb:.1f} MB" if is_proc_alive and real_ram_mb > 0 else (tinfo.get("memory_mb", "0 MB") if is_proc_alive else "--")
+            ram_str = f"{real_ram_mb:.1f} MB" if is_proc_alive and real_ram_mb > 0 else (tinfo.get("memory_mb", "0 MB") if is_hb_fresh else "--")
 
             tags_list.append({
                 "idx": idx + 1,
@@ -228,8 +222,7 @@ class LiveRealtimeMonitor:
                 "ping_fps": ping_fps_str,
                 "ram": ram_str,
                 "status_badge": status_badge,
-                "status_vis": status_vis,
-                "is_alive": is_proc_alive
+                "is_alive": is_proc_alive or is_hb_fresh
             })
 
         return tags_list
@@ -238,127 +231,123 @@ class LiveRealtimeMonitor:
     def render_dashboard_frame(cls, raw_instances: Optional[List] = None):
         """Vẽ khung hình HUD Giám sát thời gian thực cực kỳ chi tiết, chuẩn xác 100%"""
         cls.clear_screen()
-        W = 98
-
-        def pad_line(colored_str, visible_len, border_col=Colors.C_PURPLE):
-            space_count = max(0, W - 4 - visible_len)
-            return f"{border_col}║{Colors.RESET} {colored_str}{' ' * space_count} {border_col}║{Colors.RESET}"
-
-        top_border = f"{Colors.C_PURPLE}╔{'═' * (W - 2)}╗{Colors.RESET}"
-        mid_border = f"{Colors.C_PURPLE}╠{'═' * (W - 2)}╣{Colors.RESET}"
-        bot_border = f"{Colors.C_PURPLE}╚{'═' * (W - 2)}╝{Colors.RESET}"
-
         hw = cls.get_hardware_metrics()
         tag_rows = cls.get_tag_rows_data(raw_instances)
         live_count = sum(1 for t in tag_rows if t["is_alive"])
         total_registered = len(tag_rows)
+        now_str = time.strftime("%Y-%m-%d %H:%M:%S")
 
-        print(top_border)
+        # Layout viền hộp chuẩn kích thước Terminal (100 ký tự)
+        BOX_W = 98
+        b_top = f"{Colors.C_PURPLE}╔{'═' * BOX_W}╗{Colors.RESET}"
+        b_mid = f"{Colors.C_PURPLE}╠{'═' * BOX_W}╣{Colors.RESET}"
+        b_bot = f"{Colors.C_PURPLE}╚{'═' * BOX_W}╝{Colors.RESET}"
+
+        print(b_top)
         
         # 1. HEADER CHÍNH
-        title_col = f"  {Colors.BOLD}{Colors.rainbow_text('⚡ [ REAL-TIME SYSTEM & ROBLOX MULTI-CLIENT LIVE MONITOR ] ⚡')}{Colors.RESET}"
-        title_vis = "  ⚡ [ REAL-TIME SYSTEM & ROBLOX MULTI-CLIENT LIVE MONITOR ] ⚡"
-        print(pad_line(title_col, len(title_vis)))
+        title_txt = "⚡ [ REAL-TIME HARDWARE & MULTI-CLIENT ROBLOX LIVE MONITOR ] ⚡"
+        print(f"{Colors.C_PURPLE}║{Colors.RESET}  {Colors.BOLD}{Colors.rainbow_text(title_txt)}{Colors.RESET}{' ' * (BOX_W - len(title_txt) - 2)}{Colors.C_PURPLE}║{Colors.RESET}")
 
-        now_str = time.strftime("%Y-%m-%d %H:%M:%S")
-        sub_col = f"  {Colors.GRAY}Thời gian:{Colors.RESET} {Colors.WHITE}{now_str}{Colors.RESET} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Làm mới:{Colors.RESET} {Colors.GREEN}1.5s/chu kỳ{Colors.RESET} {Colors.C_PURPLE}|{Colors.RESET} {Colors.YELLOW}{Colors.BOLD}Nhấn [ Ctrl + C ] để Thoát{Colors.RESET}"
-        sub_vis = f"  Thời gian: {now_str} | Làm mới: 1.5s/chu kỳ | Nhấn [ Ctrl + C ] để Thoát"
-        print(pad_line(sub_col, len(sub_vis)))
+        time_line = f"  Thời gian: {now_str} | Làm mới: 1.5s/chu kỳ | Thoát: Nhấn [ Ctrl + C ]"
+        pad_time = max(0, BOX_W - len(time_line))
+        print(f"{Colors.C_PURPLE}║{Colors.RESET}{Colors.GRAY}{time_line}{Colors.RESET}{' ' * pad_time}{Colors.C_PURPLE}║{Colors.RESET}")
 
-        print(mid_border)
+        print(b_mid)
 
-        # 2. PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC (ASM + C + RUST + C++ MACHINE PROBES)
-        cat_hw = f"  {Colors.C_RED}{Colors.BOLD}► [ PHẦN CỨNG THỜI GIAN THỰC (HỢP NGỮ ASM + C + RUST + C++ PROBES) ]{Colors.RESET}"
-        print(pad_line(cat_hw, len("  ► [ PHẦN CỨNG THỜI GIAN THỰC (HỢP NGỮ ASM + C + RUST + C++ PROBES) ]")))
+        # 2. PHẦN CỨNG MÁY TÍNH THỜI GIAN THỰC (ASM + C + RUST + C++ PROBES)
+        h_title = "► [ PHẦN CỨNG THỜI GIAN THỰC (HỢP NGỮ ASM + C + RUST + C++ PROBES) ]"
+        pad_ht = max(0, BOX_W - len(h_title) - 2)
+        print(f"{Colors.C_PURPLE}║{Colors.RESET}  {Colors.C_RED}{Colors.BOLD}{h_title}{Colors.RESET}{' ' * pad_ht}{Colors.C_PURPLE}║{Colors.RESET}")
 
         # CPU Line
-        cpu_bar = cls.build_bar(hw["cpu_pct"], width=14)
+        cpu_bar = cls.build_bar(hw["cpu_pct"], width=12)
         cpu_freq_str = f" @ {hw['cpu_freq_mhz']} MHz" if hw['cpu_freq_mhz'] > 0 else ""
         tsc_str = f"{hw.get('tsc_val', 0):,}"
-        cpu_col = f"    🖥️  {Colors.BOLD}CPU TỔNG:{Colors.RESET}  {cpu_bar}  {Colors.GRAY}({hw['cpu_count']} Cores{cpu_freq_str} | ASM RDTSC: {tsc_str} | {hw['cpu_engine'][:24]}){Colors.RESET}"
-        cpu_vis = f"    🖥️  CPU TỔNG:  [██████████░░░░░]  {hw['cpu_pct']:>5.1f}%  ({hw['cpu_count']} Cores{cpu_freq_str} | ASM RDTSC: {tsc_str} | {hw['cpu_engine'][:24]})"
-        print(pad_line(cpu_col, len(cpu_vis)))
+        cpu_vis = f"    CPU TỔNG:  [████████████]  {hw['cpu_pct']:>5.1f}%  ({hw['cpu_count']} Cores{cpu_freq_str} | ASM Ticks: {tsc_str})"
+        pad_cpu = max(0, BOX_W - len(cpu_vis))
+        print(f"{Colors.C_PURPLE}║{Colors.RESET}    🖥️  {Colors.BOLD}CPU TỔNG:{Colors.RESET}  {cpu_bar}  {Colors.GRAY}({hw['cpu_count']} Cores{cpu_freq_str} | ASM Ticks: {tsc_str}){Colors.RESET}{' ' * pad_cpu}{Colors.C_PURPLE}║{Colors.RESET}")
 
         # RAM Line
-        ram_bar = cls.build_bar(hw["ram_pct"], width=14)
-        ram_col = f"    🧠  {Colors.BOLD}RAM MÁY :{Colors.RESET}  {ram_bar}  {Colors.CYAN}{hw['ram_used_gb']:.2f} GB{Colors.RESET} / {Colors.WHITE}{hw['ram_total_gb']:.2f} GB{Colors.RESET} {Colors.GRAY}(Trống: {hw['ram_free_gb']:.2f} GB | 64-bit Exact){Colors.RESET}"
-        ram_vis = f"    🧠  RAM MÁY :  [██████████░░░░░]  {hw['ram_pct']:>5.1f}%  {hw['ram_used_gb']:.2f} GB / {hw['ram_total_gb']:.2f} GB (Trống: {hw['ram_free_gb']:.2f} GB | 64-bit Exact)"
-        print(pad_line(ram_col, len(ram_vis)))
+        ram_bar = cls.build_bar(hw["ram_pct"], width=12)
+        ram_vis = f"    RAM MÁY :  [████████████]  {hw['ram_pct']:>5.1f}%  {hw['ram_used_gb']:.2f} GB / {hw['ram_total_gb']:.2f} GB (Trống: {hw['ram_free_gb']:.2f} GB | 64-bit)"
+        pad_ram = max(0, BOX_W - len(ram_vis))
+        print(f"{Colors.C_PURPLE}║{Colors.RESET}    🧠  {Colors.BOLD}RAM MÁY :{Colors.RESET}  {ram_bar}  {Colors.CYAN}{hw['ram_used_gb']:.2f} GB{Colors.RESET} / {Colors.WHITE}{hw['ram_total_gb']:.2f} GB{Colors.RESET} {Colors.GRAY}(Trống: {hw['ram_free_gb']:.2f} GB | 64-bit){Colors.RESET}{' ' * pad_ram}{Colors.C_PURPLE}║{Colors.RESET}")
 
         # Disk Line
-        disk_bar = cls.build_bar(hw["disk_pct"], width=14)
-        disk_col = f"    💾  {Colors.BOLD}Ổ CỨNG ({hw['disk_path']}):{Colors.RESET} {disk_bar}  {Colors.CYAN}{hw['disk_used_gb']:.1f} GB{Colors.RESET} / {Colors.WHITE}{hw['disk_total_gb']:.1f} GB{Colors.RESET} {Colors.GRAY}(Trống: {hw['disk_free_gb']:.1f} GB | Sector Exact){Colors.RESET}"
-        disk_vis = f"    💾  Ổ CỨNG ({hw['disk_path']}): [██████████░░░░░]  {hw['disk_pct']:>5.1f}%  {hw['disk_used_gb']:.1f} GB / {hw['disk_total_gb']:.1f} GB (Trống: {hw['disk_free_gb']:.1f} GB | Sector Exact)"
-        print(pad_line(disk_col, len(disk_vis)))
+        disk_bar = cls.build_bar(hw["disk_pct"], width=12)
+        disk_vis = f"    Ổ CỨNG ({hw['disk_path']}): [████████████]  {hw['disk_pct']:>5.1f}%  {hw['disk_used_gb']:.1f} GB / {hw['disk_total_gb']:.1f} GB (Trống: {hw['disk_free_gb']:.1f} GB)"
+        pad_disk = max(0, BOX_W - len(disk_vis))
+        print(f"{Colors.C_PURPLE}║{Colors.RESET}    💾  {Colors.BOLD}Ổ CỨNG ({hw['disk_path']}):{Colors.RESET} {disk_bar}  {Colors.CYAN}{hw['disk_used_gb']:.1f} GB{Colors.RESET} / {Colors.WHITE}{hw['disk_total_gb']:.1f} GB{Colors.RESET} {Colors.GRAY}(Trống: {hw['disk_free_gb']:.1f} GB){Colors.RESET}{' ' * pad_disk}{Colors.C_PURPLE}║{Colors.RESET}")
 
         # Roblox Process Aggregation Line
-        rbx_col = f"    🎮  {Colors.BOLD}TIẾN TRÌNH ROBLOX:{Colors.RESET} {Colors.LIGHT_GREEN}{hw['roblox_procs_count']} Client đang mở{Colors.RESET} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}Tổng RAM Roblox chiếm:{Colors.RESET} {Colors.YELLOW}{hw['roblox_total_ram_mb']:.1f} MB (Raw WorkingSet){Colors.RESET}"
-        rbx_vis = f"    🎮  TIẾN TRÌNH ROBLOX: {hw['roblox_procs_count']} Client đang mở | Tổng RAM Roblox chiếm: {hw['roblox_total_ram_mb']:.1f} MB (Raw WorkingSet)"
-        print(pad_line(rbx_col, len(rbx_vis)))
+        rbx_vis = f"    TIẾN TRÌNH: {hw['roblox_procs_count']} Client đang mở | RAM Roblox chiếm: {hw['roblox_total_ram_mb']:.1f} MB (WorkingSet Raw)"
+        pad_rbx = max(0, BOX_W - len(rbx_vis))
+        print(f"{Colors.C_PURPLE}║{Colors.RESET}    🎮  {Colors.BOLD}TIẾN TRÌNH:{Colors.RESET} {Colors.LIGHT_GREEN}{hw['roblox_procs_count']} Client đang mở{Colors.RESET} {Colors.C_PURPLE}|{Colors.RESET} {Colors.GRAY}RAM Roblox chiếm:{Colors.RESET} {Colors.YELLOW}{hw['roblox_total_ram_mb']:.1f} MB{Colors.RESET} {Colors.GRAY}(WorkingSet Raw){Colors.RESET}{' ' * pad_rbx}{Colors.C_PURPLE}║{Colors.RESET}")
 
-        print(mid_border)
+        print(b_mid)
 
         # 3. DANH SÁCH TỪNG CLIENT ROBLOX
-        cat_tags = f"  {Colors.C_GREEN}{Colors.BOLD}► [ DANH SÁCH CLIENT ROBLOX: {live_count} LIVE / {total_registered} TAGS ]{Colors.RESET}"
-        cat_tags_vis = f"  ► [ DANH SÁCH CLIENT ROBLOX: {live_count} LIVE / {total_registered} TAGS ]"
-        print(pad_line(cat_tags, len(cat_tags_vis)))
+        t_header_text = f"► [ DANH SÁCH CLIENT ROBLOX: {live_count} LIVE / {total_registered} TAGS ]"
+        pad_th = max(0, BOX_W - len(t_header_text) - 2)
+        print(f"{Colors.C_PURPLE}║{Colors.RESET}  {Colors.C_GREEN}{Colors.BOLD}{t_header_text}{Colors.RESET}{' ' * pad_th}{Colors.C_PURPLE}║{Colors.RESET}")
 
-        # Bảng tiêu đề cột
-        tbl_hdr_col = f"  {Colors.WHITE}{Colors.BOLD}{'#':<3} {'TAG ID':<16} {'PID':<6} {'TÀI KHOẢN':<15} {'GAME ĐANG CHƠI':<22} {'IP PROXY':<18} {'PING/FPS':<11} {'RAM':<9} {'TRẠNG THÁI'}{Colors.RESET}"
-        tbl_hdr_vis = f"  {'#':<3} {'TAG ID':<16} {'PID':<6} {'TÀI KHOẢN':<15} {'GAME ĐANG CHƠI':<22} {'IP PROXY':<18} {'PING/FPS':<11} {'RAM':<9} {'TRẠNG THÁI'}"
-        print(pad_line(tbl_hdr_col, len(tbl_hdr_vis)))
+        # Bảng tiêu đề cột (Định dạng chuẩn 98 ký tự)
+        tbl_hdr_vis = "  #   TAG ID           PID    TÀI KHOẢN       GAME ĐANG CHƠI             IP PROXY & CỜ       PING/FPS    RAM        STATUS"
+        pad_tbl_h = max(0, BOX_W - len(tbl_hdr_vis))
+        print(f"{Colors.C_PURPLE}║{Colors.RESET}{Colors.WHITE}{Colors.BOLD}{tbl_hdr_vis}{Colors.RESET}{' ' * pad_tbl_h}{Colors.C_PURPLE}║{Colors.RESET}")
 
-        div_line = f"  {Colors.GRAY}{'─' * 3} {'─' * 16} {'─' * 6} {'─' * 15} {'─' * 22} {'─' * 18} {'─' * 11} {'─' * 9} {'─' * 12}{Colors.RESET}"
-        div_vis = f"  {'─' * 3} {'─' * 16} {'─' * 6} {'─' * 15} {'─' * 22} {'─' * 18} {'─' * 11} {'─' * 9} {'─' * 12}"
-        print(pad_line(div_line, len(div_vis)))
+        div_bar = "  ──  ───────────────  ─────  ──────────────  ─────────────────────────  ──────────────────  ──────────  ─────────  ──────"
+        pad_div = max(0, BOX_W - len(div_bar))
+        print(f"{Colors.C_PURPLE}║{Colors.RESET}{Colors.GRAY}{div_bar}{Colors.RESET}{' ' * pad_div}{Colors.C_PURPLE}║{Colors.RESET}")
 
         if not tag_rows:
-            empty_msg = f"  {Colors.YELLOW}[!] Chưa có Tag Roblox nào được khởi chạy hoặc gán IP.{Colors.RESET}"
-            print(pad_line(empty_msg, len("  [!] Chưa có Tag Roblox nào được khởi chạy hoặc gán IP.")))
+            empty_msg = "  [!] Chưa có Tag Roblox nào được khởi chạy hoặc gán IP."
+            pad_emp = max(0, BOX_W - len(empty_msg))
+            print(f"{Colors.C_PURPLE}║{Colors.RESET}{Colors.YELLOW}{empty_msg}{Colors.RESET}{' ' * pad_emp}{Colors.C_PURPLE}║{Colors.RESET}")
         else:
-            for r in tag_rows[:12]:  # Hiển thị tối đa 12 Tags để vừa vặn màn hình
-                idx_str = f"{r['idx']:02d}"
-                tid_str = r['tag_id'][:16]
-                pid_str = r['pid'][:6]
-                user_str = r['username'][:15]
-                game_str = r['game_display'][:22]
-                ip_str = r['assigned_ip'][:18]
-                ping_str = r['ping_fps'][:11]
-                ram_str = r['ram'][:9]
-                
-                # Màu sắc cho từng dòng
-                pid_color = Colors.GREEN if r["is_alive"] else Colors.GRAY
-                user_color = Colors.LIGHT_CYAN if r["is_alive"] else Colors.GRAY
-                ip_color = Colors.YELLOW if r["is_alive"] else Colors.GRAY
+            for r in tag_rows[:10]:
+                idx_s = f"{r['idx']:02d}"
+                tid_s = f"{r['tag_id'][:15]:<15}"
+                pid_s = f"{r['pid'][:5]:<5}"
+                usr_s = f"{r['username'][:14]:<14}"
+                gam_s = f"{r['game_display'][:25]:<25}"
+                ip_s  = f"{r['assigned_ip'][:18]:<18}"
+                pfp_s = f"{r['ping_fps'][:10]:<10}"
+                ram_s = f"{r['ram'][:9]:<9}"
 
-                row_col = f"  {Colors.GRAY}{idx_str:<3}{Colors.RESET} {Colors.WHITE}{tid_str:<16}{Colors.RESET} {pid_color}{pid_str:<6}{Colors.RESET} {user_color}{user_str:<15}{Colors.RESET} {Colors.LIGHT_GREEN}{game_str:<22}{Colors.RESET} {ip_color}{ip_str:<18}{Colors.RESET} {Colors.CYAN}{ping_str:<11}{Colors.RESET} {Colors.WHITE}{ram_str:<9}{Colors.RESET} {r['status_badge']}"
-                row_vis = f"  {idx_str:<3} {tid_str:<16} {pid_str:<6} {user_str:<15} {game_str:<22} {ip_str:<18} {ping_str:<11} {ram_str:<9} {r['status_vis']}"
-                print(pad_line(row_col, len(row_vis)))
+                pid_col = Colors.GREEN if r["is_alive"] else Colors.GRAY
+                usr_col = Colors.LIGHT_CYAN if r["is_alive"] else Colors.GRAY
+                ip_col  = Colors.YELLOW if r["is_alive"] else Colors.GRAY
 
-        print(mid_border)
+                row_vis = f"  {idx_s}  {tid_s}  {pid_s}  {usr_s}  {gam_s}  {ip_s}  {pfp_s}  {ram_s}  STATUS"
+                pad_r = max(0, BOX_W - len(row_vis) - 2)
+
+                print(f"{Colors.C_PURPLE}║{Colors.RESET}  {Colors.GRAY}{idx_s}{Colors.RESET}  {Colors.WHITE}{tid_s}{Colors.RESET}  {pid_col}{pid_s}{Colors.RESET}  {usr_col}{usr_s}{Colors.RESET}  {Colors.LIGHT_GREEN}{gam_s}{Colors.RESET}  {ip_col}{ip_s}{Colors.RESET}  {Colors.CYAN}{pfp_s}{Colors.RESET}  {Colors.WHITE}{ram_s}{Colors.RESET}  {r['status_badge']}{' ' * pad_r}{Colors.C_PURPLE}║{Colors.RESET}")
+
+        print(b_mid)
 
         # 4. WATCHDOG SUPERVISOR & NHẬT KÝ SỰ KIỆN LIVE STREAM
         w_summary = watchdog.get_summary()
         w_restarts = w_summary.get("total_restarts", 0)
-        w_status_str = f"{Colors.GREEN}🟢 HOẠT ĐỘNG (Auto-Restart BẬT | {w_restarts} Lần Phục Hồi){Colors.RESET}" if w_summary["is_enabled"] else f"{Colors.GRAY}⚪ ĐÃ TẮT{Colors.RESET}"
-        w_status_vis = f"🟢 HOẠT ĐỘNG (Auto-Restart BẬT | {w_restarts} Lần Phục Hồi)" if w_summary["is_enabled"] else "⚪ ĐÃ TẮT"
-
-        cat_wd = f"  {Colors.C_YELLOW}{Colors.BOLD}► [ WATCHDOG SUPERVISOR & NHẬT KÝ SỰ KIỆN LIVE ]{Colors.RESET} ➔ {w_status_str}"
-        cat_wd_vis = f"  ► [ WATCHDOG SUPERVISOR & NHẬT KÝ SỰ KIỆN LIVE ] ➔ {w_status_vis}"
-        print(pad_line(cat_wd, len(cat_wd_vis)))
+        w_status_vis = f"► [ WATCHDOG SUPERVISOR & NHẬT KÝ SỰ KIỆN LIVE ] -> ONLINE (Auto-Restart BẬT | {w_restarts} Lần)"
+        pad_wd = max(0, BOX_W - len(w_status_vis) - 2)
+        w_badge = f"{Colors.GREEN}🟢 ONLINE (Auto-Restart BẬT | {w_restarts} Lần){Colors.RESET}" if w_summary["is_enabled"] else f"{Colors.GRAY}⚪ ĐÃ TẮT{Colors.RESET}"
+        print(f"{Colors.C_PURPLE}║{Colors.RESET}  {Colors.C_YELLOW}{Colors.BOLD}► [ WATCHDOG SUPERVISOR & NHẬT KÝ SỰ KIỆN LIVE ]{Colors.RESET} ➔ {w_badge}{' ' * pad_wd}{Colors.C_PURPLE}║{Colors.RESET}")
 
         recent_logs = w_summary.get("recent_logs", [])
         if recent_logs:
-            for l_entry in recent_logs[-4:]:
-                clean_entry = l_entry[:90]
-                log_col = f"    {Colors.GRAY}•{Colors.RESET} {Colors.WHITE}{clean_entry}{Colors.RESET}"
+            for l_entry in recent_logs[-3:]:
+                clean_entry = l_entry[:86]
                 log_vis = f"    • {clean_entry}"
-                print(pad_line(log_col, len(log_vis)))
+                pad_l = max(0, BOX_W - len(log_vis))
+                print(f"{Colors.C_PURPLE}║{Colors.RESET}    {Colors.GRAY}•{Colors.RESET} {Colors.WHITE}{clean_entry}{Colors.RESET}{' ' * pad_l}{Colors.C_PURPLE}║{Colors.RESET}")
         else:
-            log_col = f"    {Colors.GRAY}• Đang lắng nghe Heartbeat và trạng thái các Tag Roblox...{Colors.RESET}"
-            print(pad_line(log_col, len("    • Đang lắng nghe Heartbeat và trạng thái các Tag Roblox...")))
+            log_vis = "    • Đang lắng nghe Heartbeat và trạng thái các Tag Roblox..."
+            pad_l = max(0, BOX_W - len(log_vis))
+            print(f"{Colors.C_PURPLE}║{Colors.RESET}{Colors.GRAY}{log_vis}{Colors.RESET}{' ' * pad_l}{Colors.C_PURPLE}║{Colors.RESET}")
 
-        print(bot_border)
+        print(b_bot)
         print(f"\n  {Colors.YELLOW}{Colors.BOLD}🔒 CHẾ ĐỘ GIÁM SÁT TRỰC TIẾP ĐANG KHÓA MÀN HÌNH.{Colors.RESET} {Colors.WHITE}Nhấn {Colors.LIGHT_RED}{Colors.BOLD}[ Ctrl + C ]{Colors.RESET} {Colors.WHITE}để dừng và thoát công cụ.{Colors.RESET}\n")
 
     @classmethod
@@ -368,10 +357,6 @@ class LiveRealtimeMonitor:
         Chỉ thoát khi bấm Ctrl+C.
         """
         try:
-            # Đo CPU lần đầu để lấy baseline
-            if HAS_PSUTIL:
-                psutil.cpu_percent(interval=None)
-            
             while True:
                 cls.render_dashboard_frame(raw_instances=instances)
                 time.sleep(refresh_interval)
@@ -391,12 +376,10 @@ class LiveRealtimeMonitor:
 
 
 def render_network_dashboard(instances: Optional[List] = None):
-    """Hàm wrapper tương thích ngược khởi chạy Live Dashboard"""
     LiveRealtimeMonitor.start_monitoring_loop(instances=instances, refresh_interval=1.5)
 
 
 class DashboardRenderer:
-    """Class wrapper tương thích ngược"""
     @staticmethod
     def render(instances: Optional[List] = None):
         LiveRealtimeMonitor.render_dashboard_frame(raw_instances=instances)
