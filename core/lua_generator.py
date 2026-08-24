@@ -378,10 +378,30 @@ task.spawn(function()
         end
     end
 end)
-            currentJobId = game.JobId
-            on_server_hop_detected(currentJobId)
+
+-- ====================================================================================
+-- 7. AUTO-EXECUTE GAME SCRIPT / CUSTOM PAYLOAD (TỰ ĐỘNG CHẠY SCRIPT GAME ĐÃ CẤU HÌNH)
+-- ====================================================================================
+task.spawn(function()
+    task.wait(3.5)
+    pcall(function()
+        local script_endpoint = TAG_CONFIG.HttpBridgeUrl .. "/api/custom_script"
+        local res = safe_request({{Url = script_endpoint, Method = "GET"}})
+        if res and res.Body and #res.Body > 10 and not string.find(res.Body, "No custom payload") then
+            print(string.format("[%s] 🚀 [AUTO-PAYLOAD] Đang thực thi Script Game tự động...", TAG_CONFIG.TagId))
+            local fn, err = loadstring(res.Body)
+            if fn then
+                local ok, run_err = pcall(fn)
+                if ok then
+                    print(string.format("[%s] ✅ [AUTO-PAYLOAD] ĐÃ CHẠY THÀNH CÔNG SCRIPT GAME!", TAG_CONFIG.TagId))
+                else
+                    warn(string.format("[%s] ⚠️ [AUTO-PAYLOAD] Lỗi khi chạy code Script: %s", TAG_CONFIG.TagId, tostring(run_err)))
+                end
+            else
+                warn(string.format("[%s] ⚠️ [AUTO-PAYLOAD] Lỗi cú pháp loadstring: %s", TAG_CONFIG.TagId, tostring(err)))
+            end
         end
-    end
+    end)
 end)
 
 print(string.format("[+] SUCCESS: Tag [%s] | Dedicated IP: %s | Game: %s", TAG_CONFIG.TagId, TAG_CONFIG.AssignedIP, TAG_CONFIG.TargetGameName or "Blox Fruits"))
@@ -709,28 +729,24 @@ if currentConfig then
     -- BƯỚC 8: TỰ ĐỘNG KHỞI CHẠY SCRIPT CHO TẤT CẢ CÁC TAG (AUTO-EXECUTE CUSTOM PAYLOAD)
     -- ================================================================================
     local function execute_tag_payload()
-        task.wait(1.5)
-        if customPayloadCode and #customPayloadCode > 10 then
-            print(string.format("[%s] [*] Đang tự động chạy Custom Script Payload cho Tag này...", currentConfig.tag_id))
-            local success, err = pcall(function()
-                loadstring(customPayloadCode)()
-            end)
-            if success then
-                print(string.format("[%s] [+] ĐÃ CHẠY THÀNH CÔNG SCRIPT CHO TAG [%s]!", currentConfig.tag_id, currentConfig.tag_id))
-            else
-                warn(string.format("[%s] [!] Lỗi khi chạy Custom Script: %s", currentConfig.tag_id, tostring(err)))
-            end
-        else
-            pcall(function()
-                local res = safe_request({{Url = HTTP_BRIDGE_URL .. "/api/custom_script", Method = "GET"}})
-                if res and res.Body and #res.Body > 10 and not string.find(res.Body, "No custom payload") then
-                    print(string.format("[%s] [*] Tải và chạy script từ Bridge Server...", currentConfig.tag_id))
-                    pcall(function()
-                        loadstring(res.Body)()
-                    end)
+        task.wait(3.5)
+        pcall(function()
+            local res = safe_request({{Url = HTTP_BRIDGE_URL .. "/api/custom_script", Method = "GET"}})
+            if res and res.Body and #res.Body > 10 and not string.find(res.Body, "No custom payload") then
+                print(string.format("[%s] 🚀 [AUTO-PAYLOAD] Đang thực thi Script Game tự động...", currentConfig.tag_id))
+                local fn, err = loadstring(res.Body)
+                if fn then
+                    local ok, run_err = pcall(fn)
+                    if ok then
+                        print(string.format("[%s] ✅ [AUTO-PAYLOAD] ĐÃ CHẠY THÀNH CÔNG SCRIPT CHO ACC [%s]!", currentConfig.tag_id, currentConfig.tag_id))
+                    else
+                        warn(string.format("[%s] ⚠️ [AUTO-PAYLOAD] Lỗi khi chạy code Script: %s", currentConfig.tag_id, tostring(run_err)))
+                    end
+                else
+                    warn(string.format("[%s] ⚠️ [AUTO-PAYLOAD] Lỗi cú pháp loadstring: %s", currentConfig.tag_id, tostring(err)))
                 end
-            end)
-        end
+            end
+        end)
     end
 
     task.spawn(execute_tag_payload)

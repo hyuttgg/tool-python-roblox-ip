@@ -868,25 +868,36 @@ class MasterController:
         if opt == "1":
             print(f"\n{Colors.WHITE}{current_content}{Colors.RESET}")
         elif opt == "2":
-            url_str = safe_input(f"  {Colors.YELLOW}Nhập URL Script Hub / Auto Farm:{Colors.RESET} ").strip()
+            url_str = safe_input(f"  {Colors.YELLOW}Nhập URL Script Hub hoặc lệnh loadstring:{Colors.RESET} ").strip()
             if url_str:
-                code_to_save = f'-- [[ AUTO-GENERATED SCRIPT LOADER ]]\npcall(function()\n    loadstring(game:HttpGet("{url_str}"))()\nend)\n'
+                import re
+                match = re.search(r'https?://[^\s"\'\)]+', url_str)
+                if match:
+                    clean_url = match.group(0)
+                    code_to_save = f'-- [[ AUTO-GENERATED SCRIPT LOADER ]]\npcall(function()\n    loadstring(game:HttpGet("{clean_url}"))()\nend)\n'
+                else:
+                    code_to_save = url_str + "\n"
+
                 with open(payload_file, "w", encoding="utf-8") as f:
                     f.write(code_to_save)
-                print(f"\n{Colors.GREEN}{Colors.BOLD}[+] Đã lưu Script URL thành công!{Colors.RESET}")
+                print(f"\n{Colors.GREEN}{Colors.BOLD}[+] ĐÃ CẤU HÌNH SCRIPT THÀNH CÔNG!{Colors.RESET}")
                 self.sync_system_state(self._get_combined_tag_instances())
         elif opt == "3":
-            print(f"  {Colors.YELLOW}Dán mã code Lua của bạn (Gõ END_SCRIPT ở dòng cuối để lưu):{Colors.RESET}")
-            lines = []
-            while True:
-                l = safe_input()
-                if l.strip() == "END_SCRIPT":
-                    break
-                lines.append(l)
-            if lines:
+            print(f"  {Colors.YELLOW}Dán mã code Lua của bạn (Dán 1 dòng hoặc gõ END_SCRIPT ở dòng cuối nếu nhiều dòng):{Colors.RESET}")
+            first_line = safe_input().strip()
+            if first_line:
+                lines = [first_line]
+                if not first_line.startswith("loadstring") and not first_line.startswith("--") and len(first_line) < 30:
+                    while True:
+                        l = safe_input()
+                        if l.strip() == "END_SCRIPT" or not l:
+                            break
+                        lines.append(l)
+
+                code_to_save = "\n".join(lines)
                 with open(payload_file, "w", encoding="utf-8") as f:
-                    f.write("\n".join(lines))
-                print(f"\n{Colors.GREEN}{Colors.BOLD}[+] Đã lưu Script Lua thành công!{Colors.RESET}")
+                    f.write(code_to_save)
+                print(f"\n{Colors.GREEN}{Colors.BOLD}[+] ĐÃ LƯU MÃ LUA SCRIPT THÀNH CÔNG!{Colors.RESET}")
                 self.sync_system_state(self._get_combined_tag_instances())
         elif opt == "4":
             default_text = '-- [[ ROBLOX MULTI-TAG USER CUSTOM SCRIPT PAYLOAD ]]\nprint("[+] [UNIVERSAL MASTER EXECUTOR] All Tag scripts auto-executed successfully!")\n'
