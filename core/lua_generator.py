@@ -112,41 +112,40 @@ local Stats = game:GetService("Stats")
 local LocalPlayer = Players.LocalPlayer or Players:GetPlayers()[1]
 
 local function safe_request(req_opts)
-    local fn = syn and syn.request or http_request or request or (http and http.request)
-    if fn then
-        local success, res = pcall(fn, req_opts)
-        if success and res then return res end
-    end
-    return nil
-end
-
--- ====================================================================================
+    local fn = syn and syn.request or http_request -- ====================================================================================
 -- 1. NETWORK REQUEST & HTTP HEADER HOOK (SPOOF CLIENT IP, HWID, MAC & USER-AGENT)
 -- ====================================================================================
 local function apply_ip_headers(req)
     if type(req) ~= "table" then return req end
-    req.Headers = req.Headers or {{}}
-    req.Headers["X-Forwarded-For"] = TAG_CONFIG.AssignedIP
-    req.Headers["Client-IP"] = TAG_CONFIG.AssignedIP
-    req.Headers["X-Real-IP"] = TAG_CONFIG.AssignedIP
-    req.Headers["CF-Connecting-IP"] = TAG_CONFIG.AssignedIP
-    req.Headers["True-Client-IP"] = TAG_CONFIG.AssignedIP
-    req.Headers["X-Originating-IP"] = TAG_CONFIG.AssignedIP
-    req.Headers["X-Roblox-Tag"] = TAG_CONFIG.TagId
-    req.Headers["User-Agent"] = TAG_CONFIG.UserAgent
-    req.Headers["X-Client-UUID"] = TAG_CONFIG.ClientUUID
-    req.Headers["X-HWID"] = TAG_CONFIG.HWID
-    req.Headers["X-Client-Mac"] = TAG_CONFIG.MacAddress
+    pcall(function()
+        req.Headers = req.Headers or {{}}
+        req.Headers["X-Forwarded-For"] = TAG_CONFIG.AssignedIP
+        req.Headers["Client-IP"] = TAG_CONFIG.AssignedIP
+        req.Headers["X-Real-IP"] = TAG_CONFIG.AssignedIP
+        req.Headers["CF-Connecting-IP"] = TAG_CONFIG.AssignedIP
+        req.Headers["True-Client-IP"] = TAG_CONFIG.AssignedIP
+        req.Headers["X-Originating-IP"] = TAG_CONFIG.AssignedIP
+        req.Headers["X-Roblox-Tag"] = TAG_CONFIG.TagId
+        req.Headers["User-Agent"] = TAG_CONFIG.UserAgent
+        req.Headers["X-Client-UUID"] = TAG_CONFIG.ClientUUID
+        req.Headers["X-HWID"] = TAG_CONFIG.HWID
+        req.Headers["X-Client-Mac"] = TAG_CONFIG.MacAddress
+    end)
     return req
 end
 
 local original_request = syn and syn.request or http_request or request or (http and http.request)
-if original_request then
-    hookfunction(original_request, function(req)
-        local modified = apply_ip_headers(req)
-        return original_request(modified)
+if original_request and hookfunction then
+    pcall(function()
+        hookfunction(original_request, newcclosure and newcclosure(function(req)
+            local modified = apply_ip_headers(req)
+            return original_request(modified)
+        end) or function(req)
+            local modified = apply_ip_headers(req)
+            return original_request(modified)
+        end)
+        print(string.format("[%s] [+] Hooked Executor HTTP Request -> Dedicated IP: %s", TAG_CONFIG.TagId, TAG_CONFIG.AssignedIP))
     end)
-    print(string.format("[%s] [+] Hooked Executor HTTP Request -> Dedicated IP: %s", TAG_CONFIG.TagId, TAG_CONFIG.AssignedIP))
 end
 
 -- ====================================================================================
@@ -235,7 +234,11 @@ task.spawn(function()
             local fpsVal = 60
             pcall(function() fpsVal = math.floor(workspace:GetRealPhysicsFPS()) end)
             local pingVal = 0
-            pcall(function() pingVal = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) end)
+            pcall(function()
+                if Stats and Stats.Network and Stats.Network.ServerStatsItem and Stats.Network.ServerStatsItem["Data Ping"] then
+                    pingVal = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+                end
+            end)
             local memVal = "0 MB"
             pcall(function() memVal = string.format("%.1f MB", Stats:GetTotalMemoryUsageMb()) end)
 
@@ -330,19 +333,49 @@ pcall(function()
 end)
 
 -- ====================================================================================
--- 5. PER-TAG AUTO TELEPORT TO ASSIGNED GAME
+-- 5. PER-TAG SMART UNIVERSE CHECKER (CHỐNG LẶP TELEPORT / TREO MÀN HÌNH KHI VÀO GAME)
 -- ====================================================================================
+local KNOWN_UNIVERSE_FAMILIES = {{
+    ["Blox Fruits"] = {{ ["2753915549"] = true, ["4442272183"] = true, ["7449423635"] = true }},
+    ["King Legacy"] = {{ ["4520749081"] = true, ["6367588219"] = true, ["15759515082"] = true }},
+    ["Pet Simulator 99"] = {{ ["8737877873"] = true, ["15502339080"] = true, ["16498369169"] = true }},
+    ["Deepwoken"] = {{ ["4111023553"] = true, ["5208655184"] = true, ["6032399813"] = true }},
+    ["Blade Ball"] = {{ ["13772394625"] = true, ["14763044144"] = true }}
+}}
+
+local function is_same_game_family(cur_pid, tgt_pid)
+    local curStr = tostring(cur_pid or "")
+    local tgtStr = tostring(tgt_pid or "")
+    if curStr == tgtStr then return true end
+    for gName, pMap in pairs(KNOWN_UNIVERSE_FAMILIES) do
+        if pMap[curStr] and pMap[tgtStr] then
+            return true
+        end
+    end
+    return false
+end
+
 local hasAutoTeleported = false
 task.spawn(function()
-    task.wait(2.0)
+    task.wait(5.0)
     pcall(function()
+        if _G.ROBLOX_TAG_TELEPORTED then return end
         local targetPid = TAG_CONFIG.TargetPlaceId
-        if targetPid and #targetPid > 2 and tostring(game.PlaceId) ~= targetPid and not isTeleporting and not hasAutoTeleported then
+        if not targetPid or #targetPid < 3 then return end
+        
+        -- Nếu đã ở trong cùng Universe (ví dụ Blox Fruits Sea 1/2/3) -> Tuyệt đối không Teleport ép
+        if is_same_game_family(game.PlaceId, targetPid) then
+            return
+        end
+        
+        -- Chỉ Teleport khi đang ở Universal App (PlaceId 0) hoặc nhầm hẳn tựa game khác
+        if not isTeleporting and not hasAutoTeleported and (game.PlaceId == 0 or not is_same_game_family(game.PlaceId, targetPid)) then
             local pidNum = tonumber(targetPid)
             if pidNum and pidNum > 0 then
                 hasAutoTeleported = true
+                _G.ROBLOX_TAG_TELEPORTED = true
                 isTeleporting = true
-                print(string.format("[%s] [🎮 AUTO-TELEPORT] Game hiện tại (%s) khác Game đã chọn. Đang chuyển vào Game: %s (PlaceId: %s)...", TAG_CONFIG.TagId, tostring(game.PlaceId), TAG_CONFIG.TargetGameName or "Roblox Game", targetPid))
+                print(string.format("[%s] [🎮 AUTO-TELEPORT] Đang chuyển vào Game: %s (PlaceId: %s)...", TAG_CONFIG.TagId, TAG_CONFIG.TargetGameName or "Roblox Game", targetPid))
                 TeleportService:Teleport(pidNum, LocalPlayer)
             end
         end
@@ -523,24 +556,30 @@ if currentConfig then
     -- BƯỚC 3: CAN THIỆP & HOOK TOÀN BỘ HTTP REQUEST (SPOOF IP, HWID, MAC, USER-AGENT)
     -- ================================================================================
     local orig_req = syn and syn.request or http_request or request or (http and http.request)
-    if orig_req then
-        hookfunction(orig_req, function(req)
-            if type(req) == "table" then
-                req.Headers = req.Headers or {{}}
-                req.Headers["X-Forwarded-For"] = currentConfig.assigned_ip
-                req.Headers["Client-IP"] = currentConfig.assigned_ip
-                req.Headers["X-Real-IP"] = currentConfig.assigned_ip
-                req.Headers["CF-Connecting-IP"] = currentConfig.assigned_ip
-                req.Headers["True-Client-IP"] = currentConfig.assigned_ip
-                req.Headers["X-Originating-IP"] = currentConfig.assigned_ip
-                req.Headers["X-Roblox-Tag"] = currentConfig.tag_id
-                req.Headers["X-HWID"] = currentConfig.hwid or "WIN-RANDOM-HWID"
-                req.Headers["X-Client-UUID"] = currentConfig.client_uuid or "UUID-RANDOM"
-                if currentConfig.user_agent then
-                    req.Headers["User-Agent"] = currentConfig.user_agent
+    if orig_req and hookfunction then
+        pcall(function()
+            hookfunction(orig_req, newcclosure and newcclosure(function(req)
+                if type(req) == "table" then
+                    pcall(function()
+                        req.Headers = req.Headers or {{}}
+                        req.Headers["X-Forwarded-For"] = currentConfig.assigned_ip
+                        req.Headers["Client-IP"] = currentConfig.assigned_ip
+                        req.Headers["X-Real-IP"] = currentConfig.assigned_ip
+                        req.Headers["CF-Connecting-IP"] = currentConfig.assigned_ip
+                        req.Headers["True-Client-IP"] = currentConfig.assigned_ip
+                        req.Headers["X-Originating-IP"] = currentConfig.assigned_ip
+                        req.Headers["X-Roblox-Tag"] = currentConfig.tag_id
+                        req.Headers["X-HWID"] = currentConfig.hwid or "WIN-RANDOM-HWID"
+                        req.Headers["X-Client-UUID"] = currentConfig.client_uuid or "UUID-RANDOM"
+                        if currentConfig.user_agent then
+                            req.Headers["User-Agent"] = currentConfig.user_agent
+                        end
+                    end)
                 end
-            end
-            return orig_req(req)
+                return orig_req(req)
+            end) or function(req)
+                return orig_req(req)
+            end)
         end)
     end
 
@@ -629,7 +668,11 @@ if currentConfig then
                 local fpsVal = 60
                 pcall(function() fpsVal = math.floor(workspace:GetRealPhysicsFPS()) end)
                 local pingVal = 0
-                pcall(function() pingVal = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) end)
+                pcall(function()
+                    if Stats and Stats.Network and Stats.Network.ServerStatsItem and Stats.Network.ServerStatsItem["Data Ping"] then
+                        pingVal = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+                    end
+                end)
                 local memVal = "0 MB"
                 pcall(function() memVal = string.format("%.1f MB", Stats:GetTotalMemoryUsageMb()) end)
 
@@ -702,21 +745,51 @@ if currentConfig then
     end)
 
     -- ================================================================================
-    -- BƯỚC 7: TỰ ĐỘNG TELEPORT VÀO ĐÚNG GAME RIÊNG CỦA TỪNG TAG (KHÔNG LẶP KHI SERVER HOP)
+    -- BƯỚC 7: SMART UNIVERSE CHECKER (CHỐNG LẶP TELEPORT / TREO MÀN HÌNH KHI VÀO GAME)
     -- ================================================================================
+    local KNOWN_UNIVERSE_FAMILIES = {{
+        ["Blox Fruits"] = {{ ["2753915549"] = true, ["4442272183"] = true, ["7449423635"] = true }},
+        ["King Legacy"] = {{ ["4520749081"] = true, ["6367588219"] = true, ["15759515082"] = true }},
+        ["Pet Simulator 99"] = {{ ["8737877873"] = true, ["15502339080"] = true, ["16498369169"] = true }},
+        ["Deepwoken"] = {{ ["4111023553"] = true, ["5208655184"] = true, ["6032399813"] = true }},
+        ["Blade Ball"] = {{ ["13772394625"] = true, ["14763044144"] = true }}
+    }}
+
+    local function is_same_game_family(cur_pid, tgt_pid)
+        local curStr = tostring(cur_pid or "")
+        local tgtStr = tostring(tgt_pid or "")
+        if curStr == tgtStr then return true end
+        for gName, pMap in pairs(KNOWN_UNIVERSE_FAMILIES) do
+            if pMap[curStr] and pMap[tgtStr] then
+                return true
+            end
+        end
+        return false
+    end
+
     local hasAutoTeleported = false
     local function check_and_auto_teleport_game()
-        task.wait(2.0)
+        task.wait(5.0)
         pcall(function()
+            if _G.ROBLOX_MASTER_TELEPORTED then return end
             local targetPid = currentConfig.target_place_id or (targetGameConfig and targetGameConfig.place_id)
             local targetName = currentConfig.target_game_name or (targetGameConfig and targetGameConfig.name) or "Target Game"
             
-            if targetPid and #targetPid > 2 and tostring(game.PlaceId) ~= targetPid and not isTeleporting and not hasAutoTeleported then
+            if not targetPid or #targetPid < 3 then return end
+            
+            -- Nếu đã ở trong cùng Universe (ví dụ Blox Fruits Sea 1/2/3) -> Tuyệt đối không Teleport ép
+            if is_same_game_family(game.PlaceId, targetPid) then
+                return
+            end
+
+            -- Chỉ Teleport khi đang ở Universal App (PlaceId 0) hoặc nhầm hẳn tựa game khác
+            if not isTeleporting and not hasAutoTeleported and (game.PlaceId == 0 or not is_same_game_family(game.PlaceId, targetPid)) then
                 local pidNum = tonumber(targetPid)
                 if pidNum and pidNum > 0 then
                     hasAutoTeleported = true
+                    _G.ROBLOX_MASTER_TELEPORTED = true
                     isTeleporting = true
-                    print(string.format("[%s] [🎮 PER-TAG AUTO-TELEPORT] Game hiện tại (%s) khác Game đã chọn. Đang chuyển vào Game: %s (PlaceId: %s)...", currentConfig.tag_id, tostring(game.PlaceId), targetName, targetPid))
+                    print(string.format("[%s] [🎮 PER-TAG AUTO-TELEPORT] Đang chuyển vào Game: %s (PlaceId: %s)...", currentConfig.tag_id, targetName, targetPid))
                     TeleportService:Teleport(pidNum, LocalPlayer)
                 end
             end
