@@ -250,37 +250,51 @@ class RobloxAutoLauncher:
             except Exception:
                 pass
 
-        # 2. XỬ LÝ TRÊN WINDOWS PC
-        exe_path = cls.find_roblox_executable()
-        try:
-            if exe_path and os.path.exists(exe_path):
-                proc = subprocess.Popen(
-                    [exe_path, "--app", url],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
+        # 2. XỬ LÝ TRÊN WINDOWS PC (Khởi chạy trực tiếp vào đúng Game Place ID)
+        if os.name == "nt":
+            try:
+                # 1. Thử qua giao thức chuẩn Windows Roblox Protocol URL (Chính xác 100% mở đúng Game)
+                os.startfile(url)
                 return {
                     "tag_id": tag_id,
                     "status": "LAUNCHED",
-                    "method": "Roblox Executable",
-                    "pid": proc.pid,
-                    "place_id": place_id,
-                    "path": exe_path
-                }
-            else:
-                if os.name == "nt":
-                    os.system(f'start "" "{url}"')
-                else:
-                    os.system(f'xdg-open "{url}" 2>/dev/null || true')
-                return {
-                    "tag_id": tag_id,
-                    "status": "LAUNCHED",
-                    "method": "Protocol (roblox://)",
+                    "method": "Roblox Protocol URI (Direct Game Join)",
                     "pid": 0,
                     "place_id": place_id,
                     "path": url
                 }
-        except Exception as e:
+            except Exception:
+                pass
+
+            # 2. Thử qua executable trực tiếp (Không dùng flag --app vì --app sẽ mở trang Home thay vì vào game)
+            exe_path = cls.find_roblox_executable()
+            try:
+                if exe_path and os.path.exists(exe_path):
+                    proc = subprocess.Popen(
+                        [exe_path, url],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
+                    return {
+                        "tag_id": tag_id,
+                        "status": "LAUNCHED",
+                        "method": "Roblox Executable Direct",
+                        "pid": proc.pid,
+                        "place_id": place_id,
+                        "path": exe_path
+                    }
+                else:
+                    os.system(f'start "" "{url}"')
+                    return {
+                        "tag_id": tag_id,
+                        "status": "LAUNCHED",
+                        "method": "Shell Start Protocol",
+                        "pid": 0,
+                        "place_id": place_id,
+                        "path": url
+                    }
+            except Exception as e:
+                pass
             return {
                 "tag_id": tag_id,
                 "status": "FAILED",

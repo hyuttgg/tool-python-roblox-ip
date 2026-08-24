@@ -99,11 +99,10 @@ class GameSelectorManager:
         """Lấy cấu hình game cho một Tag cụ thể. Nếu không có hoặc đang tắt per_tag_mode, trả về global_game"""
         if tag_id and self.per_tag_mode and tag_id in self.tag_games_map:
             return self.tag_games_map[tag_id]
-        if tag_id and tag_id in self.tag_games_map:
-            return self.tag_games_map[tag_id]
         return self.current_game
 
     def set_game_by_item(self, item: RobloxGameItem, job_id: str = "", private_server_link: str = ""):
+        self.per_tag_mode = False
         self.current_game = {
             "name": item.name,
             "place_id": item.place_id,
@@ -111,11 +110,14 @@ class GameSelectorManager:
             "private_server_link": private_server_link.strip(),
             "auto_teleport_enabled": True
         }
+        for tid in list(self.tag_games_map.keys()):
+            self.tag_games_map[tid] = dict(self.current_game)
         self.save_config()
         logger.info(f"Global target game set to: {item.name} (PlaceId: {item.place_id})")
 
     def set_custom_game(self, name: str, place_id: str, job_id: str = "", private_server_link: str = ""):
         clean_pid = "".join(filter(str.isdigit, str(place_id)))
+        self.per_tag_mode = False
         self.current_game = {
             "name": name.strip() or f"Place_{clean_pid}",
             "place_id": clean_pid or "2753915549",
@@ -123,6 +125,8 @@ class GameSelectorManager:
             "private_server_link": private_server_link.strip(),
             "auto_teleport_enabled": True
         }
+        for tid in list(self.tag_games_map.keys()):
+            self.tag_games_map[tid] = dict(self.current_game)
         self.save_config()
         logger.info(f"Global custom game set to: {self.current_game['name']} (PlaceId: {self.current_game['place_id']})")
 

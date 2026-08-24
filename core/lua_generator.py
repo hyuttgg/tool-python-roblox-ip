@@ -330,16 +330,19 @@ pcall(function()
 end)
 
 -- ====================================================================================
--- 5. PER-TAG AUTO TELEPORT TO ASSIGNED GAME (KHÔNG GÂY LẶP KHI ĐANG TRONG GAME)
+-- 5. PER-TAG AUTO TELEPORT TO ASSIGNED GAME
 -- ====================================================================================
+local hasAutoTeleported = false
 task.spawn(function()
-    task.wait(3.0)
+    task.wait(2.0)
     pcall(function()
         local targetPid = TAG_CONFIG.TargetPlaceId
-        if targetPid and #targetPid > 2 and tostring(game.PlaceId) ~= targetPid and not isTeleporting then
+        if targetPid and #targetPid > 2 and tostring(game.PlaceId) ~= targetPid and not isTeleporting and not hasAutoTeleported then
             local pidNum = tonumber(targetPid)
-            if pidNum and pidNum > 0 and game.PlaceId == 0 then
-                print(string.format("[%s] [🎮 PER-TAG TELEPORT] Đang chuyển server vào Game: %s (PlaceId: %s)...", TAG_CONFIG.TagId, TAG_CONFIG.TargetGameName or "Roblox Game", targetPid))
+            if pidNum and pidNum > 0 then
+                hasAutoTeleported = true
+                isTeleporting = true
+                print(string.format("[%s] [🎮 AUTO-TELEPORT] Game hiện tại (%s) khác Game đã chọn. Đang chuyển vào Game: %s (PlaceId: %s)...", TAG_CONFIG.TagId, tostring(game.PlaceId), TAG_CONFIG.TargetGameName or "Roblox Game", targetPid))
                 TeleportService:Teleport(pidNum, LocalPlayer)
             end
         end
@@ -681,16 +684,19 @@ if currentConfig then
     -- ================================================================================
     -- BƯỚC 7: TỰ ĐỘNG TELEPORT VÀO ĐÚNG GAME RIÊNG CỦA TỪNG TAG (KHÔNG LẶP KHI SERVER HOP)
     -- ================================================================================
+    local hasAutoTeleported = false
     local function check_and_auto_teleport_game()
-        task.wait(3.0)
+        task.wait(2.0)
         pcall(function()
             local targetPid = currentConfig.target_place_id or (targetGameConfig and targetGameConfig.place_id)
             local targetName = currentConfig.target_game_name or (targetGameConfig and targetGameConfig.name) or "Target Game"
             
-            if targetPid and #targetPid > 2 and tostring(game.PlaceId) ~= targetPid and not isTeleporting then
+            if targetPid and #targetPid > 2 and tostring(game.PlaceId) ~= targetPid and not isTeleporting and not hasAutoTeleported then
                 local pidNum = tonumber(targetPid)
-                if pidNum and pidNum > 0 and game.PlaceId == 0 then
-                    print(string.format("[%s] [🎮 PER-TAG AUTO-TELEPORT] Đang chuyển server vào Game: %s (PlaceId: %s)...", currentConfig.tag_id, targetName, targetPid))
+                if pidNum and pidNum > 0 then
+                    hasAutoTeleported = true
+                    isTeleporting = true
+                    print(string.format("[%s] [🎮 PER-TAG AUTO-TELEPORT] Game hiện tại (%s) khác Game đã chọn. Đang chuyển vào Game: %s (PlaceId: %s)...", currentConfig.tag_id, tostring(game.PlaceId), targetName, targetPid))
                     TeleportService:Teleport(pidNum, LocalPlayer)
                 end
             end
