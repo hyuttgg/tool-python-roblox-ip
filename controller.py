@@ -86,7 +86,7 @@ class MasterController:
                     return data.get("selected_country", "MULTI")
             except Exception:
                 pass
-        return "MULTI"
+        return "MULTI"5
 
     def _save_selected_country(self, country_code: str):
         """Lưu cấu hình quốc gia IP đã chọn"""
