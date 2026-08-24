@@ -72,12 +72,17 @@ elif command -v g++ >/dev/null 2>&1 && [ -f "${PROJECT_ROOT}/core/native_hardwar
     g++ -O3 -shared -fPIC -o "${PROJECT_ROOT}/data/native_bin/libhardware_probe.so" "${PROJECT_ROOT}/core/native_hardware_probe.cpp" 2>/dev/null || true
 fi
 
-# 4. File Permissions & Shortcuts
-log_info "Configuring execution permissions..."
+# 4. File Permissions, Downloads Workspace & Shortcuts
+log_info "Configuring execution permissions & Downloads workspace..."
 chmod +x "${PROJECT_ROOT}"/*.py 2>/dev/null || true
 chmod +x "${PROJECT_ROOT}"/*.sh 2>/dev/null || true
 chmod +x "${PROJECT_ROOT}"/shell/*.sh 2>/dev/null || true
 chmod +x "${PROJECT_ROOT}/SetupRobloxIP" 2>/dev/null || true
+
+# Tạo không gian chạy trong Downloads nếu trên môi trường Android / Termux
+if [ -f "${PROJECT_ROOT}/shell/setup_download_workspace.sh" ]; then
+    bash "${PROJECT_ROOT}/shell/setup_download_workspace.sh" || true
+fi
 
 # Setup command shortcut in Termux / Linux bin if writable
 if [ -d "/data/data/com.termux/files/usr/bin" ]; then
@@ -101,4 +106,4 @@ EOF
 fi
 
 echo ""
-log_success "Dependencies installation and shell configuration completed!"
+log_success "Dependencies installation, Termux Core and Downloads Workspace configuration completed!"

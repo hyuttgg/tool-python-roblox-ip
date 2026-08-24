@@ -51,104 +51,123 @@ fi
 # Cài đặt các thư viện Python chuyên dụng
 pip install requests psutil rich prettytable pytz 2>/dev/null || python -m pip install requests psutil rich prettytable pytz 2>/dev/null || true
 
-# 3. Tải tool trực tiếp vào thư mục Download / Tệp tải về của máy
-echo -e "${YELLOW}[3/4] [*] Dang cai dat tool truc tiep vao thu muc Download cua may...${NC}"
+# 3. Cài đặt Core Tool trên Termux ($HOME) & Thiết lập Runner tại thư mục Downloads
+echo -e "${YELLOW}[3/4] [*] Dang cai dat Core Tool tren Termux va tao Runner tai Downloads...${NC}"
 
-# Tạo thư mục Download nếu chưa có
-mkdir -p "/sdcard/Download" 2>/dev/null || mkdir -p "/storage/emulated/0/Download" 2>/dev/null || true
+CORE_DIR="$HOME/tool-python-roblox-ip"
+mkdir -p "$CORE_DIR" 2>/dev/null || true
 
-if [ -d "/sdcard/Download" ]; then
-    TARGET_DIR="/sdcard/Download/tool-python-roblox-ip"
-elif [ -d "/storage/emulated/0/Download" ]; then
-    TARGET_DIR="/storage/emulated/0/Download/tool-python-roblox-ip"
-elif [ -d "$HOME/storage/downloads" ]; then
-    TARGET_DIR="$HOME/storage/downloads/tool-python-roblox-ip"
-else
-    TARGET_DIR="/sdcard/Download/tool-python-roblox-ip"
-    mkdir -p "$TARGET_DIR" 2>/dev/null || true
-fi
-
-# Cập nhật nếu đã có thư mục, hoặc tải mới
-if [ -d "$TARGET_DIR" ]; then
-    echo -e "${CYAN}[*] Dang cap nhat ma nguon moi nhat tai $TARGET_DIR...${NC}"
-    cd "$TARGET_DIR" 2>/dev/null || true
+# Cập nhật nếu đã có Core, hoặc tải mới
+if [ -d "$CORE_DIR/.git" ]; then
+    echo -e "${CYAN}[*] Dang cap nhat ma nguon moi nhat tai $CORE_DIR...${NC}"
+    cd "$CORE_DIR" 2>/dev/null || true
     git fetch origin main 2>/dev/null || true
     git reset --hard origin/main 2>/dev/null || git pull origin main --force 2>/dev/null || true
-    # Đồng bộ trực tiếp gói tar mới nhất để tránh lỗi file cũ bị giữ lại trên Android
-    curl -sL https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz | tar -xz -C "$TARGET_DIR" --strip-components=1 2>/dev/null || true
-fi
+else
+    echo -e "${CYAN}[*] Dang clone / tai ma nguon vao Termux ($CORE_DIR)...${NC}"
+    rm -rf "$CORE_DIR" 2>/dev/null || true
+    mkdir -p "$CORE_DIR" 2>/dev/null || true
 
-# Nếu chưa có thư mục, clone / tải mới
-if [ ! -f "$TARGET_DIR/pyobfuscate_com.py" ] && [ ! -f "$TARGET_DIR/controller.py" ]; then
-    echo -e "${CYAN}[*] Dang clone / tai ma nguon truc tiep vao $TARGET_DIR...${NC}"
-    rm -rf "$TARGET_DIR" 2>/dev/null || true
-    mkdir -p "$TARGET_DIR" 2>/dev/null || true
+    # 1. Git clone vào Termux Home
+    git clone -c core.fileMode=false https://github.com/hyuttgg/tool-python-roblox-ip.git "$CORE_DIR" 2>/dev/null || true
 
-    # 1. Thử git clone
-    git clone -c core.fileMode=false https://github.com/hyuttgg/tool-python-roblox-ip.git "$TARGET_DIR" 2>/dev/null || true
-
-    # 2. Nếu git clone lỗi do libcurl mismatch, dùng Python Engine độc lập tải trực tiếp
-    if [ ! -f "$TARGET_DIR/pyobfuscate_com.py" ] && [ ! -f "$TARGET_DIR/controller.py" ]; then
+    # 2. Dự phòng qua Python / Curl nếu git clone bị lỗi
+    if [ ! -f "$CORE_DIR/controller.py" ]; then
         echo -e "${YELLOW}[*] Dang dong bo qua Python Engine (Bypass SSL/Curl)...${NC}"
-        python -c "
-import urllib.request, tarfile, io, os
-url = 'https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz'
-try:
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        tar_bytes = resp.read()
-    with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode='r:gz') as tar:
-        for member in tar.getmembers():
-            parts = member.name.split('/', 1)
-            if len(parts) > 1 and parts[1]:
-                member.name = parts[1]
-                tar.extract(member, path='$TARGET_DIR')
-    print('[+] Dong bo ma nguon thanh cong!')
-except Exception as e:
-    print('[-] Error:', e)
-" 2>/dev/null || true
-    fi
-
-    # 3. Thử curl / wget dự phòng
-    if [ ! -f "$TARGET_DIR/pyobfuscate_com.py" ] && [ ! -f "$TARGET_DIR/controller.py" ]; then
-        curl -sL https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz | tar -xz -C "$TARGET_DIR" --strip-components=1 2>/dev/null || true
+        curl -sL https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz | tar -xz -C "$CORE_DIR" --strip-components=1 2>/dev/null || true
     fi
 fi
 
-cd "$TARGET_DIR" 2>/dev/null || true
+cd "$CORE_DIR" 2>/dev/null || true
 
-# Cài đặt requirements.txt nếu có
-if [ -f "$TARGET_DIR/requirements.txt" ]; then
-    pip install -r "$TARGET_DIR/requirements.txt" 2>/dev/null || true
+# Cài đặt requirements.txt
+if [ -f "$CORE_DIR/requirements.txt" ]; then
+    pip install -r "$CORE_DIR/requirements.txt" 2>/dev/null || true
 fi
 
-# 4. Cấp quyền thực thi và tạo phím tắt lệnh
+# Biên dịch Native C++ Hardware Probe nếu có clang
+mkdir -p "$CORE_DIR/data/native_bin"
+if command -v clang++ >/dev/null 2>&1 && [ -f "$CORE_DIR/core/native_hardware_probe.cpp" ]; then
+    clang++ -O3 -shared -fPIC -o "$CORE_DIR/data/native_bin/libhardware_probe.so" "$CORE_DIR/core/native_hardware_probe.cpp" 2>/dev/null || true
+fi
+
+# Thiết lập Workspace và Script chạy tại thư mục Downloads trên điện thoại
+DOWNLOAD_DIR="/sdcard/Download/RobloxIPTool"
+mkdir -p "/sdcard/Download" 2>/dev/null || true
+mkdir -p "$DOWNLOAD_DIR" 2>/dev/null || true
+mkdir -p "$DOWNLOAD_DIR/data" 2>/dev/null || true
+mkdir -p "$DOWNLOAD_DIR/data/generated_lua" 2>/dev/null || true
+
+# Đồng bộ file Lua và config ra Downloads
+if [ -d "$CORE_DIR/data" ]; then
+    cp -rn "$CORE_DIR/data"/* "$DOWNLOAD_DIR/data/" 2>/dev/null || true
+fi
+
+# Tạo Script chạy trong thư mục Downloads
+cat << 'EOF' > "$DOWNLOAD_DIR/run.sh"
+#!/data/data/com.termux/files/usr/bin/bash
+# ==============================================================================
+# SCRIPT CHẠY TOOL ROBLOX IP TỪ THƯ MỤC DOWNLOADS
+# ==============================================================================
+CORE_DIR="$HOME/tool-python-roblox-ip"
+if [ ! -d "$CORE_DIR" ]; then
+    CORE_DIR="/data/data/com.termux/files/home/tool-python-roblox-ip"
+fi
+
+if [ -f "$CORE_DIR/controller.py" ]; then
+    cd "$CORE_DIR" && bash run.sh "$@"
+elif [ -f "$CORE_DIR/pyobfuscate_com.py" ]; then
+    cd "$CORE_DIR" && bash run.sh "$@"
+else
+    echo "[-] Khong tim thay ma nguon tool tai: $CORE_DIR"
+fi
+EOF
+
+chmod +x "$DOWNLOAD_DIR/run.sh" 2>/dev/null || true
+cp "$DOWNLOAD_DIR/run.sh" "$DOWNLOAD_DIR/start.sh" 2>/dev/null || true
+chmod +x "$DOWNLOAD_DIR/start.sh" 2>/dev/null || true
+
+# Tạo Hướng dẫn trong Downloads
+cat << 'EOF' > "$DOWNLOAD_DIR/HUONG_DAN_CHAY.txt"
+================================================================================
+  HƯỚNG DẪN CHẠY TOOL PYTHON ROBLOX IP TỪ THƯ MỤC DOWNLOADS TRÊN ĐIỆN THOẠI
+================================================================================
+
+1. CÁCH CHẠY TOOL:
+   - Cách 1 (Nhanh nhất): Mở Termux, gõ:
+       roblox-ip
+
+   - Cách 2: Mở Termux, vào thư mục Downloads rồi chạy:
+       cd /sdcard/Download/RobloxIPTool
+       bash run.sh
+
+2. THƯ MỤC SCRIPT LUA XUẤT RA:
+   - data/generated_lua/ : Chứa toàn bộ file Lua cho từng Tag
+                          (ROBLOX-TAG-01.lua, master_roblox_ip_setter.lua...)
+                          Dùng File Manager / ZArchiver copy vào Executor dễ dàng!
+================================================================================
+EOF
+
+# 4. Cấp quyền thực thi và tạo phím tắt lệnh toàn cầu roblox-ip
 echo -e "${YELLOW}[4/4] [*] Dang cap quyen thuc thi & tao lenh tat roblox-ip...${NC}"
-chmod +x "$TARGET_DIR"/*.py 2>/dev/null || true
-chmod +x "$TARGET_DIR"/*.sh 2>/dev/null || true
-chmod +x "$TARGET_DIR"/shell/*.sh 2>/dev/null || true
+chmod +x "$CORE_DIR"/*.py 2>/dev/null || true
+chmod +x "$CORE_DIR"/*.sh 2>/dev/null || true
+chmod +x "$CORE_DIR"/shell/*.sh 2>/dev/null || true
 
 if [ -d "/data/data/com.termux/files/usr/bin" ]; then
     cat << 'EOF' > /data/data/com.termux/files/usr/bin/roblox-ip
 #!/data/data/com.termux/files/usr/bin/bash
-TARGET_DIR=""
-candidates=(
-    "/sdcard/Download/tool-python-roblox-ip"
-    "/storage/emulated/0/Download/tool-python-roblox-ip"
-    "$HOME/tool-python-roblox-ip"
-    "/data/data/com.termux/files/home/tool-python-roblox-ip"
-)
-for dir in "${candidates[@]}"; do
-    if [ -f "${dir}/pyobfuscate_com.py" ] || [ -f "${dir}/controller.py" ]; then
-        TARGET_DIR="${dir}"
-        break
-    fi
-done
+CORE_DIR="$HOME/tool-python-roblox-ip"
+if [ ! -d "$CORE_DIR" ]; then
+    CORE_DIR="/data/data/com.termux/files/home/tool-python-roblox-ip"
+fi
 
-if [ -n "$TARGET_DIR" ]; then
-    cd "$TARGET_DIR" && bash run.sh "$@"
+if [ -f "$CORE_DIR/controller.py" ]; then
+    cd "$CORE_DIR" && bash run.sh "$@"
+elif [ -f "$CORE_DIR/pyobfuscate_com.py" ]; then
+    cd "$CORE_DIR" && bash run.sh "$@"
 else
-    echo "[-] Khong tim thay thu muc tool-python-roblox-ip!"
+    echo "[-] Khong tim thay ma nguon tai: $CORE_DIR"
 fi
 EOF
     chmod +x /data/data/com.termux/files/usr/bin/roblox-ip 2>/dev/null || true
@@ -156,21 +175,12 @@ fi
 
 echo ""
 echo -e "${GREEN}======================================================================${NC}"
-echo -e "${GREEN}[+] CAI DAT THANH CONG VAO TEP TAI VE (DOWNLOADS)!                   ${NC}"
-echo -e "${CYAN}👉 Vi tri tool: ${TARGET_DIR}                                         ${NC}"
+echo -e "${GREEN}[+] CÀI ĐẶT THÀNH CÔNG TOOL PYTHON ROBLOX IP!                         ${NC}"
+echo -e "${CYAN}• Phần Cài Đặt (Core): ${WHITE}$CORE_DIR (Termux)${NC}"
+echo -e "${CYAN}• Phần Chạy & Script:  ${GREEN}$DOWNLOAD_DIR (Downloads)${NC}"
 echo -e "${GREEN}======================================================================${NC}"
 echo ""
-echo -e "${WHITE}${BOLD}📌 3 BƯỚC CÀI ĐẶT & CHẠY TOOL CHUẨN:${NC}"
-echo ""
-echo -e "${CYAN}1️⃣  Thay đổi repository Termux (neu chua thuc hien):${NC}"
-echo -e "${WHITE}    termux-change-repo${NC}"
-echo -e "${YELLOW}    📌 Nhan OK -> OK${NC}"
-echo ""
-echo -e "${CYAN}2️⃣  Lenh cai dat tool:${NC}"
-echo -e "${WHITE}    . <(curl -sL https://raw.githubusercontent.com/hyuttgg/tool-python-roblox-ip/refs/heads/main/SetupRobloxIP)${NC}"
-echo ""
-echo -e "${CYAN}3️⃣  Lenh chay tool (Quyen Root / SU):${NC}"
-echo -e "${GREEN}    su -c \"export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download/tool-python-roblox-ip && python pyobfuscate_com.py\"${NC}"
-echo ""
-echo -e "${YELLOW}👉 Hoac chay truc tiep bang lenh tat: ${GREEN}roblox-ip${NC}"
+echo -e "${WHITE}${BOLD}📌 CÁCH CHẠY TOOL TRÊN ĐIỆN THOẠI:${NC}"
+echo -e "${CYAN}👉 Cách 1 (Khuyên dùng):${NC} Mở Termux gõ lệnh ${GREEN}${BOLD}roblox-ip${NC}"
+echo -e "${CYAN}👉 Cách 2:${NC} Gõ ${YELLOW}cd /sdcard/Download/RobloxIPTool && bash run.sh${NC}"
 echo -e "${GREEN}======================================================================${NC}"
