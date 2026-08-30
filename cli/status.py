@@ -153,28 +153,28 @@ class LiveRealtimeMonitor:
         # 4. Quét toàn bộ tiến trình Roblox đang chạy trực tiếp trên hệ thống
         rbx_proc_data = NativeHardwareProbe.get_all_roblox_live_processes()
         live_roblox_pids = {p["pid"]: p["mem_mb"] for p in rbx_proc_data["processes"].values()}
-
-        # Ghép thông tin hoàn chỉnh cho từng Tag
         unmatched_pids = list(live_roblox_pids.keys())
 
+        # Ghép thông tin chính xác 100% cho từng Tag
         sorted_tag_ids = sorted(registered_tags.keys())
         for idx, tid in enumerate(sorted_tag_ids):
             tinfo = registered_tags[tid]
             pid = tinfo.get("pid", 0)
             
-            # Gán PID thực tế
-            if pid in live_roblox_pids:
+            # Gán PID thực tế (chỉ gán 1-1, không nhân bản PID)
+            if pid > 0 and pid in live_roblox_pids:
                 if pid in unmatched_pids:
                     unmatched_pids.remove(pid)
                 is_proc_alive = True
                 real_ram_mb = live_roblox_pids[pid]
-            elif unmatched_pids:
+            elif pid <= 0 and unmatched_pids:
                 pid = unmatched_pids.pop(0)
                 is_proc_alive = True
                 real_ram_mb = live_roblox_pids.get(pid, 0.0)
             else:
                 is_proc_alive = False
                 real_ram_mb = 0.0
+                pid = 0
 
             # Kiểm tra trạng thái Heartbeat gần nhất
             last_hb = tinfo.get("last_heartbeat", 0)
@@ -188,7 +188,7 @@ class LiveRealtimeMonitor:
                     status_badge = f"{Colors.GREEN}🟢 LIVE{Colors.RESET}"
             else:
                 if status_raw == "RESTARTING":
-                    status_badge = f"{Colors.CYAN}🚀 STARTING{Colors.RESET}"
+                    status_badge = f"{Colors.CYAN}🚀 REJOINING{Colors.RESET}"
                 else:
                     status_badge = f"{Colors.GRAY}⚪ OFFLINE{Colors.RESET}"
 
@@ -200,16 +200,21 @@ class LiveRealtimeMonitor:
 
             # Username
             uname = tinfo.get("username", "").strip()
-            if not uname or uname.lower() in ["unknown", "player", "player1"]:
-                uname = f"Clone_User_{idx+1}" if (is_proc_alive or is_hb_fresh) else f"Clone_User_{idx+1}"
+            if not uname:
+                uname = "--" if not is_proc_alive else "Player"
 
-            # Ping & FPS
-            fps_val = tinfo.get("fps", 60) if (is_proc_alive or is_hb_fresh) else 0
-            ping_val = tinfo.get("ping_ms", 0) if (is_proc_alive or is_hb_fresh) else 0
-            ping_fps_str = f"{ping_val}ms/{fps_val}FPS" if (is_proc_alive or is_hb_fresh) else "--"
+            # Ping & FPS (chỉ hiển thị khi có telemetry/heartbeat thật)
+            if is_hb_fresh and ("fps" in tinfo or "ping_ms" in tinfo):
+                fps_val = tinfo.get("fps", 60)
+                ping_val = tinfo.get("ping_ms", 0)
+                ping_fps_str = f"{ping_val}ms/{fps_val}FPS"
+            elif is_proc_alive:
+                ping_fps_str = "Connecting..."
+            else:
+                ping_fps_str = "--"
 
             # RAM Display
-            ram_str = f"{real_ram_mb:.1f} MB" if is_proc_alive and real_ram_mb > 0 else (tinfo.get("memory_mb", "0 MB") if is_hb_fresh else "--")
+            ram_str = f"{real_ram_mb:.1f} MB" if (is_proc_alive and real_ram_mb > 0) else "--"
 
             tags_list.append({
                 "idx": idx + 1,
@@ -354,8 +359,27 @@ class LiveRealtimeMonitor:
     def start_monitoring_loop(cls, instances: Optional[List] = None, refresh_interval: float = 1.5):
         """
         Vòng lặp giám sát thời gian thực vô tận (Không thể quay lại Menu).
+        Tự động kích hoạt Watchdog Auto-Rejoin cho toàn bộ các Tag.
         Chỉ thoát khi bấm Ctrl+C.
         """
+        # Đăng ký các Tag và kích hoạt Watchdog Auto-Rejoin
+        if instances:
+            for inst in instances:
+                tid = getattr(inst, "tag_id", "ROBLOX-TAG")
+                tag_g = game_manager.get_game_for_tag(tid)
+                watchdog.register_tag(
+                    tag_id=tid,
+                    assigned_ip=getattr(inst, "assigned_ip", "127.0.0.1") or "127.0.0.1",
+                    region=getattr(inst, "region", "[JP] Japan Dedicated"),
+                    username=getattr(inst, "account_username", "") or "",
+                    place_id=tag_g.get("place_id", "2753915549"),
+                    pid=getattr(inst, "pid", 0)
+                )
+        watchdog.setup_completed = True
+        watchdog.is_enabled = True
+        watchdog.auto_reopen_on_disconnect = True
+        watchdog.start()
+
         try:
             while True:
                 cls.render_dashboard_frame(raw_instances=instances)

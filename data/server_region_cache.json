@@ -1,0 +1,2167 @@
+{
+  "12345678": {
+    "timestamp": 1788066575.0218406,
+    "servers": [
+      {
+        "job_id": "mock-job-12345678-us-east-234273",
+        "playing": 7,
+        "max_players": 12,
+        "ping": 218,
+        "fps": 59,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "mock-job-12345678-us-west-662819",
+        "playing": 9,
+        "max_players": 12,
+        "ping": 167,
+        "fps": 58,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "mock-job-12345678-us-west-806093",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 168,
+        "fps": 60,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "mock-job-12345678-jp-954408",
+        "playing": 9,
+        "max_players": 12,
+        "ping": 64,
+        "fps": 59,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "mock-job-12345678-jp-789335",
+        "playing": 9,
+        "max_players": 12,
+        "ping": 65,
+        "fps": 58,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "mock-job-12345678-hk-815657",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 57,
+        "fps": 59,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "mock-job-12345678-jp-285528",
+        "playing": 10,
+        "max_players": 12,
+        "ping": 63,
+        "fps": 56,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "mock-job-12345678-sg-568561",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 43,
+        "fps": 57,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "mock-job-12345678-jp-371275",
+        "playing": 10,
+        "max_players": 12,
+        "ping": 67,
+        "fps": 56,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "mock-job-12345678-us-west-830030",
+        "playing": 10,
+        "max_players": 12,
+        "ping": 163,
+        "fps": 58,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "mock-job-12345678-jp-934263",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 62,
+        "fps": 59,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "mock-job-12345678-jp-811682",
+        "playing": 10,
+        "max_players": 12,
+        "ping": 66,
+        "fps": 56,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "mock-job-12345678-sg-249652",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 32,
+        "fps": 56,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "mock-job-12345678-sg-800996",
+        "playing": 9,
+        "max_players": 12,
+        "ping": 38,
+        "fps": 59,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "mock-job-12345678-hk-841185",
+        "playing": 9,
+        "max_players": 12,
+        "ping": 48,
+        "fps": 58,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      }
+    ]
+  },
+  "2753915549": {
+    "timestamp": 1788066575.5167892,
+    "servers": [
+      {
+        "job_id": "3180a287-1dcf-4e38-9684-4b91d021be7d",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 83,
+        "fps": 59.972378,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "1497a0d3-dcd3-497b-b644-111b3e9eda04",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 89,
+        "fps": 59.98344,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "1b5b4332-6b10-4782-9806-c88d27f6466a",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 86,
+        "fps": 59.973816,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "5da1bf25-4f3f-4f39-ac32-9d4999093e52",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 53,
+        "fps": 59.968365,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "f18cca13-9f9a-4e11-b59f-49415861e39c",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 41,
+        "fps": 59.984142,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "f990764e-a14f-4ef5-a47e-83bdc89162f1",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 139,
+        "fps": 59.988155,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "636a7c73-f083-4a2f-80e9-3321fd45639a",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 339,
+        "fps": 59.971287,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "141d40ff-9598-4fa8-8d09-114b2462e327",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 213,
+        "fps": 59.965382,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "f759602c-c4f0-4353-a926-17a827fac431",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 146,
+        "fps": 59.977501,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "bae3e983-cb45-4835-ab82-3ac1edce60b7",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 55,
+        "fps": 59.967613,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "97cd3b03-2852-428b-8f2f-492dd8a19dc4",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 35,
+        "fps": 59.880665,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "b54256a2-a705-4eb3-9142-233be017b22a",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 42,
+        "fps": 59.937763,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "721780d9-717a-4c4e-aca1-1d7b90a8798e",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 85,
+        "fps": 59.980293,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "e59ae157-c4be-48b0-9fe8-d008d0db5469",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 322,
+        "fps": 59.97826,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "4ff54d3d-c6d9-4029-b62b-cf5365d2900a",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 40,
+        "fps": 60.004318,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "5968cd65-5161-4a32-a8a8-b423c833ce08",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 50,
+        "fps": 59.989353,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "ca0b5ad7-c0ef-401a-ba31-428a0b6fd036",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 49,
+        "fps": 60.018803,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "ab5dc613-3bb3-4c4d-942b-adf02219d748",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 276,
+        "fps": 59.99778,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "37d258f2-79ae-430a-952f-9cd519134da5",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 214,
+        "fps": 59.985664,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "5f216b05-8a6d-47a1-88a0-cfe1871bbfe0",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 78,
+        "fps": 59.982742,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "8c9ace51-082c-44a7-bb64-48f7f3c38441",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 55,
+        "fps": 59.942131,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "df3cddf7-99fb-4075-a0ef-074bc0050128",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 229,
+        "fps": 59.944973,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "ab1cd440-ef51-4440-bd9e-0bca20c4bf6b",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 53,
+        "fps": 59.971588,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "985a2144-b649-4d8f-aad9-8ec40025013d",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 81,
+        "fps": 59.975243,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "969366b5-de7f-4f07-818d-8f08a7f07d00",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 346,
+        "fps": 59.947872,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "0c0aa00d-faca-4cec-9688-0a04317a8adb",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 298,
+        "fps": 59.989319,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "5b0ba427-8cda-43f9-a8b0-98ce174fbcc1",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 324,
+        "fps": 59.966232,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "7b0fe4b9-383a-4cd6-9244-2b2969b2879f",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 70,
+        "fps": 60.077019,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "cd19dc2d-da68-4b3a-a2c8-4db732b7fee8",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 50,
+        "fps": 59.854435,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "6163b32b-3519-4269-8fab-fb862e821d48",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 14,
+        "fps": 59.962349,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "724f784b-75da-44c0-99de-c0a7b0cbf707",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 94,
+        "fps": 59.982243,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "455f9776-6c3a-42de-b124-b67c6d30970e",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 23,
+        "fps": 59.976723,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "4ab5c12c-f28b-4db3-a3a2-fe4e11cf73dc",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 145,
+        "fps": 59.981052,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "f2793f6d-58bc-48e0-a98e-fc48d6b26a18",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 71,
+        "fps": 59.955902,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "d97e696b-7f5a-4fd6-97eb-b0ec9a0511ed",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 45,
+        "fps": 59.313717,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "3f875968-c4a9-44d3-b836-8f2027b0b81a",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 66,
+        "fps": 59.98584,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "c504a4fc-a5d6-4632-9a5a-d5f1dfd8e159",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 64,
+        "fps": 59.954842,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "fab8dc6f-950a-4e94-8918-694687b6ec85",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 260,
+        "fps": 59.989384,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "4e057a83-e265-4d36-a391-c2a35d3265b9",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 71,
+        "fps": 59.980576,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "cb41ac3a-13ae-4d22-a73b-17ff8249949c",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 88,
+        "fps": 59.955463,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "69f83b70-d7c7-4e35-a8bf-1f5eb5e92a8a",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 290,
+        "fps": 59.967438,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "a0240ee7-968c-4049-9a0c-20a10711308e",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 54,
+        "fps": 59.954258,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "970e9d37-c7de-4390-a70f-0e7e7c902791",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 379,
+        "fps": 59.987419,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "999f7a78-c4c4-4010-8f1e-e99948751c32",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 122,
+        "fps": 59.978844,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "22ee3d2c-b350-4ed4-a21a-d162f4dc3d2c",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 77,
+        "fps": 59.982029,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "d2fcf087-e237-4891-bbb3-caa1d042775f",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 22,
+        "fps": 59.981174,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "46673f13-a6c0-4f43-9f3c-8a362071500a",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 349,
+        "fps": 59.967396,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "ff165308-ae22-46c1-9d77-575019c84f40",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 51,
+        "fps": 59.839787,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "0f10ec61-08f1-41e6-b943-7c0c5943d634",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 91,
+        "fps": 59.984085,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "736b356d-430b-43f5-a05b-5f284613d40d",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 238,
+        "fps": 59.978577,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "d26a8528-a196-45d0-b3c4-ce75a580ae0f",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 51,
+        "fps": 59.971867,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "1ecb3476-e209-4e57-aa5a-652da412fd6a",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 127,
+        "fps": 59.993954,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "88ccf0a4-b577-4c87-b836-ab2ebfaeda81",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 342,
+        "fps": 59.97113,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "4431ca06-dea5-489e-ad2d-4bc118bbf990",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 83,
+        "fps": 59.969917,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "a0feaaee-6c98-469d-8445-165048f57de6",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 13,
+        "fps": 59.966515,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "7b502ebd-5936-4d44-bd74-c388145bfada",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 10,
+        "fps": 59.977352,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "44191c10-449b-40cf-a6ca-8a0c068cc9de",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 106,
+        "fps": 59.98975,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "5f2deac4-9a44-456f-b2d7-c97427ece3f5",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 120,
+        "fps": 60.061153,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "1e85d0fc-0000-4f11-a97e-f5748d285193",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 331,
+        "fps": 59.97258,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "58d1bdc3-f5fc-4777-911c-db4f74bb6f11",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 187,
+        "fps": 59.990715,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "4aa7dfa3-10f1-4598-bbda-720b546f7da4",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 13,
+        "fps": 59.960464,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "e1bab98c-3be3-4672-a3f8-8e4edfec8207",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 55,
+        "fps": 59.944595,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "e4f49727-0935-4a4d-aed3-330eddef2f3d",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 235,
+        "fps": 59.983131,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "04e38755-6293-4f2f-9c7e-a1a4f7def6af",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 16,
+        "fps": 59.968498,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "db5588fb-3597-4bd9-9548-7accda7199d0",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 54,
+        "fps": 59.968918,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "1c495688-3385-40c4-b522-2e0a233b06a3",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 526,
+        "fps": 59.940876,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "8c98e83c-aa1f-422b-a12f-3f33c23cd8d2",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 54,
+        "fps": 59.970547,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "e93db750-686a-4a63-9bd9-465f0706ea94",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 33,
+        "fps": 59.954723,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "d3acd522-57c7-47dc-9b62-495272a5566a",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 106,
+        "fps": 59.872559,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "7b3349b7-b929-41fa-b5c1-570ed87ed8d8",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 32,
+        "fps": 59.961372,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "6cf352df-4e3d-48e2-b6bf-9e939af84dd3",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 349,
+        "fps": 59.992538,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "ff484fce-5193-493a-b87e-aa54b13eea12",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 307,
+        "fps": 59.981804,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "9352f33a-ad19-4386-8afe-b1ff61bb5085",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 56,
+        "fps": 59.946072,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "fe92551a-407a-4388-b690-14c848c1adce",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 344,
+        "fps": 59.983967,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "efad537f-f97d-46e6-b3cb-b8fcafa9fb1b",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 248,
+        "fps": 59.992802,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "68d34a5d-cb61-41ae-8c9c-d3d8c1ba8f15",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 209,
+        "fps": 59.991943,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "786a5690-d0ab-4d51-aadf-da96ed4a770a",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 238,
+        "fps": 59.936001,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "95585c87-ef6a-4899-a473-e3d24df6f016",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 55,
+        "fps": 59.957096,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "f3e62531-9a9f-4223-b0d6-50240dcc3635",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 66,
+        "fps": 59.979252,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "f6d3fb94-1a62-49d2-b724-4444f1f937b1",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 230,
+        "fps": 59.99081,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "1f8ea1b3-5226-4c93-86c6-a2b798a39c0b",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 383,
+        "fps": 59.968784,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "57f9c77c-bbf6-424b-968f-a99d8101092d",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 68,
+        "fps": 59.903641,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "198b6de9-c30e-49db-907a-00e3613d9818",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 30,
+        "fps": 59.953926,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "57081f70-c613-4bd5-8e85-3f947a62881d",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 94,
+        "fps": 59.958473,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "14cbcf96-0199-4781-9027-de86cf0f81a6",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 226,
+        "fps": 59.97855,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "6643bac3-060f-4f86-9e8b-acead0f400db",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 96,
+        "fps": 59.234234,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "3f49d76f-46d7-4431-9225-66a8f8f6c14e",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 39,
+        "fps": 59.984238,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "1471976a-171c-4e37-93b6-9bdf1833c583",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 221,
+        "fps": 59.970688,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "92f0b8c9-2211-4f3c-8c78-e0998fdd12ec",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 55,
+        "fps": 59.917717,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "3cdc3d79-255b-4a4d-9eaa-1e748937b5bd",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 70,
+        "fps": 59.972961,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "1fd4a63e-dacc-494c-9bf3-d8549f078c65",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 30,
+        "fps": 59.964836,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "e2ed398e-a651-4cee-9fa8-fb31f9ae0262",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 62,
+        "fps": 59.965778,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "c5d28124-10f6-4614-be1a-c54cd05d94ed",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 24,
+        "fps": 59.958256,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "24730748-394c-48f7-a0d7-a881a5012d5a",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 59,
+        "fps": 59.984703,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "7e0a37d5-6566-4536-8011-bbe46f1d419e",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 215,
+        "fps": 59.987396,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "24b1b407-86ab-4f46-943e-e18a57093369",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 56,
+        "fps": 59.985561,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "11f0d657-b4cf-4093-b02c-f955ed669adf",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 49,
+        "fps": 59.974297,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "920ca816-9fc3-4bcf-bb43-bc54a004ec03",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 88,
+        "fps": 59.99052,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "4222b613-d26b-466b-8afb-666bbedf2c30",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 54,
+        "fps": 59.964897,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "78f5a0a6-fac9-4b8d-ab87-a1e699321807",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 199,
+        "fps": 59.997028,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      }
+    ]
+  },
+  "4520749081": {
+    "timestamp": 1787899286.0469732,
+    "servers": [
+      {
+        "job_id": "8d2e4aff-4fe4-4e3e-93ef-791702104919",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 20,
+        "fps": 59.97847,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "26bb2962-ec3f-4453-b672-3de76737f440",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 57,
+        "fps": 59.950409,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "ac1a4505-58a2-47b6-bca9-8cb2d90df455",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 216,
+        "fps": 59.982574,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "5fa4122a-ea5b-453a-ad6a-d2dd550c7e53",
+        "playing": 1,
+        "max_players": 12,
+        "ping": 45,
+        "fps": 59.963337,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "1089092a-cbd1-4aa0-bf35-1b87df68a6d9",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 180,
+        "fps": 59.970947,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "ec036cb4-6fda-4363-94cf-16ee72bafe38",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 70,
+        "fps": 59.973576,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "36956ea4-f459-4273-b8fc-dd1be6a7c4c3",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 352,
+        "fps": 59.976852,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "df913646-f5b3-4127-b30a-4d0cb06dd766",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 230,
+        "fps": 59.960758,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "639fa4c6-7073-4211-82e8-3bef2f6d01f1",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 46,
+        "fps": 59.939686,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "a7d30a21-719b-47d7-840e-8c0d95540e43",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 104,
+        "fps": 59.960434,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "d5471b5e-0d4e-406c-9522-63da2962412c",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 199,
+        "fps": 59.968552,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "aa08f754-443f-4bcc-a6f0-997f3850ac24",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 127,
+        "fps": 59.97628,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "efbd93e5-3b1a-4f79-80ee-36f3a2abbdca",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 97,
+        "fps": 59.979088,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "167e2864-7e6f-40a6-91f9-589781e6d690",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 42,
+        "fps": 59.929253,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "1bc6c30b-815b-4539-bb84-7750185f833f",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 68,
+        "fps": 59.925003,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "3da58063-232a-4727-8fde-eac1c9f6ef0e",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 293,
+        "fps": 59.959633,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "2caeb866-c808-4696-b6b5-e8c855d8de41",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 108,
+        "fps": 59.982601,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "2ff8307d-acaf-44c0-b5f5-f59f58377158",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 263,
+        "fps": 59.927349,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "b7ee63d1-6a88-4d44-b5b1-180c20420ae0",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 38,
+        "fps": 59.968246,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "47cb7158-e8ad-4a88-a892-d4f7cdb4adae",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 54,
+        "fps": 59.935715,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "7c12e6dd-cf4f-4828-9ef5-f7e068271efb",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 185,
+        "fps": 59.971844,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "21044d27-4534-49db-88dc-0ba35a05e4f2",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 339,
+        "fps": 59.980873,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "8ea514d1-616f-479c-bb65-ac683e8989c2",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 48,
+        "fps": 59.965504,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "f2f8a476-3960-4fdc-a816-cac1ac6836f2",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 9,
+        "fps": 59.992577,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "0fd34802-8a1b-4a5e-89b6-e33155d126cd",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 63,
+        "fps": 59.802818,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "6d9065c5-4aee-49a6-87ec-cd3769912105",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 88,
+        "fps": 59.966846,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "e8ec6755-1fcf-46f1-913d-13645eb49da2",
+        "playing": 2,
+        "max_players": 12,
+        "ping": 121,
+        "fps": 59.917488,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "d0f2b80a-9d52-4a3b-a3c6-74c55a23c428",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 12,
+        "fps": 59.926785,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "108832ab-69d9-4d13-9d00-b8828e995227",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 44,
+        "fps": 60.032761,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "4bbdb410-e016-4275-aa79-c95bc073e8c4",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 130,
+        "fps": 59.984299,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "ce276000-4eed-45a1-bd68-702f4b037f92",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 218,
+        "fps": 59.953209,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "606c5458-4c88-4d42-9fbb-79c556282923",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 30,
+        "fps": 59.95414,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "1c8ca94b-f924-4d8e-bfb8-746d65c5a8ae",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 136,
+        "fps": 59.934383,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "e6dd9546-7826-4a99-83ac-0fc177601efe",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 79,
+        "fps": 59.980251,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "5de0edce-292d-431b-bfd0-76c3e88b0c3a",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 44,
+        "fps": 59.919888,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "524d441a-cccb-4008-8905-2f61d925a844",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 153,
+        "fps": 59.911766,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "caeaa4c6-128a-4b6e-bfa3-ffc1723a5cf3",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 195,
+        "fps": 59.958817,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "2cf3fac5-1365-4881-85d1-269d886cec6f",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 112,
+        "fps": 59.955189,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "1fd0bb73-8e93-4586-aad4-62bf0286a145",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 251,
+        "fps": 59.976223,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "6d903273-576b-4557-b170-1e71a08729e1",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 113,
+        "fps": 59.997948,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "1f18ec5b-1f0b-4911-8165-9e0c3b316019",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 246,
+        "fps": 59.974941,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "addc3692-bf38-4cdf-91db-1f760293e910",
+        "playing": 3,
+        "max_players": 12,
+        "ping": 39,
+        "fps": 59.978226,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "223da238-afcb-4891-b485-3c0c3dfd1937",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 71,
+        "fps": 59.884068,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "55c58b60-c483-4b4b-9d8b-ebebd39080a5",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 67,
+        "fps": 59.946716,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "0ef3e7ec-302f-4cdf-9cee-738ba4a09930",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 132,
+        "fps": 59.928391,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "7ba79af1-8e2f-4405-9bde-46b022934004",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 60,
+        "fps": 59.914001,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "0dafdf31-a5d4-42cb-aeab-71b64a2a49ea",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 38,
+        "fps": 59.934166,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "2c74ce55-c339-4c11-8332-be7367cbf688",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 89,
+        "fps": 59.820633,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "7cb63155-df3b-471a-a991-27e33c8cd975",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 60,
+        "fps": 59.91703,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "1692e5f7-e664-4196-b63a-7a9aec48b009",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 295,
+        "fps": 60.008347,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "5fc8a162-a708-4b24-92e6-7bca9a6613bc",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 58,
+        "fps": 54.083797,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "2c003b54-4cc9-4db2-9820-2fd57e86f74f",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 73,
+        "fps": 59.922794,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "7e0bbb28-1937-4752-9acc-e6689c280170",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 43,
+        "fps": 59.966148,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "e27ba7a9-0fec-4afa-b114-64b219ec03d7",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 196,
+        "fps": 59.963604,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "f84f650c-909b-4588-b021-f0b41b179a29",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 166,
+        "fps": 59.91544,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "9a64a10e-f8d8-4b7e-b8df-743e3d205c8d",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 64,
+        "fps": 59.922718,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "1e28b654-73fe-4afa-a54d-4efd6ef90ed9",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 47,
+        "fps": 59.947346,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "afe99324-b9b7-4a70-b3aa-f29365af7f9c",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 52,
+        "fps": 59.949799,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "14b89ab4-4846-4f58-824a-40215d4a1532",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 400,
+        "fps": 59.957008,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "a6dccaa7-49f5-46aa-ab22-94afeb068a26",
+        "playing": 4,
+        "max_players": 12,
+        "ping": 53,
+        "fps": 59.904835,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "51801adc-b684-48dd-a45b-e95647eb61b8",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 28,
+        "fps": 59.946056,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "d55e211b-451f-4e2f-aa5e-9d43f73f19ae",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 58,
+        "fps": 59.814373,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "6ccc5ae6-fd12-467e-8fae-1ef06e2ecc58",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 48,
+        "fps": 59.906109,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "c703b9a7-1ec3-4091-b384-6498bb6062ca",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 145,
+        "fps": 59.973015,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "fd1a2f99-5a6b-4944-8770-06f51f196a79",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 152,
+        "fps": 59.932728,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "d459d07c-4349-4563-b3f9-7b4a3a0f6fcf",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 47,
+        "fps": 59.934891,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "fbe0512c-d36f-4aad-bff3-596bdf45fce2",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 48,
+        "fps": 59.953079,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "5f778578-dc6c-4d1c-98a1-335e00f44f2c",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 322,
+        "fps": 59.932568,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "45f0c062-a7a7-4d1f-a120-77eb4fb998ae",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 51,
+        "fps": 59.945538,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "1cfd8f4c-f482-4be8-aecf-f6a11d9b4854",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 59,
+        "fps": 59.924778,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "24986a7e-aaaa-46e0-ab62-6e9fb4703209",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 36,
+        "fps": 59.976044,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "d31fd4e4-dab3-419a-93c4-e7a6f790fd96",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 28,
+        "fps": 59.954941,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "c92ecabb-50b3-4e60-bb53-1727938e2680",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 47,
+        "fps": 59.953766,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "a889e83a-745a-4ec2-adf7-5c57b98618fa",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 161,
+        "fps": 59.926636,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "f7af4924-ef62-48b4-a526-9a1561179cfb",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 103,
+        "fps": 59.901245,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "e876d64f-6a15-4438-a1ab-ca21667d068c",
+        "playing": 5,
+        "max_players": 12,
+        "ping": 48,
+        "fps": 59.887016,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      },
+      {
+        "job_id": "92c82479-ee03-40c5-8d09-830538a69d49",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 61,
+        "fps": 59.858856,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "e776e596-1e51-4a9a-a9bd-55847038350b",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 81,
+        "fps": 59.9505,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "63a70e1f-fa9e-412d-9ccc-8c754ba4f335",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 161,
+        "fps": 59.926186,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "3df42a40-3895-48b6-ba17-37513e71b6da",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 20,
+        "fps": 59.977654,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "390c86ec-d5d3-45c8-88a0-b02b5d0c148e",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 73,
+        "fps": 59.90126,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "9b64907e-c918-43d4-8f75-c8254b918ab1",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 324,
+        "fps": 59.955395,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "e7c0d8a4-d2b4-4c66-b54e-754de742eda2",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 80,
+        "fps": 59.926678,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "b93dd75b-59cb-40e2-9b39-05a68788a258",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 58,
+        "fps": 59.942741,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "6d9da979-80e6-40f9-b632-d974788ead57",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 217,
+        "fps": 59.947872,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "da502786-0160-4de9-87e4-47997a0a0ece",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 113,
+        "fps": 59.854164,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "24df98be-3311-4e02-8efb-6c72675cb0fd",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 55,
+        "fps": 59.905754,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "2c5f731a-27f5-46e2-a912-7b8c5bf9b109",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 370,
+        "fps": 59.939442,
+        "region": "US-EAST",
+        "region_name": "United States (US East / Virginia)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "c92d8f8a-7b92-48fc-87a1-fc11558d797b",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 32,
+        "fps": 59.83107,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "ef70e9d1-a6af-4753-9437-a2aceea06676",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 149,
+        "fps": 59.949966,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "7f2af020-0176-47af-bb86-e9e1698516f1",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 89,
+        "fps": 60.050167,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "ef1dc5a9-4a33-46e3-b698-7537540c2076",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 41,
+        "fps": 58.136761,
+        "region": "SG",
+        "region_name": "Singapore (\u0110\u00f4ng Nam \u00c1 - Ping th\u1ea5p nh\u1ea5t)",
+        "region_flag": "\ud83c\uddf8\ud83c\uddec"
+      },
+      {
+        "job_id": "e45f4ce6-4374-4474-a0c2-2ceb65b2dd68",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 56,
+        "fps": 59.894409,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "f4abca2c-7d5b-4e07-b7b5-6f80e916ff1d",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 106,
+        "fps": 59.905563,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "224de54a-4fdb-4943-999e-05de29d64143",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 362,
+        "fps": 57.462879,
+        "region": "DE",
+        "region_name": "Germany (Frankfurt - Ch\u00e2u \u00c2u)",
+        "region_flag": "\ud83c\udde9\ud83c\uddea"
+      },
+      {
+        "job_id": "1916ad3d-4a5c-485b-a6c7-00195d6fb4ea",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 115,
+        "fps": 59.939396,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "eabe868a-5f5d-4d55-ac4d-12ec6e31bfa2",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 57,
+        "fps": 59.864235,
+        "region": "JP",
+        "region_name": "Japan (Tokyo - \u1ed4n \u0111\u1ecbnh cao)",
+        "region_flag": "\ud83c\uddef\ud83c\uddf5"
+      },
+      {
+        "job_id": "a89d5811-13c2-47e9-acd8-33844da769dc",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 160,
+        "fps": 59.856926,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "a06efc05-7f3b-43f4-8a13-f06ceb483b4d",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 109,
+        "fps": 59.69492,
+        "region": "US-WEST",
+        "region_name": "United States (US West / California)",
+        "region_flag": "\ud83c\uddfa\ud83c\uddf8"
+      },
+      {
+        "job_id": "f4fc9e85-339b-42de-8f38-dd0fffbdc30b",
+        "playing": 6,
+        "max_players": 12,
+        "ping": 78,
+        "fps": 59.81572,
+        "region": "HK",
+        "region_name": "Hong Kong (Ch\u00e2u \u00c1)",
+        "region_flag": "\ud83c\udded\ud83c\uddf0"
+      }
+    ]
+  }
+}

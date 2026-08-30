@@ -197,11 +197,11 @@ class RobloxAutoLauncher:
         (Hỗ trợ toàn diện Windows PC, Android Native, Termux, UGPhone Cloud Phone & Emulators)
         """
         from core.game_selector import game_manager
+        target_g = game_manager.get_game_for_tag(tag_id)
         if not place_id:
-            target_g = game_manager.get_game_for_tag(tag_id)
             place_id = target_g.get("place_id", "2753915549")
 
-        url = f"roblox://experiences/start?placeId={place_id}"
+        url = game_manager.get_launch_uri_for_tag(tag_id)
 
         # 1. XỬ LÝ KHI TAG THUỘC THIẾT BỊ ANDROID / UGPHONE / GIẢ LẬP (Qua ADB từ Windows hoặc Termux)
         if "ANDROID-" in tag_id or "UGPHONE-" in tag_id:
@@ -231,8 +231,9 @@ class RobloxAutoLauncher:
             except Exception as e:
                 logger.debug(f"ADB launch error: {e}")
 
-        # 2. XỬ LÝ TRỰC TIẾP TRÊN MÔI TRƯỜNG LINUX / ANDROID NATIVE / TERMUX
-        if os.name != "nt" or os.path.exists("/system/bin/am") or shutil.which("am") is not None:
+        # 2. XỬ LÝ TRÊN MÔI TRƯỜNG ANDROID / TERMUX / UGPHONE
+        is_android = os.path.exists("/system/bin/am") or "ANDROID_ROOT" in os.environ or os.path.exists("/data/data/com.termux") or shutil.which("am") is not None
+        if is_android:
             user_flag = []
             if clone_user is not None:
                 user_flag = ["--user", str(clone_user)]
@@ -241,20 +242,21 @@ class RobloxAutoLauncher:
             elif "CLONE-04" in tag_id or "CLONE-05" in tag_id:
                 user_flag = ["--user", "10"]
 
+            # Chỉ dùng Android Intent an toàn, không dùng monkey gây loạn/crash màn hình
             am_cmds = [
                 ["am", "start"] + user_flag + ["-a", "android.intent.action.VIEW", "-d", url],
-                ["am", "start"] + user_flag + ["-n", "com.roblox.client/com.roblox.client.ActivityProtocolLaunch", "-d", url],
-                ["am", "start"] + user_flag + ["-n", "com.roblox.client/com.roblox.client.RobloxMainActivity", "-d", url],
-                ["monkey", "-p", "com.roblox.client", "-c", "android.intent.category.LAUNCHER", "1"],
+                ["am", "start", "-a", "android.intent.action.VIEW", "-d", url],
+                ["am", "start", "-n", "com.roblox.client/com.roblox.client.ActivityProtocolLaunch", "-d", url],
+                ["am", "start", "-n", "com.roblox.client/com.roblox.client.RobloxMainActivity", "-d", url],
             ]
             for cmd in am_cmds:
                 try:
                     res = subprocess.run(cmd, capture_output=True, text=True, timeout=4)
-                    if res.returncode == 0 or "Starting:" in res.stdout or "Events injected: 1" in res.stdout:
+                    if res.returncode == 0 or "Starting:" in res.stdout:
                         return {
                             "tag_id": tag_id,
                             "status": "LAUNCHED",
-                            "method": f"UGPhone Android Intent ({cmd[0]} {cmd[1] if len(cmd) > 1 else ''})",
+                            "method": f"Android Intent ({cmd[0]} {cmd[1] if len(cmd) > 1 else ''})",
                             "pid": 0,
                             "place_id": place_id,
                             "path": url
@@ -271,6 +273,22 @@ class RobloxAutoLauncher:
                         "tag_id": tag_id,
                         "status": "LAUNCHED",
                         "method": "UGPhone SuperUser (Root Intent)",
+                        "pid": 0,
+                        "place_id": place_id,
+                        "path": url
+                    }
+            except Exception:
+                pass
+
+        # 3. XỬ LÝ TRÊN LINUX DESKTOP (Không phải Android)
+        if os.name != "nt" and not is_android:
+            try:
+                res = subprocess.run(["xdg-open", url], capture_output=True, text=True, timeout=3)
+                if res.returncode == 0:
+                    return {
+                        "tag_id": tag_id,
+                        "status": "LAUNCHED",
+                        "method": "Linux xdg-open Protocol",
                         "pid": 0,
                         "place_id": place_id,
                         "path": url

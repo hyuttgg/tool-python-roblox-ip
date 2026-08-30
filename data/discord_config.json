@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "webhook_url": "https://discord.com/api/webhooks/12345/test",
+  "bot_token": "",
+  "channel_id": "",
+  "attach_screenshot": true,
+  "notify_on_crash": true,
+  "notify_on_rejoin": true
+}

@@ -169,31 +169,12 @@ class RobloxCloneScanner:
                         status="CLOSED_READY"
                     ))
 
-        # 3. Đọc từ file đã lưu nếu có
+        # 3. Đọc từ file đã lưu nếu có (bỏ qua các slot ảo Auto-Registered Slot)
         saved_clones = self._load_saved_clones()
-        
-        # Nếu chưa tìm thấy clone nào trên đĩa, tự động tạo sẵn các Slot Clone tiêu chuẩn (mặc định 5 Slot Clone)
-        if not discovered and not saved_clones:
-            default_slots = [
-                ("ROBLOX-CLONE-01", "Roblox-Clone-Client-01", "APP_CLONE"),
-                ("ROBLOX-CLONE-02", "Roblox-Clone-Client-02", "APP_CLONE"),
-                ("ROBLOX-CLONE-03", "Roblox-Clone-Client-03", "APP_CLONE"),
-                ("ROBLOX-CLONE-04", "Roblox-Clone-Client-04", "APP_CLONE"),
-                ("ROBLOX-CLONE-05", "Roblox-Clone-Client-05", "APP_CLONE"),
-            ]
-            for t_id, t_name, t_type in default_slots:
-                discovered.append(RobloxCloneProfile(
-                    tag_id=t_id,
-                    name=t_name,
-                    clone_type=t_type,
-                    path_or_id="Auto-Registered Slot",
-                    status="CLOSED_READY"
-                ))
-        elif saved_clones:
-            # Gộp và giữ lại các cấu hình IP đã lưu
+        if saved_clones:
             existing_tags = {c.tag_id for c in discovered}
             for sc in saved_clones:
-                if sc.tag_id not in existing_tags:
+                if sc.tag_id not in existing_tags and sc.path_or_id != "Auto-Registered Slot":
                     discovered.append(sc)
 
         self.cached_clones = discovered

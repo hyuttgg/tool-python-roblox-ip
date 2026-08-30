@@ -1,0 +1,47 @@
+{
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "inbounds": [
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen": "127.0.0.1",
+      "listen_port": 10808,
+      "sniff": true
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "socks",
+      "tag": "sg-proxy",
+      "server": "103.150.12.1",
+      "server_port": 1080
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "protocol": [
+          "dns"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "domain_suffix": [
+          "roblox.com",
+          "rbxcdn.com",
+          "robloxext.com",
+          "setup.rbxcdn.com"
+        ],
+        "outbound": "sg-proxy"
+      }
+    ],
+    "auto_detect_interface": true
+  }
+}

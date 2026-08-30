@@ -303,6 +303,45 @@ pcall(function()
     end)
 end)
 
+-- Hook giám sát CoreGui RobloxPromptGui Overlay (bắt modal dialog disconnect trên mọi Executor)
+pcall(function()
+    task.spawn(function()
+        while task.wait(3.0) do
+            if isTeleporting then break end
+            pcall(function()
+                local promptGui = CoreGui:FindFirstChild("RobloxPromptGui")
+                if promptGui then
+                    local overlay = promptGui:FindFirstChild("promptOverlay")
+                    if overlay then
+                        local errTitle = overlay:FindFirstChild("ErrorTitle")
+                        local errMessage = overlay:FindFirstChild("ErrorMessage")
+                        if (errTitle and #errTitle.Text > 0) or (errMessage and #errMessage.Text > 0) then
+                            local fullMsg = (errTitle and errTitle.Text or "") .. " " .. (errMessage and errMessage.Text or "")
+                            if #fullMsg > 5 then
+                                report_disconnection("Roblox Prompt Overlay: " .. fullMsg)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+-- Anti-Idle Virtual Input (Chống văng game sau 20 phút không thao tác)
+pcall(function()
+    local VirtualUser = game:GetService("VirtualUser")
+    if LocalPlayer then
+        LocalPlayer.Idled:Connect(function()
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new(0, 0))
+                print(string.format("[%s] [🛡️ ANTI-IDLE] Tự động kích hoạt thao tác ảo chống văng 20 phút thành công!", TAG_CONFIG.TagId))
+            end)
+        end)
+    end
+end)
+
 pcall(function()
     if LocalPlayer then
         LocalPlayer.OnTeleport:Connect(function(state)
@@ -417,21 +456,19 @@ end)
 -- ====================================================================================
 task.spawn(function()
     task.wait(3.5)
+    -- [A] THỰC THI TRỰC TIẾP MÃ SCRIPT NGƯỜI DÙNG ĐÃ DÁN VÀO TOOL (DIRECT INJECTION)
+    pcall(function()
+{custom_payload_code}
+    end)
+
+    -- [B] DỰ PHÒNG: TẢI BẢN CẬP NHẬT TỪ PYTHON BRIDGE SERVER NẾU CÓ
     pcall(function()
         local script_endpoint = TAG_CONFIG.HttpBridgeUrl .. "/api/custom_script"
         local res = safe_request({{Url = script_endpoint, Method = "GET"}})
         if res and res.Body and #res.Body > 10 and not string.find(res.Body, "No custom payload") then
-            print(string.format("[%s] 🚀 [AUTO-PAYLOAD] Đang thực thi Script Game tự động...", TAG_CONFIG.TagId))
             local fn, err = loadstring(res.Body)
             if fn then
-                local ok, run_err = pcall(fn)
-                if ok then
-                    print(string.format("[%s] ✅ [AUTO-PAYLOAD] ĐÃ CHẠY THÀNH CÔNG SCRIPT GAME!", TAG_CONFIG.TagId))
-                else
-                    warn(string.format("[%s] ⚠️ [AUTO-PAYLOAD] Lỗi khi chạy code Script: %s", TAG_CONFIG.TagId, tostring(run_err)))
-                end
-            else
-                warn(string.format("[%s] ⚠️ [AUTO-PAYLOAD] Lỗi cú pháp loadstring: %s", TAG_CONFIG.TagId, tostring(err)))
+                pcall(fn)
             end
         end
     end)
@@ -737,6 +774,45 @@ if currentConfig then
         end)
     end)
 
+    -- Hook CoreGui Prompt Overlay (bắt modal dialog lỗi trên Executor)
+    pcall(function()
+        task.spawn(function()
+            while task.wait(3.0) do
+                if isTeleporting then break end
+                pcall(function()
+                    local promptGui = CoreGui:FindFirstChild("RobloxPromptGui")
+                    if promptGui then
+                        local overlay = promptGui:FindFirstChild("promptOverlay")
+                        if overlay then
+                            local errTitle = overlay:FindFirstChild("ErrorTitle")
+                            local errMessage = overlay:FindFirstChild("ErrorMessage")
+                            if (errTitle and #errTitle.Text > 0) or (errMessage and #errMessage.Text > 0) then
+                                local fullMsg = (errTitle and errTitle.Text or "") .. " " .. (errMessage and errMessage.Text or "")
+                                if #fullMsg > 5 then
+                                    report_error_to_python("Roblox Prompt Overlay: " .. fullMsg)
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end)
+    end)
+
+    -- Anti-Idle Virtual Input (Chống văng sau 20 phút)
+    pcall(function()
+        local VirtualUser = game:GetService("VirtualUser")
+        if LocalPlayer then
+            LocalPlayer.Idled:Connect(function()
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton2(Vector2.new(0, 0))
+                    print(string.format("[%s] [🛡️ ANTI-IDLE] Tự động nhấn phím ảo chống văng 20 phút thành công!", currentConfig.tag_id))
+                end)
+            end)
+        end
+    end)
+
     pcall(function()
         TeleportService.TeleportInitFailed:Connect(function(player, result, err)
             isTeleporting = false
@@ -803,20 +879,18 @@ if currentConfig then
     -- ================================================================================
     local function execute_tag_payload()
         task.wait(3.5)
+        -- [A] THỰC THI TRỰC TIẾP MÃ SCRIPT NGƯỜI DÙNG ĐÃ DÁN VÀO TOOL (DIRECT INJECTION)
+        pcall(function()
+{custom_payload_code}
+        end)
+
+        -- [B] DỰ PHÒNG: TẢI BẢN CẬP NHẬT TỪ PYTHON BRIDGE SERVER NẾU CÓ
         pcall(function()
             local res = safe_request({{Url = HTTP_BRIDGE_URL .. "/api/custom_script", Method = "GET"}})
             if res and res.Body and #res.Body > 10 and not string.find(res.Body, "No custom payload") then
-                print(string.format("[%s] 🚀 [AUTO-PAYLOAD] Đang thực thi Script Game tự động...", currentConfig.tag_id))
                 local fn, err = loadstring(res.Body)
                 if fn then
-                    local ok, run_err = pcall(fn)
-                    if ok then
-                        print(string.format("[%s] ✅ [AUTO-PAYLOAD] ĐÃ CHẠY THÀNH CÔNG SCRIPT CHO ACC [%s]!", currentConfig.tag_id, currentConfig.tag_id))
-                    else
-                        warn(string.format("[%s] ⚠️ [AUTO-PAYLOAD] Lỗi khi chạy code Script: %s", currentConfig.tag_id, tostring(run_err)))
-                    end
-                else
-                    warn(string.format("[%s] ⚠️ [AUTO-PAYLOAD] Lỗi cú pháp loadstring: %s", currentConfig.tag_id, tostring(err)))
+                    pcall(fn)
                 end
             end
         end)
@@ -901,6 +975,19 @@ class LuaScriptGenerator:
     def __init__(self):
         os.makedirs(OUTPUT_LUA_DIR, exist_ok=True)
 
+    def _get_custom_payload_code(self) -> str:
+        """Đọc mã Lua custom payload người dùng đã dán vào tool để nhúng trực tiếp"""
+        payload_file = os.path.join(os.path.dirname(OUTPUT_LUA_DIR), "custom_payload.lua")
+        if os.path.exists(payload_file):
+            try:
+                with open(payload_file, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    if content and not content.startswith("-- No custom payload"):
+                        return content
+            except Exception:
+                pass
+        return '-- [[ SCRIPT GAME PAYLOAD ]]\nprint("[+] [UNIVERSAL MASTER EXECUTOR] Autoexec loaded successfully!")'
+
     def _generate_unique_tag_profile(self, idx: int) -> Dict:
         """Sinh thông số độc lập 100% không trùng lặp cho từng Tag"""
         dns_p = UNIQUE_DNS_PAIRS[idx % len(UNIQUE_DNS_PAIRS)]
@@ -963,6 +1050,8 @@ class LuaScriptGenerator:
         mapping_list = []
         from core.game_selector import game_manager
 
+        custom_code = self._get_custom_payload_code()
+
         for idx, inst in enumerate(instances):
             pool_data = assigned_pool[idx] if idx < len(assigned_pool) else assigned_pool[idx % len(assigned_pool)]
             assigned_ip = pool_data["ip"]
@@ -1004,7 +1093,8 @@ class LuaScriptGenerator:
                 hud_y=profile["hud_y"],
                 color_r=profile["color_r"],
                 color_g=profile["color_g"],
-                color_b=profile["color_b"]
+                color_b=profile["color_b"],
+                custom_payload_code=custom_code
             )
 
             obfuscated_single = LuaObfuscator.obfuscate_and_stealth(lua_content, stealth_padding_lines=350)
@@ -1034,22 +1124,38 @@ class LuaScriptGenerator:
                 "target_job_id": target_g_jid
             })
 
-        # Tạo file Master Auto-Router Lua
+        # Tạo file Master Auto-Router Lua (online_roblox.lua & master_roblox_ip_setter.lua)
         master_filepath = os.path.join(OUTPUT_LUA_DIR, "master_roblox_ip_setter.lua")
+        online_roblox_filepath = os.path.join(OUTPUT_LUA_DIR, "online_roblox.lua")
+        online_space_filepath = os.path.join(OUTPUT_LUA_DIR, "online roblox.lua")
+        
         mapping_lua_table = self._convert_to_lua_table(mapping_list)
         
         master_content = LUA_MASTER_TEMPLATE.format(
             timestamp=timestamp,
-            mapping_json=mapping_lua_table
+            mapping_json=mapping_lua_table,
+            custom_payload_code=custom_code
         )
 
         obfuscated_master = LuaObfuscator.obfuscate_and_stealth(master_content, stealth_padding_lines=350)
 
         with open(master_filepath, "w", encoding="utf-8") as f:
             f.write(obfuscated_master)
+        with open(online_roblox_filepath, "w", encoding="utf-8") as f:
+            f.write(obfuscated_master)
+        try:
+            with open(online_space_filepath, "w", encoding="utf-8") as f:
+                f.write(obfuscated_master)
+            # Lưu thẳng ra thư mục Download trên Android nếu có
+            if os.path.exists("/sdcard/Download"):
+                with open("/sdcard/Download/online_roblox.lua", "w", encoding="utf-8") as f:
+                    f.write(obfuscated_master)
+        except Exception:
+            pass
 
         generated_files["MASTER"] = master_filepath
-        logger.info(f"Generated and obfuscated {len(instances)} Tag Lua scripts with unique profiles + 1 Master script in {OUTPUT_LUA_DIR}")
+        generated_files["ONLINE_ROBLOX"] = online_roblox_filepath
+        logger.info(f"Generated and obfuscated {len(instances)} Tag Lua scripts + online_roblox.lua in {OUTPUT_LUA_DIR}")
 
         return generated_files
 
@@ -1063,6 +1169,7 @@ class LuaScriptGenerator:
         from core.game_selector import game_manager
         tag_game = game_manager.get_game_for_tag(tag_id)
 
+        custom_code = self._get_custom_payload_code()
         lua_single = LUA_TEMPLATE_SINGLE_TAG.format(
             tag_id=tag_id,
             assigned_ip=new_ip,
@@ -1085,7 +1192,8 @@ class LuaScriptGenerator:
             hud_y=profile["hud_y"],
             color_r=profile["color_r"],
             color_g=profile["color_g"],
-            color_b=profile["color_b"]
+            color_b=profile["color_b"],
+            custom_payload_code=custom_code
         )
 
         obfuscated_single = LuaObfuscator.obfuscate_and_stealth(lua_single, stealth_padding_lines=200)
@@ -1120,7 +1228,7 @@ class LuaScriptGenerator:
             "target_job_id": tag_game.get("job_id", "")
         }]
         mapping_lua = self._convert_to_lua_table(master_mapping)
-        master_content = LUA_MASTER_TEMPLATE.format(timestamp=timestamp, mapping_json=mapping_lua)
+        master_content = LUA_MASTER_TEMPLATE.format(timestamp=timestamp, mapping_json=mapping_lua, custom_payload_code=custom_code)
         obfuscated_master = LuaObfuscator.obfuscate_and_stealth(master_content, stealth_padding_lines=200)
 
         master_filepath = os.path.join(OUTPUT_LUA_DIR, "master_roblox_ip_setter.lua")

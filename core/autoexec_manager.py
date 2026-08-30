@@ -40,16 +40,34 @@ COMMON_ADB_PATHS = [
 ]
 
 ANDROID_AUTOEXEC_SDCARD_PATHS = [
-    "/sdcard/Arceus X/Autoexec",
-    "/sdcard/ArceusX/Autoexec",
     "/sdcard/Delta/Autoexec",
+    "/sdcard/Delta/execute",
+    "/sdcard/Delta/scripts",
+    "/sdcard/Arceus X/Autoexec",
+    "/sdcard/Arceus X/execute",
+    "/sdcard/Arceus X/scripts",
+    "/sdcard/ArceusX/Autoexec",
+    "/sdcard/ArceusX/execute",
     "/sdcard/Codex/Autoexec",
+    "/sdcard/Codex/execute",
+    "/sdcard/Codex/scripts",
     "/sdcard/Fluxus/Autoexec",
-    "/storage/emulated/0/Arceus X/Autoexec",
-    "/storage/emulated/0/ArceusX/Autoexec",
+    "/sdcard/Fluxus/execute",
+    "/sdcard/VegaX/Autoexec",
+    "/sdcard/VegaX/execute",
+    "/sdcard/Hydrogen/Autoexec",
+    "/sdcard/Download/RobloxIPTool",
     "/storage/emulated/0/Delta/Autoexec",
+    "/storage/emulated/0/Delta/execute",
+    "/storage/emulated/0/Arceus X/Autoexec",
+    "/storage/emulated/0/Arceus X/execute",
     "/storage/emulated/0/Codex/Autoexec",
-    "/storage/emulated/0/Fluxus/Autoexec"
+    "/storage/emulated/0/Codex/execute",
+    "/storage/emulated/0/Fluxus/Autoexec",
+    "/storage/emulated/999/Delta/Autoexec",
+    "/storage/emulated/999/Arceus X/Autoexec",
+    "/storage/emulated/10/Delta/Autoexec",
+    "/storage/emulated/10/Arceus X/Autoexec"
 ]
 
 class AutoexecManager:
@@ -200,27 +218,61 @@ class AutoexecManager:
             "errors": []
         }
 
-        # 1. Đồng bộ trực tiếp vào các thư mục Autoexec tìm thấy (PC & Android Native)
+        # 1. Đồng bộ trực tiếp vào các thư mục Autoexec/Execute tìm thấy (PC & Android Native)
         all_folders = self.scan_all_autoexec_folders()
+        custom_payload_path = os.path.join(DATA_DIR, "custom_payload.lua")
+        custom_payload_content = ""
+        if os.path.exists(custom_payload_path):
+            try:
+                with open(custom_payload_path, "r", encoding="utf-8") as f:
+                    custom_payload_content = f.read().strip()
+            except Exception:
+                pass
+
+        file_aliases = [
+            "online_roblox.lua",
+            "online roblox.lua",
+            "roblox_auto_ip_setter.lua",
+            "master_roblox_ip_setter.lua"
+        ]
+
+        # Đảm bảo đồng bộ trực tiếp ra /sdcard/Download
+        download_dirs = ["/sdcard/Download", "/sdcard/Download/RobloxIPTool", os.path.join(DATA_DIR, "generated_lua")]
+        for dd in download_dirs:
+            if os.path.exists(dd) and dd not in all_folders:
+                all_folders.append(dd)
+
         for folder in all_folders:
             try:
-                target_file = os.path.join(folder, "roblox_auto_ip_setter.lua")
-                with open(target_file, "w", encoding="utf-8") as f:
-                    f.write(lua_script_content)
-                # Cấp quyền đọc ghi
-                try:
-                    os.chmod(target_file, 0o666)
-                except Exception:
-                    pass
+                for alias in file_aliases:
+                    target_file = os.path.join(folder, alias)
+                    with open(target_file, "w", encoding="utf-8") as f:
+                        f.write(lua_script_content)
+                    try:
+                        os.chmod(target_file, 0o666)
+                    except Exception:
+                        pass
+
+                # Đồng bộ thêm file custom_payload.lua nếu có mã script người dùng dán vào
+                if custom_payload_content and not custom_payload_content.startswith("-- No custom payload"):
+                    payload_target = os.path.join(folder, "custom_payload.lua")
+                    with open(payload_target, "w", encoding="utf-8") as f:
+                        f.write(custom_payload_content)
+                    try:
+                        os.chmod(payload_target, 0o666)
+                    except Exception:
+                        pass
+
+                main_synced_path = os.path.join(folder, "online_roblox.lua")
                 if folder.startswith("/sdcard") or folder.startswith("/storage"):
-                    results["android_synced"].append(target_file)
+                    results["android_synced"].append(main_synced_path)
                 else:
-                    results["pc_synced"].append(target_file)
-                logger.info(f"Synced Lua script to: {target_file}")
+                    results["pc_synced"].append(main_synced_path)
+                logger.info(f"Synced Lua script (online_roblox.lua) to: {folder}")
             except Exception as e:
                 results["errors"].append(f"Folder ({folder}): {e}")
 
-        # 2. Đồng bộ vào Android Emulator qua ADB (nếu chạy trên PC có giả lập nối qua ADB)
+        # 2. Đồng bộ vào Android Emulator / Device qua ADB (nếu chạy trên PC có kết nối qua ADB)
         if self.adb_bin:
             try:
                 output = subprocess.check_output([self.adb_bin, "devices"], timeout=3).decode("utf-8")
@@ -231,7 +283,7 @@ class AutoexecManager:
                         devices.append(parts[0])
 
                 if devices:
-                    temp_lua = os.path.join(DATA_DIR, "roblox_auto_ip_setter.lua")
+                    temp_lua = os.path.join(DATA_DIR, "online_roblox.lua")
                     with open(temp_lua, "w", encoding="utf-8") as f:
                         f.write(lua_script_content)
 
@@ -239,11 +291,17 @@ class AutoexecManager:
                         for sd_path in ANDROID_AUTOEXEC_SDCARD_PATHS:
                             try:
                                 subprocess.run([self.adb_bin, "-s", dev, "shell", "mkdir", "-p", f'"{sd_path}"'], capture_output=True, timeout=2)
-                                target_android_file = f"{sd_path}/roblox_auto_ip_setter.lua"
-                                push_res = subprocess.run([self.adb_bin, "-s", dev, "push", temp_lua, target_android_file], capture_output=True, timeout=3)
-                                if push_res.returncode == 0:
-                                    results["android_synced"].append(f"[{dev}] {target_android_file}")
-                                    logger.info(f"Pushed to Android [{dev}]: {target_android_file}")
+                                for alias in ["online_roblox.lua", "roblox_auto_ip_setter.lua"]:
+                                    target_android_file = f"{sd_path}/{alias}"
+                                    push_res = subprocess.run([self.adb_bin, "-s", dev, "push", temp_lua, target_android_file], capture_output=True, timeout=3)
+                                    if push_res.returncode == 0 and alias == "online_roblox.lua":
+                                        results["android_synced"].append(f"[{dev}] {target_android_file}")
+                                        logger.info(f"Pushed to Android [{dev}]: {target_android_file}")
+
+                                # Push custom_payload.lua vào Android
+                                if custom_payload_content and not custom_payload_content.startswith("-- No custom payload"):
+                                    target_payload_android = f"{sd_path}/custom_payload.lua"
+                                    subprocess.run([self.adb_bin, "-s", dev, "push", custom_payload_path, target_payload_android], capture_output=True, timeout=3)
                             except Exception:
                                 pass
             except Exception as e:

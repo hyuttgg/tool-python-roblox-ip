@@ -6,3 +6,6 @@ psutil>=5.9.0
 prettytable>=3.7.0
 rich>=13.0.0
 pytz>=2023.3
+Pillow>=9.5.0
+pywin32>=306; sys_platform == 'win32'
+webscraping-ai>=3.0.0

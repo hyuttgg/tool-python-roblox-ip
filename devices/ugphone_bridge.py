@@ -207,6 +207,17 @@ class UGPhoneBridge:
 
         return False, "Không thể khởi chạy Roblox qua ADB Intents."
 
+    def start_auto_rejoin_sentinel(self, device_id: str, place_id: int = 2753915549, job_id: Optional[str] = None, user_slot: int = 0):
+        """Khởi tạo bộ Rejoin Controller cho thiết bị Android / UGPhone qua ADB"""
+        from devices.android_rejoin import AndroidRejoinController
+        return AndroidRejoinController(
+            default_place_id=place_id,
+            default_job_id=job_id,
+            user_slot=user_slot,
+            adb_bin=self.adb_bin,
+            device_id=device_id
+        )
+
 
 
 class JavaNetworkBridge:

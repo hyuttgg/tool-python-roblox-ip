@@ -12,9 +12,11 @@ import time
 from typing import List, Dict, Optional, Set
 from config.logging import setup_logger
 from network.scrapestack_client import ScrapestackClient
+from network.webscraping_ai_client import WebScrapingAIClient
 
 logger = setup_logger("proxy_fetcher")
 scrapestack_client = ScrapestackClient()
+webscraping_ai_client = WebScrapingAIClient()
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -171,14 +173,26 @@ class ProxyFetcher:
         return scrapestack_client.batch_fetch_proxies(count=count, country_code=country_code)
 
     @classmethod
+    def fetch_webscraping_ai_proxies(cls, count: int = 5, country_code: str = "ALL") -> List[Dict[str, str]]:
+        """Lấy proxy xoay vòng trực tiếp từ WebScraping.AI API"""
+        return webscraping_ai_client.batch_fetch_proxies(count=count, country_code=country_code)
+
+    @classmethod
     def fetch_live_proxies(cls, force_refresh: bool = False, timeout: int = 8) -> List[str]:
-        """Lấy toàn bộ proxy toàn cầu từ tất cả các nguồn bên thứ 3 bao gồm Scrapestack"""
+        """Lấy toàn bộ proxy toàn cầu từ tất cả các nguồn bên thứ 3 bao gồm Scrapestack và WebScraping.AI"""
         proxies = cls.fetch_all_3rd_party_proxies(force_refresh=force_refresh)
         # Thử lấy thêm IP sạch từ Scrapestack nếu có
         try:
             s_ip = scrapestack_client.get_proxy_ip()
             if s_ip and f"{s_ip}:80" not in proxies:
                 proxies.insert(0, f"{s_ip}:80")
+        except Exception:
+            pass
+        # Thử lấy thêm IP sạch từ WebScraping.AI nếu có
+        try:
+            w_ip = webscraping_ai_client.get_proxy_ip()
+            if w_ip and f"{w_ip}:80" not in proxies:
+                proxies.insert(0, f"{w_ip}:80")
         except Exception:
             pass
         return proxies
