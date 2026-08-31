@@ -60,33 +60,57 @@ fi
 # Tạo file chạy nhanh tại /sdcard/Download/RobloxRejoinTool/start.sh
 cat << 'EOF' > "${TARGET_DIR}/start.sh"
 #!/data/data/com.termux/files/usr/bin/bash
-export PATH=$PATH:/data/data/com.termux/files/usr/bin
+export PATH="/data/data/com.termux/files/usr/bin:$PATH"
 export TERM=xterm-256color
-cd /sdcard/Download/RobloxRejoinTool || cd /sdcard/Download
 
-# Kiểm tra quyền Root
+TERMUX_PYTHON="/data/data/com.termux/files/usr/bin/python"
+if [ ! -x "$TERMUX_PYTHON" ]; then
+    TERMUX_PYTHON="python"
+fi
+
+for TARGET_DIR in "/sdcard/Download/RobloxRejoinTool" "/sdcard/Download/tool-python-roblox-ip-main" "$HOME/tool-python-roblox-ip"; do
+    if [ -f "$TARGET_DIR/controller.py" ]; then
+        cd "$TARGET_DIR" 2>/dev/null
+        break
+    fi
+done
+
 if command -v su >/dev/null 2>&1; then
-    su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download/RobloxRejoinTool && python controller.py"
+    su -c "export PATH=/data/data/com.termux/files/usr/bin:\$PATH && cd \"$(pwd)\" && $TERMUX_PYTHON controller.py"
 else
-    python controller.py
+    $TERMUX_PYTHON controller.py
 fi
 EOF
 chmod +x "${TARGET_DIR}/start.sh" 2>/dev/null
 
-# Tạo shortcut lệnh nhanh 'roblox-rejoin' trong Termux
-LAUNCHER_PATH="/data/data/com.termux/files/usr/bin/roblox-rejoin"
+# Tạo shortcut lệnh nhanh 'roblox-rejoin', 'rejoin', 'run' trong Termux
+for LAUNCHER_PATH in "/data/data/com.termux/files/usr/bin/roblox-rejoin" "/data/data/com.termux/files/usr/bin/rejoin" "/data/data/com.termux/files/usr/bin/run"; do
 cat << 'EOF' > "$LAUNCHER_PATH"
 #!/data/data/com.termux/files/usr/bin/bash
-export PATH=$PATH:/data/data/com.termux/files/usr/bin
+export PATH="/data/data/com.termux/files/usr/bin:$PATH"
 export TERM=xterm-256color
-cd /sdcard/Download/RobloxRejoinTool 2>/dev/null || cd /sdcard/Download
+
+TERMUX_PYTHON="/data/data/com.termux/files/usr/bin/python"
+if [ ! -x "$TERMUX_PYTHON" ]; then
+    TERMUX_PYTHON="python"
+fi
+
+for TARGET_DIR in "/sdcard/Download/RobloxRejoinTool" "/sdcard/Download/tool-python-roblox-ip-main" "$HOME/tool-python-roblox-ip"; do
+    if [ -f "$TARGET_DIR/controller.py" ]; then
+        cd "$TARGET_DIR" 2>/dev/null
+        break
+    fi
+done
+
 if command -v su >/dev/null 2>&1; then
-    su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download/RobloxRejoinTool && python controller.py"
+    su -c "export PATH=/data/data/com.termux/files/usr/bin:\$PATH && cd \"$(pwd)\" && $TERMUX_PYTHON controller.py"
 else
-    python controller.py
+    $TERMUX_PYTHON controller.py
 fi
 EOF
 chmod +x "$LAUNCHER_PATH" 2>/dev/null
+done
+
 
 # 5. Hoàn tất cài đặt
 echo -e "\n  ${C_GREEN}${C_BOLD}[5/5] CÀI ĐẶT HOÀN TẤT 100%!${C_RESET}\n"

@@ -4,19 +4,24 @@
 # Tự động nạp môi trường Termux PATH và khởi chạy Controller (Root hoặc Non-Root)
 # ====================================================================================
 
-export PATH=$PATH:/data/data/com.termux/files/usr/bin
+export PATH="/data/data/com.termux/files/usr/bin:$PATH"
 export TERM=xterm-256color
 
-TOOL_DIR="/sdcard/Download/RobloxRejoinTool"
-if [ -d "$TOOL_DIR" ]; then
-    cd "$TOOL_DIR" || cd /sdcard/Download
-else
-    cd /sdcard/Download
+TERMUX_PYTHON="/data/data/com.termux/files/usr/bin/python"
+if [ ! -x "$TERMUX_PYTHON" ]; then
+    TERMUX_PYTHON="python"
 fi
 
-# Kiểm tra quyền Root
+for TOOL_DIR in "/sdcard/Download/RobloxRejoinTool" "/sdcard/Download/tool-python-roblox-ip-main" "$HOME/tool-python-roblox-ip"; do
+    if [ -f "$TOOL_DIR/controller.py" ]; then
+        cd "$TOOL_DIR" 2>/dev/null
+        break
+    fi
+done
+
 if command -v su >/dev/null 2>&1; then
-    su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download/RobloxRejoinTool && python controller.py"
+    su -c "export PATH=/data/data/com.termux/files/usr/bin:\$PATH && cd \"$(pwd)\" && $TERMUX_PYTHON controller.py"
 else
-    python controller.py
+    $TERMUX_PYTHON controller.py
 fi
+
