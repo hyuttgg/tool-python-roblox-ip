@@ -158,9 +158,22 @@ echo -e "${C_PURPLE}════════════════════
 
 # Khởi chạy trực tiếp Master Controller
 cd "${TARGET_DIR}" 2>/dev/null || true
-if command -v su >/dev/null 2>&1; then
-    su -c "export PATH=/data/data/com.termux/files/usr/bin:\$PATH && cd \"${TARGET_DIR}\" && /data/data/com.termux/files/usr/bin/python controller.py"
-else
-    python controller.py
+
+RUN_PY="python"
+if command -v python >/dev/null 2>&1; then
+    RUN_PY="python"
+elif command -v python3 >/dev/null 2>&1; then
+    RUN_PY="python3"
+elif [ -x "/data/data/com.termux/files/usr/bin/python" ]; then
+    RUN_PY="/data/data/com.termux/files/usr/bin/python"
+elif [ -x "/data/data/com.termux/files/usr/bin/python3" ]; then
+    RUN_PY="/data/data/com.termux/files/usr/bin/python3"
 fi
+
+if command -v su >/dev/null 2>&1; then
+    su -c "export PATH=/data/data/com.termux/files/usr/bin:\$PATH && cd \"${TARGET_DIR}\" && $RUN_PY controller.py" 2>/dev/null || $RUN_PY controller.py
+else
+    $RUN_PY controller.py
+fi
+
 
