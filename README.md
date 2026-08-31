@@ -10,27 +10,21 @@ Hệ thống điều khiển mạng đa tiến trình chuyên nghiệp cho Roblo
 
 ---
 
-## 📱 HƯỚNG DẪN 3 BƯỚC CÀI ĐẶT & CHẠY TOOL TRÊN TERMUX
+## 🚀 CÀI ĐẶT NHANH (ĐÚNG 2 LỆNH SHELL)
 
-### 1️⃣ Thay đổi repository Termux
+Mở Termux và dán 2 lệnh sau:
+
+### 1️⃣ Lệnh 1: Cài đặt Tool 1-chạm
 ```bash
-termux-change-repo
-```
-📌 *Nhấn **OK** ➔ **OK***
-
----
-
-### 2️⃣ Cài đặt tool
-```bash
-. <(curl -sL https://raw.githubusercontent.com/hyuttgg/tool-python-roblox-ip/refs/heads/main/SetupRobloxIP)
+curl -sL https://raw.githubusercontent.com/hyuttgg/tool-python-roblox-ip/main/setup.sh | bash
 ```
 
----
-
-### 3️⃣ Chạy tool
+### 2️⃣ Lệnh 2: Khởi chạy Tool (Bộ não duy nhất controller.py)
 ```bash
-su -c "export PATH=$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download/tool-python-roblox-ip && python controller.py"
+run
 ```
+*(Hoặc dùng lệnh `rejoin` / `python controller.py`)*
+
 
 ---
 
