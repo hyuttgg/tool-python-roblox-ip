@@ -28,18 +28,24 @@ echo -e "  ${C_CYAN}[1/5] Kiểm tra và cấp quyền bộ nhớ Android (Stora
 if [ ! -d "$HOME/storage/shared" ]; then
     echo -e "  ${C_YELLOW}➔ Vui lòng nhấn [ CHO PHÉP / ALLOW ] trên màn hình điện thoại khi pop-up hiện lên!${C_RESET}"
     termux-setup-storage 2>/dev/null
-    sleep 3
+    sleep 2
 fi
 
 # 2. Cập nhật Repository & Cài đặt gói hệ thống Termux
 echo -e "\n  ${C_CYAN}[2/5] Đang cập nhật Package & cài đặt các công cụ cần thiết (Python, Git, Curl, JQ, TSU)...${C_RESET}"
 export DEBIAN_FRONTEND=noninteractive
-pkg update -y 2>/dev/null || apt-get update -y 2>/dev/null || true
-apt-get update --fix-missing -y 2>/dev/null || true
 
+# Kiểm tra mirror Termux và tự động chọn mirror chính thức nếu cần
+pkg update -y 2>/dev/null || apt-get update -y 2>/dev/null || {
+    echo -e "  ${C_YELLOW}➔ Đang kết nối tới Mirror chính thức của Termux...${C_RESET}"
+    apt-get update --fix-missing -y 2>/dev/null || true
+}
+
+# Cài đặt triệt để gói python và git
 pkg install -y python python-pip git curl jq tsu proot procps sqlite 2>/dev/null || \
 apt-get install -y python python3 python3-pip git curl jq tsu proot procps sqlite3 2>/dev/null || \
 apt install -y python python3 git curl jq 2>/dev/null || true
+
 
 # Tự động phát hiện và đảm bảo phím tắt python
 PYTHON_BIN=""
@@ -130,13 +136,14 @@ for TARGET_DIR in "/sdcard/Download/RobloxRejoinTool" "/sdcard/Download/tool-pyt
 done
 
 if command -v su >/dev/null 2>&1; then
-    su -c "export PATH=/data/data/com.termux/files/usr/bin:\$PATH && cd \"$(pwd)\" && $TERMUX_PYTHON controller.py"
+    su -c "export PATH=/data/data/com.termux/files/usr/bin:\$PATH && cd \"$(pwd)\" && /data/data/com.termux/files/usr/bin/python controller.py" 2>/dev/null || $TERMUX_PYTHON controller.py
 else
     $TERMUX_PYTHON controller.py
 fi
 EOF
 chmod +x "$LAUNCHER_PATH" 2>/dev/null
 done
+
 
 
 # 5. Hoàn tất cài đặt
