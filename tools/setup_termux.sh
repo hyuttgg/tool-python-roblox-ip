@@ -35,20 +35,25 @@ fi
 echo -e "\n  ${C_CYAN}[2/5] Đang cập nhật Package & cài đặt các công cụ cần thiết (Python, Git, Curl, JQ, TSU)...${C_RESET}"
 export DEBIAN_FRONTEND=noninteractive
 
-# Kiểm tra mirror Termux và tự động chọn mirror chính thức nếu cần
-pkg update -y 2>/dev/null || apt-get update -y 2>/dev/null || {
-    echo -e "  ${C_YELLOW}➔ Đang kết nối tới Mirror chính thức của Termux...${C_RESET}"
-    apt-get update --fix-missing -y 2>/dev/null || true
-}
+# Tự động thay đổi mirror Termux nếu bị lỗi 404 hoặc không tìm thấy package
+termux-change-repo 2>/dev/null || true
+pkg update -y 2>/dev/null || apt-get update -y 2>/dev/null || apt update -y 2>/dev/null || true
+
+# Tự động bật thêm tur-repo và root-repo nếu có
+pkg install -y tur-repo root-repo x11-repo 2>/dev/null || true
 
 # Cài đặt triệt để gói python và git
-pkg install -y python python-pip git curl jq tsu proot procps sqlite 2>/dev/null || \
+pkg install -y python python3 python-pip git curl jq tsu proot procps sqlite 2>/dev/null || \
 apt-get install -y python python3 python3-pip git curl jq tsu proot procps sqlite3 2>/dev/null || \
 apt install -y python python3 git curl jq 2>/dev/null || true
 
+# Tự động tạo symlink liên kết mềm /data/data/com.termux/files/usr/bin/python -> python3 nếu thiếu
+if [ ! -f "/data/data/com.termux/files/usr/bin/python" ] && [ -f "/data/data/com.termux/files/usr/bin/python3" ]; then
+    ln -sf /data/data/com.termux/files/usr/bin/python3 /data/data/com.termux/files/usr/bin/python 2>/dev/null || true
+fi
 
 # Tự động phát hiện và đảm bảo phím tắt python
-PYTHON_BIN=""
+PYTHON_BIN="python"
 if command -v python >/dev/null 2>&1; then
     PYTHON_BIN="python"
 elif command -v python3 >/dev/null 2>&1; then
@@ -59,19 +64,11 @@ elif [ -x "/data/data/com.termux/files/usr/bin/python3" ]; then
     PYTHON_BIN="/data/data/com.termux/files/usr/bin/python3"
 fi
 
-if [ -z "$PYTHON_BIN" ]; then
-    echo -e "  ${C_YELLOW}➔ Đang thử nạp lại gói Python...${C_RESET}"
-    pkg install -y python 2>/dev/null || apt-get install -y python3 2>/dev/null || true
-    if command -v python3 >/dev/null 2>&1 && [ ! -x "/data/data/com.termux/files/usr/bin/python" ]; then
-        ln -sf "$(which python3)" /data/data/com.termux/files/usr/bin/python 2>/dev/null || true
-    fi
-    PYTHON_BIN="python"
-fi
-
 # 3. Cài đặt các thư viện Python
 echo -e "\n  ${C_CYAN}[3/5] Đang cài đặt thư viện Python (requests, psutil, urllib3)...${C_RESET}"
 $PYTHON_BIN -m pip install --upgrade pip --no-warn-script-location 2>/dev/null || true
 $PYTHON_BIN -m pip install requests psutil urllib3 --no-warn-script-location 2>/dev/null || pip install requests psutil urllib3 2>/dev/null || true
+
 
 
 # 4. Tạo thư mục làm việc tại /sdcard/Download/RobloxRejoinTool
@@ -123,9 +120,15 @@ cat << 'EOF' > "$LAUNCHER_PATH"
 export PATH="/data/data/com.termux/files/usr/bin:$PATH"
 export TERM=xterm-256color
 
-TERMUX_PYTHON="/data/data/com.termux/files/usr/bin/python"
-if [ ! -x "$TERMUX_PYTHON" ]; then
+TERMUX_PYTHON="python"
+if command -v python >/dev/null 2>&1; then
     TERMUX_PYTHON="python"
+elif command -v python3 >/dev/null 2>&1; then
+    TERMUX_PYTHON="python3"
+elif [ -x "/data/data/com.termux/files/usr/bin/python" ]; then
+    TERMUX_PYTHON="/data/data/com.termux/files/usr/bin/python"
+elif [ -x "/data/data/com.termux/files/usr/bin/python3" ]; then
+    TERMUX_PYTHON="/data/data/com.termux/files/usr/bin/python3"
 fi
 
 for TARGET_DIR in "/sdcard/Download/RobloxRejoinTool" "/sdcard/Download/tool-python-roblox-ip-main" "$HOME/tool-python-roblox-ip"; do
@@ -136,13 +139,14 @@ for TARGET_DIR in "/sdcard/Download/RobloxRejoinTool" "/sdcard/Download/tool-pyt
 done
 
 if command -v su >/dev/null 2>&1; then
-    su -c "export PATH=/data/data/com.termux/files/usr/bin:\$PATH && cd \"$(pwd)\" && /data/data/com.termux/files/usr/bin/python controller.py" 2>/dev/null || $TERMUX_PYTHON controller.py
+    su -c "export PATH=/data/data/com.termux/files/usr/bin:\$PATH && cd \"$(pwd)\" && $TERMUX_PYTHON controller.py" 2>/dev/null || $TERMUX_PYTHON controller.py
 else
     $TERMUX_PYTHON controller.py
 fi
 EOF
 chmod +x "$LAUNCHER_PATH" 2>/dev/null
 done
+
 
 
 
