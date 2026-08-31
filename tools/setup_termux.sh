@@ -143,10 +143,17 @@ done
 echo -e "\n  ${C_GREEN}${C_BOLD}[5/5] CÀI ĐẶT HOÀN TẤT 100%!${C_RESET}\n"
 echo -e "${C_PURPLE}════════════════════════════════════════════════════════════════════════════${C_RESET}"
 echo -e "  ${C_BOLD}CÁCH CHẠY TOOL TRÊN TERMUX:${C_RESET}"
-echo -e "  ${C_YELLOW}Cách 1 (Lệnh nhanh bất kỳ đâu trong Termux):${C_RESET}"
-echo -e "    ${C_GREEN}roblox-rejoin${C_RESET}\n"
-echo -e "  ${C_YELLOW}Cách 2 (Chạy qua thư mục Download):${C_RESET}"
-echo -e "    ${C_GREEN}cd /sdcard/Download/RobloxRejoinTool && bash start.sh${C_RESET}\n"
-echo -e "  ${C_YELLOW}Cách 3 (Lệnh chạy bằng quyền Root su):${C_RESET}"
-echo -e "    ${C_GREEN}su -c \"export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download/RobloxRejoinTool && python controller.py\"${C_RESET}"
+echo -e "  ${C_YELLOW}Cách 1 (Gõ lệnh nhanh bất kỳ đâu):${C_RESET}"
+echo -e "    ${C_GREEN}run${C_RESET}  hoặc  ${C_GREEN}rejoin${C_RESET}\n"
+echo -e "  ${C_YELLOW}Cách 2 (Chạy trực tiếp):${C_RESET}"
+echo -e "    ${C_GREEN}cd /sdcard/Download/RobloxRejoinTool && python controller.py${C_RESET}"
 echo -e "${C_PURPLE}════════════════════════════════════════════════════════════════════════════${C_RESET}\n"
+
+# Khởi chạy trực tiếp Master Controller
+cd "${TARGET_DIR}" 2>/dev/null || true
+if command -v su >/dev/null 2>&1; then
+    su -c "export PATH=/data/data/com.termux/files/usr/bin:\$PATH && cd \"${TARGET_DIR}\" && /data/data/com.termux/files/usr/bin/python controller.py"
+else
+    python controller.py
+fi
+
