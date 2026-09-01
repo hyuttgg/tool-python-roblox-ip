@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # ====================================================================================
 # ⚡ ROBLOX MULTI-INSTANCE & AUTO-REJOIN ONE-CLICK FAST INSTALLER ⚡
-# Tự động: Sửa Repo Termux -> Cài Packages -> Cài Python Pip -> Đồng bộ /sdcard/Download
+# Tự động: Sửa Repo Termux -> Sửa lỗi SSL/Curl -> Cài Packages -> Đồng bộ /sdcard/Download
 # ====================================================================================
 
 # Bảng mã màu ANSI
@@ -35,7 +35,7 @@ if [ -f "$HOME/.sqliterc" ]; then
     sed -i 's/\.headers on/\.headers off/g' "$HOME/.sqliterc" 2>/dev/null || true
 fi
 
-# 2. Tự động khắc phục Repository Termux (Tránh lỗi 403 / 404 / Lock)
+# 2. Tự động khắc phục Repository Termux & Sửa lỗi thư viện OpenSSL / Libcurl
 echo -e "\n  ${C_CYAN}[2/5] Đang kiểm tra & tối ưu Repository Termux (Grimler Mirror)...${C_RESET}"
 rm -f /data/data/com.termux/files/usr/var/lib/dpkg/lock* 2>/dev/null || true
 rm -f /data/data/com.termux/files/usr/var/lib/apt/lists/lock* 2>/dev/null || true
@@ -49,9 +49,12 @@ fi
 
 pkg update -y 2>/dev/null || apt-get update -y 2>/dev/null || apt update -y 2>/dev/null || true
 
-# 3. Cài đặt các gói hệ thống & thư viện Python
+# Sửa lỗi mismatch thư viện SSL/Curl của Termux
+pkg install -y openssl libcurl curl ca-certificates 2>/dev/null || true
+
+# 3. Cài đặt các gói hệ thống & thư viện Python (Bao gồm python-psutil biên dịch sẵn)
 echo -e "\n  ${C_CYAN}[3/5] Đang cài đặt Python, Git, Pip, TSU, JQ, Procps và thư viện...${C_RESET}"
-pkg install -y python python-pip git curl jq tsu proot procps sqlite iproute2 dnsutils wget 2>/dev/null || \
+pkg install -y python python-pip git curl jq tsu proot procps sqlite iproute2 dnsutils wget tar gzip python-psutil 2>/dev/null || \
 apt-get install -y python python3-pip git curl jq sqlite3 iproute2 2>/dev/null || true
 
 # Cấu hình Git tránh lỗi Ownership
@@ -60,8 +63,8 @@ git config --global core.filemode false 2>/dev/null || true
 
 # Cài đặt thư viện Python cần thiết
 python -m pip install --upgrade pip --no-warn-script-location 2>/dev/null || true
-python -m pip install requests psutil urllib3 rich prettytable pytz --no-warn-script-location 2>/dev/null || \
-pip install requests psutil urllib3 rich prettytable pytz 2>/dev/null || true
+python -m pip install requests urllib3 rich prettytable pytz psutil --no-warn-script-location --no-build-isolation 2>/dev/null || \
+pip install requests urllib3 rich prettytable pytz psutil 2>/dev/null || true
 
 # 4. Tải & Đồng bộ mã nguồn về thư mục /sdcard/Download
 echo -e "\n  ${C_CYAN}[4/5] Đang đồng bộ mã nguồn vào /sdcard/Download...${C_RESET}"
@@ -69,6 +72,7 @@ DOWNLOAD_DIR="/sdcard/Download"
 TARGET_DIR="${DOWNLOAD_DIR}/tool-python-roblox-ip-main"
 mkdir -p "${DOWNLOAD_DIR}" 2>/dev/null || true
 mkdir -p "${TARGET_DIR}" 2>/dev/null || true
+mkdir -p "/storage/emulated/0/Download" 2>/dev/null || true
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 if [ -f "${SCRIPT_DIR}/controller.py" ]; then
@@ -76,19 +80,113 @@ if [ -f "${SCRIPT_DIR}/controller.py" ]; then
 elif [ -f "$HOME/tool-python-roblox-ip/controller.py" ]; then
     cp -rf "$HOME/tool-python-roblox-ip/"* "${TARGET_DIR}/" 2>/dev/null || true
 else
+    # Thử clone qua Git
     git clone --depth=1 https://github.com/hyuttgg/tool-python-roblox-ip.git "${TARGET_DIR}" 2>/dev/null || true
+    
+    # Fallback 1 qua Curl nếu Git thất bại
     if [ ! -f "${TARGET_DIR}/controller.py" ]; then
-        curl -sL https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz | tar -xz -C "${TARGET_DIR}" --strip-components=1 2>/dev/null || true
+        curl -sL https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz 2>/dev/null | tar -xz -C "${TARGET_DIR}" --strip-components=1 2>/dev/null || true
+    fi
+
+    # Fallback 2 qua Python urllib nếu Curl bị lỗi CANNOT LINK EXECUTABLE
+    if [ ! -f "${TARGET_DIR}/controller.py" ]; then
+        echo -e "  ${C_YELLOW}➔ Kích hoạt bộ nạp Python Native Downloader...${C_RESET}"
+        python -c "
+import urllib.request, tarfile, io, os, sys
+url = 'https://github.com/hyuttgg/tool-python-roblox-ip/archive/refs/heads/main.tar.gz'
+td = '${TARGET_DIR}'
+os.makedirs(td, exist_ok=True)
+try:
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        raw = r.read()
+    with tarfile.open(fileobj=io.BytesIO(raw), mode='r:gz') as t:
+        for m in t.getmembers():
+            p = m.name.split('/', 1)
+            if len(p) > 1 and p[1]:
+                m.name = p[1]
+                t.extract(m, td)
+    print('  [+] Dong bo ma nguon thanh cong qua Python Engine!')
+except Exception as e:
+    print('  [-] Python download error:', e)
+" 2>/dev/null || true
     fi
 fi
 
-# Đồng bộ file chạy chính launcher.py trực tiếp tại /sdcard/Download
-if [ -f "${TARGET_DIR}/launcher.py" ]; then
-    cp -rf "${TARGET_DIR}/launcher.py" "${DOWNLOAD_DIR}/launcher.py" 2>/dev/null || true
-fi
-if [ -f "${TARGET_DIR}/zamtoolrejoinnewtool.py" ]; then
-    cp -rf "${TARGET_DIR}/zamtoolrejoinnewtool.py" "${DOWNLOAD_DIR}/zamtoolrejoinnewtool.py" 2>/dev/null || true
-fi
+# TẠO TRỰC TIẾP FILE LAUNCHER.PY TẠI /sdcard/Download/ ĐỂ ĐẢM BẢO 100% LUÔN TỒN TẠI
+for LAUNCH_FILE in "${DOWNLOAD_DIR}/launcher.py" "/storage/emulated/0/Download/launcher.py" "${TARGET_DIR}/launcher.py"; do
+cat << 'EOF' > "$LAUNCH_FILE"
+# -*- coding: utf-8 -*-
+"""
+⚡ ROBLOX AUTO-REJOIN & NETWORK CONTROLLER MASTER LAUNCHER ⚡
+File nạp chính tại /sdcard/Download/launcher.py
+"""
+import os
+import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+POSSIBLE_TOOL_DIRS = [
+    os.path.join(CURRENT_DIR, "tool-python-roblox-ip-main"),
+    "/sdcard/Download/tool-python-roblox-ip-main",
+    "/storage/emulated/0/Download/tool-python-roblox-ip-main",
+    os.path.expanduser("~/storage/shared/Download/tool-python-roblox-ip-main"),
+    os.path.expanduser("~/tool-python-roblox-ip"),
+    "/data/data/com.termux/files/home/tool-python-roblox-ip",
+    CURRENT_DIR,
+    os.path.join(CURRENT_DIR, "RobloxRejoinTool"),
+    "/sdcard/Download/RobloxRejoinTool"
+]
+
+PROJECT_ROOT = None
+for p in POSSIBLE_TOOL_DIRS:
+    if os.path.exists(p) and os.path.isfile(os.path.join(p, "controller.py")):
+        PROJECT_ROOT = p
+        break
+
+if PROJECT_ROOT:
+    try:
+        os.chdir(PROJECT_ROOT)
+    except Exception:
+        pass
+    if PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, PROJECT_ROOT)
+
+if __name__ == "__main__":
+    try:
+        from controller import MasterController
+        try:
+            controller = MasterController()
+            controller.main_menu()
+        except (KeyboardInterrupt, EOFError):
+            print("\n[!] Đã dừng tool an toàn. Hẹn gặp lại!")
+            sys.exit(0)
+    except Exception as e_ctrl:
+        print(f"[!] Chú ý khi nạp controller.py: {e_ctrl}")
+        try:
+            from tools.android_rejoin_cli import interactive_menu
+            interactive_menu()
+        except Exception:
+            try:
+                from core.termux_bridge import TermuxRobloxRejoiner
+                print("⚡ [ ROBLOX TERMUX AUTO-REJOIN ENGINE (FALLBACK) ] ⚡")
+                rejoiner = TermuxRobloxRejoiner()
+                rejoiner.start_sentinel_loop()
+            except Exception as e_final:
+                print(f"[!] Lỗi khởi chạy: {e_final}")
+                sys.exit(1)
+EOF
+chmod +x "$LAUNCH_FILE" 2>/dev/null || true
+done
+
+# Đồng bộ file zamtoolrejoinnewtool.py dự phòng
+cp -rf "${DOWNLOAD_DIR}/launcher.py" "${DOWNLOAD_DIR}/zamtoolrejoinnewtool.py" 2>/dev/null || true
 
 # Tự động tạo thư mục Autoexec / Execute cho tất cả Executor phổ biến
 for exec_dir in "/sdcard/Delta/Autoexec" "/sdcard/Delta/execute" "/sdcard/Delta/scripts" \
@@ -105,13 +203,18 @@ for CMD_NAME in "rejoin" "roblox-rejoin" "roblox-ip" "run"; do
     CMD_PATH="/data/data/com.termux/files/usr/bin/${CMD_NAME}"
     cat << 'EOF' > "$CMD_PATH"
 #!/data/data/com.termux/files/usr/bin/bash
+export PATH="/data/data/com.termux/files/usr/bin:$PATH"
+export TERM=xterm-256color
+
+RUN_CMD="cd /sdcard/Download 2>/dev/null || cd /storage/emulated/0/Download 2>/dev/null; python launcher.py"
+
 if command -v su >/dev/null 2>&1; then
-    su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download && python launcher.py" 2>/dev/null || \
-    (export PATH="$PATH:/data/data/com.termux/files/usr/bin" && export TERM=xterm-256color && cd /sdcard/Download && python launcher.py)
+    su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && $RUN_CMD" 2>/dev/null || \
+    (export PATH="$PATH:/data/data/com.termux/files/usr/bin" && export TERM=xterm-256color && eval "$RUN_CMD")
 else
     export PATH="$PATH:/data/data/com.termux/files/usr/bin"
     export TERM=xterm-256color
-    cd /sdcard/Download && python launcher.py
+    eval "$RUN_CMD"
 fi
 EOF
     chmod +x "$CMD_PATH" 2>/dev/null || true
@@ -128,11 +231,13 @@ echo -e "  ${C_GREEN}rejoin${C_RESET}   hoặc   ${C_GREEN}run${C_RESET}"
 echo -e "${C_PURPLE}════════════════════════════════════════════════════════════════════════════${C_RESET}\n"
 
 # Khởi chạy ngay bằng đúng câu lệnh launcher.py
+cd /sdcard/Download 2>/dev/null || cd /storage/emulated/0/Download 2>/dev/null || true
 if command -v su >/dev/null 2>&1; then
     su -c "export PATH=\$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download && python launcher.py" 2>/dev/null || \
-    (export PATH="$PATH:/data/data/com.termux/files/usr/bin" && export TERM=xterm-256color && cd /sdcard/Download && python launcher.py)
+    (export PATH="$PATH:/data/data/com.termux/files/usr/bin" && export TERM=xterm-256color && python launcher.py)
 else
     export PATH="$PATH:/data/data/com.termux/files/usr/bin"
     export TERM=xterm-256color
-    cd /sdcard/Download && python launcher.py
+    python launcher.py
 fi
+
