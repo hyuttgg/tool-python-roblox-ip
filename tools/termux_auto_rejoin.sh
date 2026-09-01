@@ -82,7 +82,7 @@ is_roblox_running() {
     return 1
 }
 
-# 3. Kích hoạt mở lại Roblox qua Android Intent chuẩn DroidBlox
+# 3. Kích hoạt mở lại Roblox qua Android Intent chuẩn DroidBlox (Bypass hộp thoại Mở bằng)
 launch_roblox_intent() {
     local target_url="roblox://experiences/start?placeId=${PLACE_ID}"
     if [ -n "$JOB_ID" ]; then
@@ -96,14 +96,30 @@ launch_roblox_intent() {
         user_args=("--user" "$USER_ID_SLOT")
     fi
 
-    # Intent 1: Component ActivityProtocolLaunch (chuẩn DroidBlox)
-    if [ "$HAS_AM" = true ]; then
-        am start "${user_args[@]}" -n "${ROBLOX_PKG}/com.roblox.client.ActivityProtocolLaunch" -a android.intent.action.VIEW -d "$target_url" >/dev/null 2>&1
-        sleep 2
-        am start "${user_args[@]}" -a android.intent.action.VIEW -d "$target_url" >/dev/null 2>&1
-    elif [ "$IS_ROOT" = true ]; then
-        su -c "am start -n ${ROBLOX_PKG}/com.roblox.client.ActivityProtocolLaunch -a android.intent.action.VIEW -d '$target_url'" >/dev/null 2>&1
+    # 1. Quét toàn bộ package Roblox & Clone đã cài đặt (Arceus, Delta, Clone...)
+    local target_pkgs=("com.roblox.client")
+    if command -v pm >/dev/null 2>&1; then
+        while IFS= read -r line; do
+            local p=$(echo "$line" | sed 's/package://g' | tr -d '\r\n')
+            if [[ "$p" =~ roblox|arceus|delta|clone ]]; then
+                if [[ "$p" != "com.roblox.client" ]]; then
+                    target_pkgs+=("$p")
+                fi
+            fi
+        done < <(pm list packages 2>/dev/null)
     fi
+
+    # 2. Gửi Intent với Component / Package đích danh để ép mở thẳng, không hiện popup "Mở bằng"
+    for pkg in "${target_pkgs[@]}"; do
+        if [ "$HAS_AM" = true ]; then
+            am start "${user_args[@]}" -n "${pkg}/com.roblox.client.ActivityProtocolLaunch" -a android.intent.action.VIEW -d "$target_url" >/dev/null 2>&1 || \
+            am start "${user_args[@]}" -p "$pkg" -a android.intent.action.VIEW -d "$target_url" >/dev/null 2>&1
+        fi
+        if [ "$IS_ROOT" = true ]; then
+            su -c "am start -n ${pkg}/com.roblox.client.ActivityProtocolLaunch -a android.intent.action.VIEW -d '$target_url'" >/dev/null 2>&1 || \
+            su -c "am start -p $pkg -a android.intent.action.VIEW -d '$target_url'" >/dev/null 2>&1
+        fi
+    done
 }
 
 # 4. Kích hoạt Rejoin có bảo vệ Circuit Breaker

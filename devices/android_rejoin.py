@@ -367,7 +367,7 @@ class AndroidRejoinController:
         if self.user_slot > 0:
             intent_args += ["--user", str(self.user_slot)]
 
-        # Sử dụng Action VIEW và Component ActivityProtocolLaunch
+        # Sử dụng Action VIEW và Component ActivityProtocolLaunch đích danh
         intent_args += [
             "-a", "android.intent.action.VIEW",
             "-d", target_uri,
@@ -376,7 +376,7 @@ class AndroidRejoinController:
         return self._build_shell_cmd(intent_args)
 
     def launch_roblox(self, place_id: Optional[int] = None, job_id: Optional[str] = None) -> bool:
-        """Kích hoạt Intent mở lại Roblox an toàn"""
+        """Kích hoạt Intent mở lại Roblox an toàn, tự động bypass hộp thoại Mở bằng"""
         cmd = self.build_launch_intent_cmd(place_id, job_id)
         target_pid = place_id or self.place_id
         target_jid = job_id or self.job_id
@@ -390,16 +390,28 @@ class AndroidRejoinController:
         except Exception as e:
             logger.error(f"Lỗi khi gửi Intent: {e}")
 
-        # Fallback qua su nếu có quyền root
+        # Fallback qua su với Component / Package đích danh để không hiện popup Mở bằng
         try:
-            su_subcmd = f"am start -a android.intent.action.VIEW -d 'roblox://experiences/start?placeId={target_pid}'"
-            if target_jid:
-                su_subcmd = f"am start -a android.intent.action.VIEW -d 'roblox://experiences/start?placeId={target_pid}&gameInstanceId={target_jid}'"
-            su_cmd = self._build_shell_cmd(["su", "-c", su_subcmd])
-            res = subprocess.run(su_cmd, capture_output=True, text=True, timeout=5)
-            if res.returncode == 0:
-                logger.info("✅ Fallback Root Intent thành công.")
-                return True
+            target_pkgs = ["com.roblox.client"]
+            try:
+                pm_out = subprocess.check_output(["pm", "list", "packages"], text=True, stderr=subprocess.DEVNULL, timeout=2)
+                for line in pm_out.splitlines():
+                    p = line.replace("package:", "").strip()
+                    if "roblox" in p.lower() or "arceus" in p.lower():
+                        if p not in target_pkgs:
+                            target_pkgs.append(p)
+            except Exception:
+                pass
+
+            for pkg in target_pkgs:
+                su_subcmd = f"am start -n {pkg}/com.roblox.client.ActivityProtocolLaunch -a android.intent.action.VIEW -d 'roblox://experiences/start?placeId={target_pid}'"
+                if target_jid:
+                    su_subcmd = f"am start -n {pkg}/com.roblox.client.ActivityProtocolLaunch -a android.intent.action.VIEW -d 'roblox://experiences/start?placeId={target_pid}&gameInstanceId={target_jid}'"
+                su_cmd = self._build_shell_cmd(["su", "-c", su_subcmd])
+                res = subprocess.run(su_cmd, capture_output=True, text=True, timeout=4)
+                if res.returncode == 0 or "Starting:" in res.stdout:
+                    logger.info(f"✅ Fallback Root Intent thành công cho package: {pkg}")
+                    return True
         except Exception:
             pass
 

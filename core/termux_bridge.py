@@ -112,35 +112,49 @@ class TermuxRobloxRejoiner:
 
         logger.info(f"[TERMUX REJOIN] Gửi Android Intent mở game: {target_url} (User: {self.user_id})")
 
-        # Thử lệnh am start
-        cmd1 = ["am", "start"] + user_args + ["-a", "android.intent.action.VIEW", "-d", target_url]
+        # 1. Phát hiện tất cả package Roblox / Clone đã cài đặt
+        target_pkgs = [ROBLOX_PACKAGE]
         try:
-            res = subprocess.run(cmd1, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
-            if res.returncode == 0:
-                self.last_restart_time = time.time()
-                return True
+            pm_out = subprocess.check_output(["pm", "list", "packages"], text=True, stderr=subprocess.DEVNULL, timeout=2)
+            for line in pm_out.splitlines():
+                p = line.replace("package:", "").strip()
+                if "roblox" in p.lower() or "arceus" in p.lower():
+                    if p not in target_pkgs:
+                        target_pkgs.append(p)
         except Exception:
             pass
 
-        # Fallback qua Activity Component
-        cmd2 = ["am", "start"] + user_args + ["-n", f"{ROBLOX_PACKAGE}/com.roblox.client.ActivityProtocolLaunch", "-d", target_url]
-        try:
-            res = subprocess.run(cmd2, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
-            if res.returncode == 0:
-                self.last_restart_time = time.time()
-                return True
-        except Exception:
-            pass
-
-        # Fallback Root su
-        if TermuxEnvironment.is_root():
+        # 2. Thử mở đích danh theo Component / Package để KHÔNG bao giờ hiện popup "Mở bằng"
+        for pkg in target_pkgs:
+            cmd_explicit = ["am", "start"] + user_args + ["-n", f"{pkg}/com.roblox.client.ActivityProtocolLaunch", "-a", "android.intent.action.VIEW", "-d", target_url]
             try:
-                su_cmd = f"am start -a android.intent.action.VIEW -d '{target_url}'"
-                subprocess.run(["su", "-c", su_cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
-                self.last_restart_time = time.time()
-                return True
+                res = subprocess.run(cmd_explicit, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=4)
+                if res.returncode == 0:
+                    self.last_restart_time = time.time()
+                    return True
             except Exception:
                 pass
+
+            cmd_pkg = ["am", "start"] + user_args + ["-p", pkg, "-a", "android.intent.action.VIEW", "-d", target_url]
+            try:
+                res = subprocess.run(cmd_pkg, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=4)
+                if res.returncode == 0:
+                    self.last_restart_time = time.time()
+                    return True
+            except Exception:
+                pass
+
+        # 3. Fallback Root su với đích danh package
+        if TermuxEnvironment.is_root():
+            for pkg in target_pkgs:
+                try:
+                    su_cmd = f"am start -n {pkg}/com.roblox.client.ActivityProtocolLaunch -a android.intent.action.VIEW -d '{target_url}'"
+                    res = subprocess.run(["su", "-c", su_cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=4)
+                    if res.returncode == 0:
+                        self.last_restart_time = time.time()
+                        return True
+                except Exception:
+                    pass
 
         return False
 
