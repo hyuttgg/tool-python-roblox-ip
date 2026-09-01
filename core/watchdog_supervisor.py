@@ -438,9 +438,22 @@ class RobloxWatchdogSupervisor:
                     for tid, a_reason in android_crashes:
                         tags_to_restart.append((tid, a_reason))
 
-                    # Tiến hành mở lại
+                    # Tiến hành mở lại (sau khi qua bộ lọc Deep-Check chống kill oan)
                     for tid, r_reason in tags_to_restart:
                         if self.auto_reopen_on_disconnect:
+                            with self._lock:
+                                st_tag = self.tags.get(tid)
+                                if st_tag and st_tag.process_pid > 0:
+                                    # Deep check on-device signal: nếu process pid vẫn sống và đang active
+                                    try:
+                                        import psutil
+                                        if psutil.pid_exists(st_tag.process_pid):
+                                            p = psutil.Process(st_tag.process_pid)
+                                            if p.is_running() and p.status() != psutil.STATUS_ZOMBIE:
+                                                self.log_event(f"🛡️ [DEEP-CHECK] BỎ QUA REJOIN Tag [{tid}]: Tiến trình PID {st_tag.process_pid} vẫn đang hoạt động trên máy (Bảo vệ khỏi kill oan).")
+                                                continue
+                                    except Exception:
+                                        pass
                             self._trigger_reopen_tag(tid, r_reason)
 
             except Exception as e:

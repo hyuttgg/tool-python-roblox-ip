@@ -31,6 +31,12 @@ if [ ! -d "$HOME/storage/shared" ]; then
     sleep 2
 fi
 
+# Tự động vá .sqliterc nếu đang để box mode
+if [ -f "$HOME/.sqliterc" ]; then
+    sed -i 's/\.mode box/\.mode list/g' "$HOME/.sqliterc" 2>/dev/null || true
+    sed -i 's/\.headers on/\.headers off/g' "$HOME/.sqliterc" 2>/dev/null || true
+fi
+
 # 2. Cập nhật Repository & Cài đặt gói hệ thống Termux
 echo -e "\n  ${C_CYAN}[2/5] Đang cập nhật Package & cài đặt các công cụ cần thiết (Python, Git, Curl, JQ, TSU)...${C_RESET}"
 export DEBIAN_FRONTEND=noninteractive

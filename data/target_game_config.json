@@ -1,40 +1,50 @@
 {
   "global_game": {
-    "name": "Blox Fruits",
-    "place_id": "2753915549",
-    "job_id": "",
+    "name": "Test Game",
+    "place_id": "12345678",
+    "job_id": "mock-job-12345678-sg-489888",
+    "preferred_region": "SG",
+    "server_filter_mode": "LOW_PLAYERS",
     "private_server_link": "",
     "auto_teleport_enabled": true
   },
   "tag_games": {
     "ROBLOX-TAG-01": {
-      "name": "Blox Fruits",
-      "place_id": "2753915549",
-      "job_id": "7b502ebd-5936-4d44-bd74-c388145bfada",
+      "name": "Test Game",
+      "place_id": "12345678",
+      "job_id": "mock-job-12345678-sg-489888",
+      "preferred_region": "SG",
+      "server_filter_mode": "LOW_PLAYERS",
       "private_server_link": "",
       "auto_teleport_enabled": true
     },
     "ROBLOX-TAG-02": {
-      "name": "Blox Fruits",
-      "place_id": "2753915549",
-      "job_id": "",
+      "name": "Test Game",
+      "place_id": "12345678",
+      "job_id": "mock-job-12345678-sg-489888",
+      "preferred_region": "SG",
+      "server_filter_mode": "LOW_PLAYERS",
       "private_server_link": "",
       "auto_teleport_enabled": true
     },
     "ROBLOX-TAG-03": {
-      "name": "Blox Fruits",
-      "place_id": "2753915549",
-      "job_id": "",
+      "name": "Test Game",
+      "place_id": "12345678",
+      "job_id": "mock-job-12345678-sg-489888",
+      "preferred_region": "SG",
+      "server_filter_mode": "LOW_PLAYERS",
       "private_server_link": "",
       "auto_teleport_enabled": true
     },
     "ROBLOX-TAG-99": {
-      "name": "Blox Fruits",
-      "place_id": "2753915549",
-      "job_id": "",
+      "name": "Test Game",
+      "place_id": "12345678",
+      "job_id": "mock-job-12345678-jp-963142",
+      "preferred_region": "JP",
+      "server_filter_mode": "BEST_PING",
       "private_server_link": "",
       "auto_teleport_enabled": true
     }
   },
-  "per_tag_mode": false
+  "per_tag_mode": true
 }

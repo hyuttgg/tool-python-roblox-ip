@@ -134,6 +134,39 @@ class AndroidRobloxWatcher:
             pass
         return 0
 
+    def set_oom_score_adj(self, pid: int, score: int = -300) -> Tuple[bool, int]:
+        """
+        Hạ mức chống-kill từ -1000 về mức an toàn (-300) để tránh sập toàn bộ thiết bị khi hết RAM.
+        Thực hiện đọc lại /proc/<pid>/oom_score_adj để xác nhận thực tế đã áp dụng thành công.
+        """
+        if pid <= 0:
+            return False, 0
+
+        # Ép score vào khoảng [-300, 1000] an toàn
+        safe_score = max(-300, min(1000, score))
+        write_sh = f"echo {safe_score} > /proc/{pid}/oom_score_adj"
+        read_sh = f"cat /proc/{pid}/oom_score_adj"
+
+        try:
+            cmd_write = self._build_shell_cmd(["su", "-c", write_sh])
+            subprocess.run(cmd_write, capture_output=True, text=True, timeout=2)
+        except Exception:
+            pass
+
+        actual_score = 0
+        try:
+            cmd_read = self._build_shell_cmd(["su", "-c", read_sh])
+            res = subprocess.run(cmd_read, capture_output=True, text=True, timeout=2)
+            out = res.stdout.strip()
+            if out and (out.isdigit() or (out.startswith("-") and out[1:].isdigit())):
+                actual_score = int(out)
+                logger.info(f"🛡️ [OOM Shield] Đã áp dụng oom_score_adj cho PID {pid}: {actual_score} (Target: {safe_score})")
+                return (actual_score == safe_score), actual_score
+        except Exception as e:
+            logger.debug(f"Không thể đọc lại oom_score_adj: {e}")
+
+        return False, actual_score
+
     def evaluate_line(self, line: str) -> None:
         """Phân tích 1 dòng logcat theo bộ Regex của droidblox-kt"""
         # 1. Bắt sự kiện Joining game
@@ -440,6 +473,33 @@ class AndroidRejoinController:
             time.sleep(self.cooldown_sec)
         return success
 
+    def deep_check_vote_keep_alive(self, pid: int, api_reported_offline: bool = False) -> bool:
+        """
+        Deep-check phiếu bầu không-kill (Vote Keep-Alive):
+        Ưu tiên tín hiệu thực tế trên thiết bị (Logcat active, PID running, heartbeat gần nhất)
+        đè lên thông tin Offline trễ của Roblox API.
+        """
+        if pid <= 0:
+            return False
+
+        # Tín hiệu 1: Logcat đang xác nhận IN_GAME hoặc CONNECTING
+        if self.state in [RejoinState.IN_GAME, RejoinState.CONNECTING]:
+            logger.info(f"🛡️ [DEEP-CHECK] BỎ QUA API Offline! Logcat xác nhận game đang chạy (State: {self.state.value}, PID: {pid}).")
+            return True
+
+        # Tín hiệu 2: Tương tác gần nhất trên máy < 45s
+        last_act = self.watcher.session.last_active
+        if last_act > 0 and (time.time() - last_act < 45.0):
+            logger.info(f"🛡️ [DEEP-CHECK] BỎ QUA API Offline! Tín hiệu trên máy active cách đây {int(time.time() - last_act)}s.")
+            return True
+
+        # Tín hiệu 3: Tiến trình Roblox PID vẫn sống trên thiết bị
+        if pid > 0:
+            logger.info(f"🛡️ [DEEP-CHECK] BỎ QUA API Offline! Tiến trình Roblox PID {pid} đang chạy thực tế trên thiết bị.")
+            return True
+
+        return False
+
     def run_monitor_loop(self, poll_interval: float = 3.0) -> None:
         """Vòng lặp giám sát chính (Watchdog Loop)"""
         self.running = True
@@ -447,19 +507,28 @@ class AndroidRejoinController:
         logger.info("🛰️ Khởi động Roblox Android Rejoin Sentinel thành công!")
         logger.info(f"   Place ID: {self.place_id} | User Slot: --user {self.user_slot} | Interval: {poll_interval}s")
 
+        last_oom_pid = 0
         try:
             while self.running:
                 pid = self.watcher.get_roblox_pid()
 
                 if pid > 0:
+                    # Ép mức OOM protection an toàn (-300) kèm readback xác nhận
+                    if pid != last_oom_pid:
+                        self.watcher.set_oom_score_adj(pid, score=-300)
+                        last_oom_pid = pid
+
                     if self.state in [RejoinState.IDLE, RejoinState.LAUNCHING, RejoinState.DISCONNECTED, RejoinState.CRASHED]:
                         self.state = RejoinState.IN_GAME
                 else:
-                    # PID = 0 -> Game đã bị tắt hoặc crash
+                    # PID = 0 -> Game đã bị tắt hoặc crash. Kiểm tra phiếu bầu không-kill
                     if self.state == RejoinState.IN_GAME:
-                        logger.warning("💥 [WATCHDOG] Phát hiện tiến trình Roblox biến mất (PID = 0 / Crash)!")
-                        self.state = RejoinState.CRASHED
-                        self.trigger_rejoin(reason="App Crash / PID Disappeared")
+                        if not self.deep_check_vote_keep_alive(pid):
+                            logger.warning("💥 [WATCHDOG] Phát hiện tiến trình Roblox biến mất (PID = 0 / Crash)!")
+                            self.state = RejoinState.CRASHED
+                            self.trigger_rejoin(reason="App Crash / PID Disappeared")
+                        else:
+                            logger.info("🛡️ [WATCHDOG] Deep-check bảo vệ: Không kích hoạt kill/rejoin do nhận tín hiệu active.")
 
                 time.sleep(poll_interval)
         except KeyboardInterrupt:

@@ -29,6 +29,12 @@ if [ ! -d "$HOME/storage/shared" ]; then
     sleep 2
 fi
 
+# Tự động vá .sqliterc nếu đang để box mode
+if [ -f "$HOME/.sqliterc" ]; then
+    sed -i 's/\.mode box/\.mode list/g' "$HOME/.sqliterc" 2>/dev/null || true
+    sed -i 's/\.headers on/\.headers off/g' "$HOME/.sqliterc" 2>/dev/null || true
+fi
+
 # Cấu hình Git an toàn
 git config --global --add safe.directory "*" 2>/dev/null || true
 git config --global core.filemode false 2>/dev/null || true
